@@ -1,13 +1,5 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "framework": "vite",
-  "env": {},
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "nodejs18.x",
-      "memory": 128,
-      "maxDuration": 10
-    }
-  }
+  "framework": "vite"
 }
