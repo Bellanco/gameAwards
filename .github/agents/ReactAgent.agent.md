@@ -366,12 +366,11 @@ When making significant changes, add entry here:
 
 ## 🎓 For Onboarding New Developers
 
-1. Read [SETUP.md](../../SETUP.md) — installation & Firebase config
-2. Read [README.md](../../README.md) — feature overview
-3. Explore `src/App.jsx` — understand state flow
-4. Check `src/data/categories.js` — see data structure
-5. Run `npm run dev` — test locally
-6. Make first PR: update a category or fix a typo
+1. Read [README.md](../../README.md) — installation & feature overview
+2. Explore `src/App.jsx` — understand state flow
+3. Check `src/data/categories.js` — see data structure
+4. Run `npm run dev` — test locally
+5. Make first PR: update a category or fix a typo
 
 ---
 
