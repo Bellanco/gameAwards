@@ -4,7 +4,6 @@ import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { categories } from './data/categories';
 import { useTranslation } from './data/literals';
-import { isDemoMode, simulateGoogleAuth, simulateSaveVote } from './demo';
 
 // Componentes modulares
 import VoteScreen from './components/VoteScreen';
@@ -108,15 +107,7 @@ function App() {
       setIsLoading(true);
       setErrorMessage('');
       
-      // MODO DEMO: Simula login sin Firebase real
-      if (isDemoMode()) {
-        const result = await simulateGoogleAuth();
-        setCurrentUser(result.user);
-        setCurrentStep(0);
-        return;
-      }
-      
-      // MODO REAL: Usa Firebase Google Auth
+      // Usa Firebase Google Auth
       // Validar que Firebase está configurado
       if (!auth || auth.currentUser === undefined) {
         setErrorMessage('Firebase no está configurado. Verifica src/firebase.js');
@@ -246,16 +237,7 @@ function App() {
 
       console.log('📊 Ballot data prepared:', ballotData);
 
-      // MODO DEMO: Simula guardar voto
-      if (isDemoMode()) {
-        await simulateSaveVote(ballotData);
-        setSuccessMessage(`¡Voto registrado exitosamente, ${userNickname}! (DEMO MODE)`);
-        setCurrentStep(99);
-        localStorage.removeItem('votingProgress');
-        return;
-      }
-
-      // MODO REAL: Guardado en Firebase
+      // Guardado en Firebase
       // await setDoc(doc(db, "ballots", currentUser.uid), ballotData);
 
       // Simulación de éxito
