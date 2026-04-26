@@ -1,18 +1,18 @@
-# 🎮 TGA Ballot - The Game Awards Interactive Voting
+# TGA Ballot - The Game Awards Interactive Voting
 
 Aplicación React + Vite para votar en The Game Awards con autenticación Google y Firebase.
 
-## ✨ Características
+## Características
 
-- 🔐 Autenticación Google (un voto por usuario)
-- 🎯 Votación por categoría (UI paso a paso)
-- 📅 Deadline automático (1 dic)
-- 💾 Firebase Firestore + localStorage
-- 📱 Responsive (móvil → desktop)
-- 🌙 Dark theme con Tailwind CSS
-- 🌍 i18n (ES/EN)
+- Autenticación Google (un voto por usuario)
+- Votación por categoría (UI paso a paso)
+- Deadline automático (1 dic)
+- Firebase Firestore + localStorage
+- Responsive (móvil → desktop)
+- Dark theme con Tailwind CSS
+- i18n (ES/EN)
 
-## 🛠 Setup Rápido
+## Setup Rápido
 
 ### 1. Instalación
 ```bash
@@ -49,7 +49,7 @@ Abre http://localhost:5173
 npm run build
 ```
 
-## 🚀 Deploy en CloudFlare Pages
+## Deploy en CloudFlare Pages
 
 1. Push a GitHub
 2. En https://dash.cloudflare.com → Pages
@@ -57,7 +57,7 @@ npm run build
 4. Build: `npm run build` | Output: `dist`
 5. ¡Listo!
 
-## 📂 Estructura
+## Estructura
 
 ```
 src/
@@ -73,7 +73,7 @@ src/
 └── firebase.js            # Config Firebase
 ```
 
-## 🔄 Flujo de Usuario
+## Flujo de Usuario
 
 1. **Login** → Google Auth
 2. **Votación** → Categoría por categoría
@@ -81,7 +81,7 @@ src/
 4. **Éxito** → Guardado en Firebase
 5. **Admin** → Ver resultados
 
-## ⚙️ Variables de Entorno
+## Variables de Entorno
 
 Copia `.env.example` a `.env.local`:
 
@@ -94,14 +94,14 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=your_id
 VITE_FIREBASE_APP_ID=your_app_id
 ```
 
-## 🔒 Seguridad
+## Seguridad
 
 - Firebase Auth UID = documento ID (1 voto/usuario)
 - Firestore rules: solo el usuario lee/escribe su voto
 - localStorage: sin datos sensibles
 - DEMO_MODE: desarrollo offline
 
-## 📦 Stack
+## Stack
 
 - React 18
 - Vite 5
@@ -109,11 +109,11 @@ VITE_FIREBASE_APP_ID=your_app_id
 - Tailwind CSS 3
 - JavaScript ES2020+
 
-## 👤 Autor
+## Autor
 
 Creado para TGA Ballot 2024+
 
-## 📄 Licencia
+## Licencia
 
 MIT
 
@@ -150,14 +150,14 @@ Ve a Firebase Console > Firestore Database > Collection `ballots` para ver todos
 #### Editar un Voto (Si un Usuario Lo Solicita)
 En Firebase Console, abre la colección `ballots`, busca el documento con el email del usuario y edítalo directamente.
 
-## 🔒 Seguridad
+## Seguridad
 
 - **Un voto por usuario**: Usa el UID de Google como ID único del documento
 - **Deadline**: Votaciones cerradas automáticamente el 1 de diciembre
 - **localStorage**: Solo para mantener progreso local, no como fuente de verdad
 - **Reglas de Firestore**: Solo usuarios autenticados pueden escribir sus propios datos
 
-## 🛠 Build para Producción
+## Build para Producción
 
 ```bash
 npm run build
@@ -165,7 +165,7 @@ npm run build
 
 Los archivos estáticos se guardarán en `dist/`. Puedes desplegar en Vercel, Netlify, Firebase Hosting, etc.
 
-## 📝 Personalización
+## Personalización
 
 ### Cambiar Colores
 Edita `tailwind.config.js` en la sección `theme.extend`.
@@ -176,7 +176,7 @@ Crea archivos en `src/components/` e impórtalos en `App.jsx`.
 ### Agregar Validaciones
 Modifica la función `submitBallot()` en `App.jsx`.
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 **No me deja iniciar sesión con Google:**
 - Verifica que Google Auth esté habilitado en Firebase Console
@@ -192,7 +192,7 @@ Modifica la función `submitBallot()` en `App.jsx`.
 - Verifica que `src/data/categories.js` tiene la estructura correcta
 - Comprueba que las claves de categoría están bien escritas en camelCase
 
-## 📞 Soporte
+## Soporte
 
 Para reportar bugs o sugerencias, abre un issue en este repo.
 
