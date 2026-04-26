@@ -149,9 +149,6 @@ export default function ReviewScreen({
                             : 'linear-gradient(135deg, #95A5A6 0%, #1a1a2e 100%)'
                         }}
                       >
-                        <div className="text-5xl mb-2">
-                          {gameImages[game]?.emoji || '🎮'}
-                        </div>
                       </div>
                       
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
@@ -224,7 +221,7 @@ export default function ReviewScreen({
                       }}
                     >
                       <div className="text-4xl">
-                        {votedGame && gameImages[votedGame]?.emoji ? gameImages[votedGame].emoji : '🎮'}
+                        
                       </div>
                     </div>
                     

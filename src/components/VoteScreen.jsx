@@ -170,9 +170,6 @@ export default function VoteScreen({
                           : 'linear-gradient(135deg, #95A5A6 0%, #1a1a2e 100%)'
                       }}
                     >
-                      <div className="text-6xl mb-4 transform transition-transform group-hover:scale-110">
-                        {gameImages[option]?.emoji || '🎮'}
-                      </div>
                       
                       {gameImages[option]?.platforms && (
                         <div className="absolute top-3 left-3 right-3 flex flex-wrap gap-1 justify-center">
