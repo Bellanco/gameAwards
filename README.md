@@ -1,62 +1,32 @@
-# TGA Ballot 2024 - The Game Awards Voting App
+# 🎮 TGA Ballot - The Game Awards Interactive Voting
 
-Una aplicación web interactiva para votar y hacer apuestas en The Game Awards 2024.
+Aplicación React + Vite para votar en The Game Awards con autenticación Google y Firebase.
 
-## 🚀 Características
+## ✨ Características
 
-- ✅ Autenticación con Google (garantiza usuario único)
-- ✅ Votación paso a paso (una categoría a la vez)
-- ✅ Deadline automático (1 de diciembre)
-- ✅ Almacenamiento en Firebase Firestore
-- ✅ Voto único por usuario (imposible votar dos veces)
-- ✅ Guardado de progreso local (localStorage)
-- ✅ Responsive design (móvil, tablet, desktop)
-- ✅ Interfaz oscura y moderna
+- 🔐 Autenticación Google (un voto por usuario)
+- 🎯 Votación por categoría (UI paso a paso)
+- 📅 Deadline automático (1 dic)
+- 💾 Firebase Firestore + localStorage
+- 📱 Responsive (móvil → desktop)
+- 🌙 Dark theme con Tailwind CSS
+- 🌍 i18n (ES/EN)
 
-## 📋 Requisitos Previos
+## 🛠 Setup Rápido
 
-- Node.js v16+
-- npm o yarn
-- Cuenta de Firebase activa
-
-## ⚙️ Instalación
-
-### 1. Clonar/Descargar el Proyecto
-```bash
-cd "Game Awards"
-```
-
-### 2. Instalar Dependencias
+### 1. Instalación
 ```bash
 npm install
 ```
 
-### 3. Configurar Firebase
+### 2. Configurar Firebase
 
 Ve a [Firebase Console](https://console.firebase.google.com/):
+- Copia credenciales a `src/firebase.js`
+- Habilita Google Auth
+- Configura Firestore con estas reglas:
 
-1. Crea un nuevo proyecto o usa uno existente
-2. Habilita Firestore Database
-3. Habilita Google Authentication
-4. En "Configuración del Proyecto" > "SDK", copia tus credenciales
-5. Abre `src/firebase.js` y reemplaza los placeholders:
-
-```javascript
-const firebaseConfig = {
-  apiKey: "TU_API_KEY",
-  authDomain: "TU_PROYECTO.firebaseapp.com",
-  projectId: "TU_PROYECTO",
-  storageBucket: "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_ID",
-  appId: "TU_APP_ID"
-};
-```
-
-### 4. Configurar Reglas de Firestore
-
-En Firebase Console, ve a **Firestore Database** > **Reglas** y pega:
-
-```
+```firestore
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -68,35 +38,85 @@ service cloud.firestore {
 }
 ```
 
-Luego haz clic en "Publicar".
-
-### 5. Ejecutar en Desarrollo
+### 3. Desarrollo
 ```bash
 npm run dev
 ```
+Abre http://localhost:5173
 
-La app se abrirá en `http://localhost:5173`
+### 4. Build
+```bash
+npm run build
+```
 
-## 📁 Estructura del Proyecto
+## 🚀 Deploy en CloudFlare Pages
+
+1. Push a GitHub
+2. En https://dash.cloudflare.com → Pages
+3. Conecta tu repo
+4. Build: `npm run build` | Output: `dist`
+5. ¡Listo!
+
+## 📂 Estructura
 
 ```
 src/
-├── App.jsx                 # Componente principal (lógica de flujo)
-├── firebase.js             # Configuración de Firebase
-├── index.css               # Estilos de Tailwind
-├── main.jsx                # Punto de entrada
+├── App.jsx                 # Orquestador principal
+├── components/             # Pantallas (Login, Vote, Review, etc)
 ├── data/
-│   ├── categories.js       # Categorías y nominados (EDITAR AQUÍ CADA AÑO)
-│   └── literals.js         # Textos de la UI (EDITAR AQUÍ PARA TRADUCIR)
-└── components/             # (Para futuros componentes reutilizables)
-
-index.html                  # HTML principal
-package.json                # Dependencias
-vite.config.js              # Config de Vite
-tailwind.config.js          # Config de Tailwind
+│   ├── categories.js       # Categorías y nominados (actualizar anualmente)
+│   ├── gameData.js         # Datos de juegos
+│   ├── gameMetadata.js     # Metadata de imágenes
+│   └── literals.js         # Textos i18n (ES/EN)
+├── services/
+│   └── gameImageService.js # Servicio de imágenes
+└── firebase.js            # Config Firebase
 ```
 
-## 🎯 Uso
+## 🔄 Flujo de Usuario
+
+1. **Login** → Google Auth
+2. **Votación** → Categoría por categoría
+3. **Revisión** → Ver selecciones
+4. **Éxito** → Guardado en Firebase
+5. **Admin** → Ver resultados
+
+## ⚙️ Variables de Entorno
+
+Copia `.env.example` a `.env.local`:
+
+```bash
+VITE_FIREBASE_API_KEY=your_key
+VITE_FIREBASE_AUTH_DOMAIN=your_domain.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project
+VITE_FIREBASE_STORAGE_BUCKET=your_bucket.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_id
+VITE_FIREBASE_APP_ID=your_app_id
+```
+
+## 🔒 Seguridad
+
+- Firebase Auth UID = documento ID (1 voto/usuario)
+- Firestore rules: solo el usuario lee/escribe su voto
+- localStorage: sin datos sensibles
+- DEMO_MODE: desarrollo offline
+
+## 📦 Stack
+
+- React 18
+- Vite 5
+- Firebase 10
+- Tailwind CSS 3
+- JavaScript ES2020+
+
+## 👤 Autor
+
+Creado para TGA Ballot 2024+
+
+## 📄 Licencia
+
+MIT
+
 
 ### Para Usuarios
 1. Haz clic en "Sign in with Google"

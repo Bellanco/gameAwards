@@ -1,39 +1,12 @@
-name = "tga-ballot"
+# CloudFlare Pages Configuration
+name = "game-awards"
 type = "javascript"
-account_id = ""  # Obtén esto desde: https://dash.cloudflare.com
-workers_dev = true
-route = ""  # Déjalo vacío para Pages
-zone_id = ""  # Tu zone ID si está en un dominio personalizado
 
+# Build configuration
 [build]
 command = "npm run build"
 cwd = "."
-watch_paths = ["src/**/*.{js,jsx,ts,tsx,css}"]
+output_dir = "dist"
 
-[build.upload]
-format = "modules"
-main = "./dist/index.js"
-
-[env.production]
-name = "tga-ballot-prod"
-route = "example.com/*"
-zone_id = ""
-
-[env.staging]
-name = "tga-ballot-staging"
-route = "staging.example.com/*"
-
-# Variables de entorno
-[env.production.vars]
-ENVIRONMENT = "production"
-FIREBASE_PROJECT_ID = "tu-proyecto"
-FIREBASE_AUTH_DOMAIN = "tu-proyecto.firebaseapp.com"
-
-[env.staging.vars]
-ENVIRONMENT = "staging"
-FIREBASE_PROJECT_ID = "tu-proyecto-staging"
-FIREBASE_AUTH_DOMAIN = "tu-proyecto-staging.firebaseapp.com"
-
-# Configuración de compatibilidad
+# Compatibility settings
 compatibility_date = "2024-01-15"
-compatibility_flags = ["nodejs_compat"]
