@@ -1,0 +1,46 @@
+node_modules
+dist
+.DS_Store
+*.local
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/settings.json
+.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build artifacts
+build/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+
+# Vite
+.vite/
+dist/
+
+# Cloudflare
+.wrangler/
+.dev.vars
+
+# Firebase
+firebase-debug.log
