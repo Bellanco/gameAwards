@@ -19,7 +19,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const t = useTranslation(language);
 
-  const ADMIN_EMAIL = 'tumail@gmail.com'; // Cambiar por tu email
+  const ADMIN_EMAIL = 'bellanco3@gmail.com'; // Cambiar por tu email
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
