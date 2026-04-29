@@ -238,7 +238,7 @@ function App() {
       console.log('📊 Ballot data prepared:', ballotData);
 
       // Guardado en Firebase
-      // await setDoc(doc(db, "ballots", currentUser.uid), ballotData);
+      await setDoc(doc(db, "ballots", currentUser.uid), ballotData);
 
       // Simulación de éxito
       setSuccessMessage(`¡Voto registrado exitosamente, ${userNickname}!`);
