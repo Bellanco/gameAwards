@@ -72,19 +72,26 @@ echo.
 echo ⏳ Esperando a que el servidor esté listo...
 echo.
 
-REM Esperar un poco para que el servidor se inicie
-timeout /t 2 /nobreak
-
-REM Abrir navegador automáticamente
-echo 🌐 Abriendo navegador...
-start "" "%URL%"
-
-REM Iniciar el servidor
+REM Iniciar servidor de desarrollo en otra ventana
 echo.
 echo ▶ Ejecutando: npm run dev
+echo 💡 Usa Ctrl+C en la ventana del servidor para detener
 echo.
-echo 💡 Presiona Ctrl+C para detener el servidor
-echo.
-call npm run dev
 
+REM Iniciar npm run dev en una ventana separada
+start "TGA Ballot - Dev Server" cmd /k npm run dev
+
+REM Esperar a que el servidor esté listo (3-5 segundos aproximadamente)
+echo ⏳ Esperando a que el servidor inicie...
+timeout /t 3 /nobreak
+
+REM Abrir el navegador
+echo 🌐 Abriendo navegador en %URL%
+start "" "%URL%"
+
+echo.
+echo ✓ Servidor iniciado y navegador abierto
+echo.
+echo 📍 URL: %URL%
+echo.
 pause

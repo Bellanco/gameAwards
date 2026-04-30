@@ -84,7 +84,7 @@ export default function LoginScreen({
             {/* Mensajes de Error */}
             {errorMessage && (
               <div className="mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-lg text-red-300 text-sm">
-                <p className="font-semibold">Unable to sign in</p>
+                <p className="font-semibold">{t('unableToSignIn')}</p>
                 <p>{errorMessage}</p>
               </div>
             )}
@@ -102,7 +102,7 @@ export default function LoginScreen({
               {isLoading ? (
                 <>
                   <span className="animate-spin">●</span>
-                  Connecting...
+                  {t('connecting')}
                 </>
               ) : (
                 <>
@@ -113,7 +113,7 @@ export default function LoginScreen({
 
             {/* Términos */}
             <p className="text-xs text-slate-500 text-center">
-              By signing in, you agree to our terms. Your vote will be securely recorded.
+              {t('loginTerms')}
             </p>
           </div>
 
@@ -121,21 +121,21 @@ export default function LoginScreen({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4">
               <p className="text-2xl mb-2">1</p>
-              <p className="text-sm text-slate-300">Sign in with your Google account</p>
+              <p className="text-sm text-slate-300">{t('step1Title')}</p>
             </div>
             <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4">
               <p className="text-2xl mb-2">2</p>
-              <p className="text-sm text-slate-300">Vote across all categories</p>
+              <p className="text-sm text-slate-300">{t('step2Title')}</p>
             </div>
             <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4">
               <p className="text-2xl mb-2">3</p>
-              <p className="text-sm text-slate-300">Review and submit your ballot</p>
+              <p className="text-sm text-slate-300">{t('step3Title')}</p>
             </div>
           </div>
 
           {/* Footer */}
           <div className="mt-12 text-center text-xs text-slate-500 border-t border-slate-800 pt-6">
-            <p>The official voting platform for The Game Awards</p>
+            <p>{t('officialsVotingPlatform')}</p>
           </div>
         </div>
       </div>

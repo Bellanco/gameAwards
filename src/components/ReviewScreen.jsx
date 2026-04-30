@@ -1,29 +1,51 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from '../data/literals';
 import { getGameImage } from '../services/gameImageService';
+import { getRandomGradients } from '../utils/gradients';
 import { LanguageIcon, MedalGoldIcon, MedalSilverIcon, MedalBronzeIcon } from './Icons';
 
 /**
- * ReviewScreen v3 - Con imágenes dinámicas desde APIs
+ * ReviewScreen v4 - Con imágenes dinámicas y displayName editable
  */
 export default function ReviewScreen({
   categories,
   userVotes,
   userNickname,
   onNicknameChange,
+  userDisplayName,
+  onDisplayNameChange,
   onSubmit,
   onPrevious,
+  onReturnHome,
   isLoading,
   errorMessage,
   canEditNickname,
   language,
   onToggleLanguage
 }) {
-  const voteCount = Object.keys(userVotes).length;
-  const totalCategories = categories.length;
+  // Filtrar solo categorías válidas (no placeholders, no vacías)
+  const validCategories = categories.filter(cat => 
+    !cat.isPlaceholder && cat.title && cat.title.trim()
+  );
+  
+  // Contar solo votos válidos (que están en validCategories)
+  const voteCount = validCategories.filter(cat => userVotes[cat.id]).length;
+  const totalCategories = validCategories.length;
   const isComplete = voteCount === totalCategories;
+  const missingVotes = totalCategories - voteCount;
   const t = useTranslation(language);
+  
+  // Log para debugging - mostrar conteos correctos
+  console.log(`📋 ReviewScreen: 
+    - Categorías recibidas: ${categories.length}
+    - Categorías válidas: ${validCategories.length}
+    - Votos: ${voteCount}
+    - Completo: ${isComplete}
+    - Faltan: ${missingVotes}
+  `, { categories, validCategories, userVotes });
+  
   const [gameImages, setGameImages] = useState({});
+  const [gameGradients, setGameGradients] = useState({});
   const [loadingImages, setLoadingImages] = useState(true);
 
   // ============ Carga dinámica de imágenes de votos ============
@@ -49,6 +71,11 @@ export default function ReviewScreen({
 
       await Promise.all(promises);
       setGameImages(images);
+      
+      // Asignar degradados aleatorios a los votos
+      const gradients = getRandomGradients(votedGames);
+      setGameGradients(gradients);
+      
       setLoadingImages(false);
     };
 
@@ -57,11 +84,11 @@ export default function ReviewScreen({
 
   // Obtener top 3 votos para mostrar medallas
   const getTopVotes = () => {
-    const votes = Object.values(userVotes);
+    const votes = Object.values(userVotes).filter(v => v); // Solo votos válidos
     const voteCounts = {};
     votes.forEach(vote => {
-      if (vote) {
-        voteCounts[vote] = (voteCounts[vote] || 0) + 1;
+      if (vote?.name) {
+        voteCounts[vote.name] = (voteCounts[vote.name] || 0) + 1;
       }
     });
     return Object.entries(voteCounts)
@@ -110,7 +137,7 @@ export default function ReviewScreen({
         {topVotes.length > 0 && (
           <div className="mb-12">
             <h2 className="text-xl md:text-2xl font-bold text-yellow-400 mb-6 flex items-center gap-2">
-              🏆 {t('topVotes')}
+              {t('topVotes')}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {topVotes.map((game, index) => {
@@ -151,6 +178,9 @@ export default function ReviewScreen({
                       >
                       </div>
                       
+                      {/* Overlay con degradado aleatorio */}
+                      <div className={`absolute inset-0 ${gameGradients[game] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80'}`} />
+                      {/* Overlay oscuro para contraste de texto */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
                       <div className="absolute bottom-0 left-0 right-0 p-4">
                         <p className="font-bold text-white text-sm md:text-base line-clamp-2">
@@ -184,23 +214,23 @@ export default function ReviewScreen({
           )}
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {categories.map(category => {
+            {validCategories.map((category, categoryIndex) => {
               const votedGame = userVotes[category.id];
 
               return (
                 <div
                   key={category.id}
                   className={`group cursor-pointer overflow-hidden rounded-lg transition-all transform hover:scale-105 ${
-                    votedGame ? 'border-2 border-yellow-500/50' : 'border-2 border-slate-700'
+                    votedGame ? 'border-2 border-yellow-500/50' : 'border-2 border-red-500/60 shadow-lg shadow-red-500/20'
                   }`}
-                  onClick={onPrevious}
+                  onClick={() => onPrevious(categoryIndex)}
                 >
                   <div className="relative w-full h-48 md:h-64">
                     {/* Mostrar imagen real si existe */}
-                    {votedGame && gameImages[votedGame]?.image ? (
+                    {votedGame && gameImages[votedGame?.name]?.image ? (
                       <img
-                        src={gameImages[votedGame].image}
-                        alt={votedGame}
+                        src={gameImages[votedGame.name].image}
+                        alt={votedGame.name}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                         onError={(e) => {
                           e.target.style.display = 'none';
@@ -212,11 +242,11 @@ export default function ReviewScreen({
                     {/* Fallback estilizado */}
                     <div 
                       className={`w-full h-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${
-                        votedGame && gameImages[votedGame]?.image ? 'hidden' : ''
+                        votedGame && gameImages[votedGame?.name]?.image ? 'hidden' : ''
                       }`}
                       style={{
-                        background: votedGame && gameImages[votedGame]?.color
-                          ? `linear-gradient(135deg, ${gameImages[votedGame].color} 0%, ${gameImages[votedGame].accentColor} 100%)`
+                        background: votedGame && gameImages[votedGame?.name]?.color
+                          ? `linear-gradient(135deg, ${gameImages[votedGame.name].color} 0%, ${gameImages[votedGame.name].accentColor} 100%)`
                           : 'linear-gradient(135deg, #2d3748 0%, #1a1a2e 100%)'
                       }}
                     >
@@ -225,12 +255,19 @@ export default function ReviewScreen({
                       </div>
                     </div>
                     
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                    {/* Overlay con degradado aleatorio - o negro si no votó */}
+                    <div className={`absolute inset-0 ${votedGame ? gameGradients[votedGame?.name] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80' : 'bg-black'}`} />
+                    {votedGame && (
+                      <>
+                        {/* Overlay oscuro para contraste - solo si tiene voto */}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                      </>
+                    )}
 
                     {/* Info */}
                     <div className="absolute bottom-0 left-0 right-0 p-3">
                       <p className="font-bold text-white text-xs md:text-sm line-clamp-1">
-                        {votedGame || `${t('notVoted')}`}
+                        {votedGame?.name || `${t('notVoted')}`}
                       </p>
                       <p className="text-xs text-slate-300 mt-1 opacity-75">
                         {category.title}
@@ -250,8 +287,8 @@ export default function ReviewScreen({
           </div>
         </div>
 
-        {/* Nickname Input */}
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6 mb-12">
+        {/* Nickname Input - OCULTO */}
+        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6 mb-6 hidden">
           <label className="block text-sm font-bold text-slate-300 mb-3">
             {t('displayName')}
           </label>
@@ -269,6 +306,43 @@ export default function ReviewScreen({
           </p>
         </div>
 
+        {/* Display Name Input - Editable */}
+        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6 mb-12">
+          <label className="block text-sm font-bold text-slate-300 mb-3">
+            {t('displayName')}
+          </label>
+          <input
+            type="text"
+            maxLength="50"
+            value={userDisplayName}
+            onChange={(e) => onDisplayNameChange(e.target.value)}
+            placeholder={t('enterNickname')}
+            className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:border-yellow-500 focus:outline-none transition-colors"
+          />
+          <p className="text-xs text-slate-400 mt-2">
+            {userDisplayName.length}/50 • {userDisplayName ? '✓ ' + (language === 'es' ? 'Listo' : 'Ready') : (language === 'es' ? 'Recomendado' : 'Recommended')}
+          </p>
+        </div>
+
+        {/* Warning if incomplete */}
+        {!isComplete && (
+          <div className="bg-yellow-900/20 border border-yellow-600/50 rounded-lg p-4 mb-6 text-yellow-300 text-sm flex items-start gap-3">
+            <span className="text-lg flex-shrink-0">⚠️</span>
+            <div>
+              <p className="font-semibold">
+                {language === 'es' 
+                  ? `Completa tu voto en ${missingVotes} categoría${missingVotes !== 1 ? 's' : ''} más`
+                  : `Complete your vote in ${missingVotes} more category${missingVotes !== 1 ? 'ies' : ''}`}
+              </p>
+              <p className="text-xs text-yellow-400 mt-1 opacity-80">
+                {language === 'es'
+                  ? 'Debes votar en todas las categorías antes de enviar tu ballot'
+                  : 'You must vote in all categories before submitting your ballot'}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Error Message */}
         {errorMessage && (
           <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-6 text-red-300 text-sm">
@@ -278,6 +352,16 @@ export default function ReviewScreen({
 
         {/* Botones de acción */}
         <div className="flex gap-3 md:gap-4">
+          {/* Cancelar y volver al inicio */}
+          {onReturnHome && (
+            <button
+              onClick={onReturnHome}
+              className="flex-1 py-3 px-4 rounded-lg font-semibold bg-slate-900 border border-slate-700 text-slate-300 hover:border-slate-600 hover:bg-slate-900/70 transition-all"
+              title={t('cancelVoting')}
+            >
+              ← {t('cancel')}
+            </button>
+          )}
           {/* Editar votos */}
           <button
             onClick={onPrevious}
@@ -295,8 +379,9 @@ export default function ReviewScreen({
                 ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-slate-900 hover:from-yellow-400 hover:to-yellow-500 hover:shadow-lg hover:shadow-yellow-500/30 transform hover:scale-105'
                 : 'bg-slate-800/30 text-slate-600 cursor-not-allowed opacity-50'
             }`}
+            title={!isComplete ? t('completeAllCategories') : ''}
           >
-            {isLoading ? '⏳ ' + t('submittingBallot') : t('submitBallot')}
+            {isLoading ? '⏳ ' + t('submitting') : (isComplete ? t('submitBallot') : `${t('submitBallot')} (${missingVotes} ${missingVotes !== 1 ? t('remaining') : t('remaining')})`)}
           </button>
         </div>
 

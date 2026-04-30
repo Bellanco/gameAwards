@@ -5,7 +5,7 @@ import { StarIcon, LanguageIcon } from './Icons';
 /**
  * SuccessScreen v2 - Con idioma e icons profesionales
  */
-export default function SuccessScreen({ userNickname, onLogout, language, onToggleLanguage }) {
+export default function SuccessScreen({ userNickname, onLogout, onReturnHome, language, onToggleLanguage }) {
   const t = useTranslation(language);
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-black text-slate-100 flex items-center justify-center p-4">
@@ -87,13 +87,16 @@ export default function SuccessScreen({ userNickname, onLogout, language, onTogg
           </p>
         </div>
 
-        {/* Logout Button */}
-        <button
-          onClick={onLogout}
-          className="w-full py-4 px-6 rounded-lg font-bold bg-gradient-to-r from-yellow-500 to-yellow-400 text-slate-900 hover:from-yellow-400 hover:to-yellow-300 hover:shadow-lg hover:shadow-yellow-500/30 transform hover:scale-105 transition-all"
-        >
-          {t('signOut')}
-        </button>
+        {/* Botones de acción */}
+        <div className="flex flex-col md:flex-row gap-4 w-full justify-center">
+          {/* Cerrar sesión */}
+          <button
+            onClick={onLogout}
+            className="py-4 px-8 rounded-lg font-bold bg-gradient-to-r from-yellow-500 to-yellow-400 text-slate-900 hover:from-yellow-400 hover:to-yellow-300 hover:shadow-lg hover:shadow-yellow-500/30 transform hover:scale-105 transition-all"
+          >
+            {t('signOut')}
+          </button>
+        </div>
 
         {/* Footer message */}
         <p className="mt-8 text-xs text-slate-500 text-center">

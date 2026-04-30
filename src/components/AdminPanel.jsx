@@ -1,22 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
-import { db, auth } from '../firebase';
-import { signOut } from 'firebase/auth';
+import { db, auth, googleProvider } from '../firebase';
+import { signOut, signInWithPopup } from 'firebase/auth';
 import { useTranslation } from '../data/literals';
 import { LanguageIcon, MedalGoldIcon, MedalSilverIcon, MedalBronzeIcon } from './Icons';
 
+// Importar las tres nuevas pantallas de administración
+import CategoryManager from './CategoryManager';
+import WinnersSelector from './WinnersSelector';
+import SurveyWinnersSelector from './SurveyWinnersSelector';
+import LoginScreen from './LoginScreen';
+
 /**
- * AdminPanel v2 - Panel de administración con idioma e icons
+ * AdminPanel v3 - Panel de administración con navegación a tres pantallas
  * Acceso restringido solo al admin (verificado por email)
  */
 export default function AdminPanel({ language = 'es', onToggleLanguage }) {
   const [ballots, setBallots] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [statsData, setStatsData] = useState(null);
-  const [viewMode, setViewMode] = useState('overview'); // 'overview' | 'results' | 'ballots'
+  const [viewMode, setViewMode] = useState('overview'); // 'overview' | 'results' | 'ballots' | 'categories' | 'winners' | 'surveyWinners'
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
   const t = useTranslation(language);
 
   const ADMIN_EMAIL = 'bellanco3@gmail.com'; // Cambiar por tu email
@@ -30,6 +38,15 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
         if (user.email === ADMIN_EMAIL) {
           setIsAdmin(true);
           try {
+            // Cargar categorías
+            const categoriesCollection = collection(db, 'categories');
+            const categoriesSnapshot = await getDocs(categoriesCollection);
+            const categoriesData = categoriesSnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            }));
+            setCategories(categoriesData);
+
             // Cargar todos los votos
             const ballotCollection = collection(db, 'ballots');
             const snapshot = await getDocs(ballotCollection);
@@ -40,7 +57,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
             setBallots(data);
 
             // Calcular estadísticas
-            calculateStats(data);
+            calculateStats(data, categoriesData);
           } catch (error) {
             console.error('Error cargando votos:', error);
           }
@@ -57,28 +74,57 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
   /**
    * Calcula estadísticas de los votos
    */
-  const calculateStats = (data) => {
+  const calculateStats = (data, categoriesArray) => {
+    // Filtrar solo categorías válidas (sin placeholders)
+    const validCats = categoriesArray.filter(cat => 
+      !cat.isPlaceholder && cat.title && cat.title.trim()
+    );
+    const validCatIds = new Set(validCats.map(c => c.id));
+
     const stats = {};
     
     data.forEach(ballot => {
       if (ballot.selections) {
         Object.entries(ballot.selections).forEach(([category, value]) => {
-          if (!stats[category]) stats[category] = {};
-          stats[category][value] = (stats[category][value] || 0) + 1;
+          // Solo contar votos de categorías válidas
+          if (validCatIds.has(category)) {
+            if (!stats[category]) stats[category] = {};
+            stats[category][value] = (stats[category][value] || 0) + 1;
+          }
         });
       }
     });
 
     setStatsData(stats);
-    // Establecer primera categoría por defecto
+    // Establecer primera categoría válida por defecto
     if (Object.keys(stats).length > 0) {
       setSelectedCategory(Object.keys(stats)[0]);
     }
   };
 
   /**
-   * Obtiene el ganador de una categoría
+   * Filtra ballots para incluir solo aquellos con al menos un voto en categoría válida
    */
+  const getValidBallots = () => {
+    const validCatIds = new Set(
+      categories
+        .filter(c => !c.isPlaceholder && c.title && c.title.trim())
+        .map(c => c.id)
+    );
+    
+    return ballots.filter(ballot => {
+      if (!ballot.selections) return false;
+      return Object.keys(ballot.selections).some(catId => validCatIds.has(catId));
+    });
+  };
+
+  /**
+   * Obtiene el título de una categoría por su ID
+   */
+  const getCategoryTitle = (categoryId) => {
+    const cat = categories.find(c => c.id === categoryId);
+    return cat?.title || categoryId;
+  };
   const getWinner = (categoryId) => {
     if (!statsData || !statsData[categoryId]) return null;
     const category = statsData[categoryId];
@@ -118,30 +164,35 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
   };
 
   /**
+   * Manejar login con Google
+   */
+  const handleLogin = async () => {
+    try {
+      setErrorMessage('');
+      await signInWithPopup(auth, googleProvider);
+    } catch (error) {
+      console.error('Error al iniciar sesión:', error);
+      setErrorMessage(error.message || 'Error al iniciar sesión');
+    }
+  };
+
+  /**
    * Cerrar sesión
    */
   const handleLogout = async () => {
     await signOut(auth);
   };
 
-  // No autenticado
+  // No autenticado - Mostrar pantalla de login
   if (!isLoading && !currentUser) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-950 to-black flex items-center justify-center p-4">
-        <div className="absolute top-4 right-4 z-50">
-          <button
-            onClick={onToggleLanguage}
-            className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 rounded-lg text-sm font-semibold transition-all"
-          >
-            <LanguageIcon className="w-4 h-4" />
-            <span>{language.toUpperCase()}</span>
-          </button>
-        </div>
-        <div className="text-center">
-          <h1 className="text-3xl font-black text-white mb-4">{t('accessDenied')}</h1>
-          <p className="text-slate-400 mb-6">{t('mustBeLoggedIn')}</p>
-        </div>
-      </div>
+      <LoginScreen
+        onLogin={handleLogin}
+        isLoading={isLoading}
+        errorMessage={errorMessage}
+        language={language}
+        onToggleLanguage={onToggleLanguage}
+      />
     );
   }
 
@@ -161,7 +212,13 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
         <div className="text-center">
           <h1 className="text-3xl font-black text-white mb-4">{t('unauthorized')}</h1>
           <p className="text-slate-400 mb-6">{t('onlyForAdministrators')}</p>
-          <p className="text-slate-500 text-sm">Your email: {currentUser?.email}</p>
+          <p className="text-slate-500 text-sm mb-6">Conectado como: {currentUser?.email}</p>
+          <button
+            onClick={handleLogout}
+            className="px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg transition-all"
+          >
+            {t('logout') || 'Cerrar sesión'}
+          </button>
         </div>
       </div>
     );
@@ -216,7 +273,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
           </div>
 
           {/* View Mode Tabs */}
-          <div className="flex gap-2 md:gap-4">
+          <div className="flex gap-2 md:gap-3 flex-wrap">
             <button
               onClick={() => setViewMode('overview')}
               className={`py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
@@ -247,6 +304,39 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
             >
               {t('allBallots')}
             </button>
+            {/* Separador visual */}
+            <div className="w-px bg-slate-700" />
+            {/* Botones de administración */}
+            <button
+              onClick={() => setViewMode('categories')}
+              className={`py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
+                viewMode === 'categories'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              📋 Categorías
+            </button>
+            <button
+              onClick={() => setViewMode('winners')}
+              className={`py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
+                viewMode === 'winners'
+                  ? 'bg-purple-500 text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              🏆 Ganadores
+            </button>
+            <button
+              onClick={() => setViewMode('surveyWinners')}
+              className={`py-2 px-4 rounded-lg font-semibold text-sm transition-all ${
+                viewMode === 'surveyWinners'
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              🏆 {language === 'es' ? 'Clasificación' : 'Ranking'}
+            </button>
           </div>
         </div>
       </div>
@@ -258,7 +348,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
               <p className="text-xs text-slate-400 uppercase mb-2">{t('totalBallots')}</p>
-              <p className="text-4xl font-black text-yellow-500">{ballots.length}</p>
+              <p className="text-4xl font-black text-yellow-500">{getValidBallots().length}</p>
             </div>
             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
               <p className="text-xs text-slate-400 uppercase mb-2">{t('categories')}</p>
@@ -294,11 +384,13 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
               <h2 className="text-2xl font-black text-white mb-6">{t('resultsByCategory')}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Object.entries(statsData).map(([category, votes]) => {
+                  const categoryObj = categories.find(c => c.id === category);
+                  const categoryTitle = categoryObj?.title || category;
                   const winner = Object.entries(votes).sort(([, a], [, b]) => b - a)[0];
                   return (
                     <div key={category} className="bg-slate-800/30 border border-slate-700 rounded-lg p-6 hover:border-yellow-500/50 transition-all cursor-pointer" onClick={() => { setViewMode('results'); setSelectedCategory(category); }}>
                       <h3 className="text-lg font-bold text-yellow-400 mb-4 capitalize">
-                        {category.replace(/([A-Z])/g, ' $1').trim()}
+                        {categoryTitle}
                       </h3>
                       <div className="space-y-2">
                         {Object.entries(votes)
@@ -349,15 +441,6 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
                         : t('selectACategory')}
                     </p>
                   </div>
-                  {/* Placeholder para video YouTube */}
-                  <iframe
-                    className="w-full h-full"
-                    src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=0&controls=1"
-                    title="The Game Awards"
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
                 </div>
 
                 {/* Info */}
@@ -366,7 +449,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
                     <div className="mb-4">
                       <p className="text-xs text-slate-400 uppercase mb-2">{t('categoryLabel')}</p>
                       <h3 className="text-2xl font-black text-yellow-400 capitalize">
-                        {selectedCategory.replace(/([A-Z])/g, ' $1').trim()}
+                        {getCategoryTitle(selectedCategory)}
                       </h3>
                     </div>
                     <div>
@@ -441,7 +524,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
                         <p className={`text-sm font-semibold capitalize mb-1 ${
                           isSelected ? 'text-yellow-400' : 'text-slate-300'
                         }`}>
-                          {category.replace(/([A-Z])/g, ' $1').trim()}
+                          {getCategoryTitle(category)}
                         </p>
                         <p className="text-xs text-slate-400">
                           {t('winner')}: {winner?.name.substring(0, 20)}...
@@ -458,7 +541,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
                 <div className="space-y-2 text-sm text-slate-300">
                   <div className="flex justify-between">
                     <span>{t('totalVotes')}:</span>
-                    <span className="font-bold text-yellow-400">{ballots.length}</span>
+                    <span className="font-bold text-yellow-400">{getValidBallots().length}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>{t('categories')}:</span>
@@ -469,7 +552,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
                   <div className="flex justify-between">
                     <span>{t('selected')}:</span>
                     <span className="font-bold text-yellow-400">
-                      {selectedCategory ? selectedCategory.replace(/([A-Z])/g, ' $1').trim() : '-'}
+                      {selectedCategory ? getCategoryTitle(selectedCategory) : '-'}
                     </span>
                   </div>
                 </div>
@@ -496,7 +579,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {ballots.map((ballot) => (
+                  {getValidBallots().map((ballot) => (
                     <tr key={ballot.id} className="border-b border-slate-700/50 hover:bg-slate-800/20 transition-colors">
                       <td className="p-4 text-xs font-mono text-slate-400">{ballot.id.substring(0, 8)}...</td>
                       <td className="p-4">{ballot.userEmail || '-'}</td>
@@ -510,12 +593,12 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
                       <td className="p-4">
                         <details className="cursor-pointer">
                           <summary className="text-yellow-400 font-semibold hover:text-yellow-300">
-                            View ({Object.keys(ballot.selections || {}).length})
+                            {t('view')} ({Object.keys(ballot.selections || {}).length})
                           </summary>
                           <div className="mt-2 p-2 bg-slate-900 rounded text-xs font-mono text-slate-300">
                             {Object.entries(ballot.selections || {}).map(([cat, val]) => (
                               <div key={cat} className="mb-1">
-                                <span className="text-blue-400">{cat}:</span> {val}
+                                <span className="text-blue-400">{getCategoryTitle(cat)}:</span> {val}
                               </div>
                             ))}
                           </div>
@@ -528,6 +611,21 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Gestión de Categorías */}
+      {viewMode === 'categories' && (
+        <CategoryManager language={language} onClose={() => setViewMode('overview')} />
+      )}
+
+      {/* Selección de Ganadores */}
+      {viewMode === 'winners' && (
+        <WinnersSelector language={language} onClose={() => setViewMode('overview')} />
+      )}
+
+      {/* Selección de Ganadores de Encuesta */}
+      {viewMode === 'surveyWinners' && (
+        <SurveyWinnersSelector language={language} onClose={() => setViewMode('overview')} />
       )}
     </div>
   );

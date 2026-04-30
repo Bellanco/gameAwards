@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../data/literals';
 import { getGameImage } from '../services/gameImageService';
+import { getRandomGradients } from '../utils/gradients';
 import { categoryBackgrounds } from '../data/gameData';
 import { CheckmarkIcon, LanguageIcon } from './Icons';
 
@@ -23,11 +24,25 @@ export default function VoteScreen({
 }) {
   const t = useTranslation(language);
   const [gameImages, setGameImages] = useState({});
+  const [gameGradients, setGameGradients] = useState({});
   const [loadingImages, setLoadingImages] = useState(true);
   
   const isVoted = !!userVotes[category.id];
   const selectedOption = userVotes[category.id];
   const categoryBg = categoryBackgrounds[category.id] || 'https://media.rawg.io/media/games/56d/56d006318db933179cdee675e37e3f1a.jpg';
+
+  // ============ Validación defensiva ============
+  if (!category || !category.options || category.options.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="text-5xl mb-4">⚠️</div>
+          <h1 className="text-2xl font-bold text-white mb-2">Categoría inválida</h1>
+          <p className="text-slate-400">Esta categoría no tiene opciones disponibles.</p>
+        </div>
+      </div>
+    );
+  }
 
   // ============ Carga dinámica de imágenes cuando cambia la categoría ============
   useEffect(() => {
@@ -49,6 +64,11 @@ export default function VoteScreen({
 
       await Promise.all(promises);
       setGameImages(images);
+      
+      // Asignar degradados aleatorios
+      const gradients = getRandomGradients(category.options);
+      setGameGradients(gradients);
+      
       setLoadingImages(false);
     };
 
@@ -122,21 +142,23 @@ export default function VoteScreen({
           {/* Subtítulo */}
           <p className="text-slate-300 mt-2 mb-10 text-sm md:text-base">
             {isVoted 
-              ? `${t('yourSelection')}: ${selectedOption}` 
+              ? `${t('yourSelection')}: ${selectedOption?.name}` 
               : t('chooseYourFavorite')}
           </p>
 
           {/* Grid de opciones - Responsivo */}
           <div className={`grid gap-4 md:gap-6 lg:gap-8 mb-12 ${getGridColsClass(category.options.length)}`}>
-            {category.options.map((option) => {
-              const isSelected = selectedOption === option;
+            {category.options.map((option, index) => {
+              // Usar optionId del array, o generarlo si no existe
+              const optionId = category.optionIds ? category.optionIds[index] : `${category.id}_option_${index}`;
+              const isSelected = selectedOption?.id === optionId;
               // Usa imágenes del estado (cargadas dinámicamente)
               const gameImageUrl = gameImages[option] || `https://via.placeholder.com/400x600/1f2937/ffffff?text=${encodeURIComponent(option)}`;
 
               return (
                 <button
-                  key={option}
-                  onClick={() => onSelectOption(category.id, option)}
+                  key={optionId}
+                  onClick={() => onSelectOption(category.id, { id: optionId, name: option })}
                   className="group relative overflow-hidden rounded-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 >
                   {/* Card */}
@@ -171,21 +193,12 @@ export default function VoteScreen({
                       }}
                     >
                       
-                      {gameImages[option]?.platforms && (
-                        <div className="absolute top-3 left-3 right-3 flex flex-wrap gap-1 justify-center">
-                          {gameImages[option].platforms.map((platform, i) => (
-                            <span
-                              key={i}
-                              className="text-xs px-2 py-1 bg-black/30 text-white rounded font-semibold line-clamp-1"
-                            >
-                              {platform}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
                     
-                    {/* Overlay */}
+                    {/* Overlay con degradado aleatorio */}
+                    <div className={`absolute inset-0 transition-all duration-300 ${gameGradients[option] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80'}`} />
+                    
+                    {/* Overlay de selección */}
                     <div className={`absolute inset-0 transition-all duration-300 ${
                       isSelected
                         ? 'bg-gradient-to-t from-black to-yellow-500/20'

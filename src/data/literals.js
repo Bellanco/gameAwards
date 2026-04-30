@@ -16,6 +16,14 @@ const translations = {
     votingNowOpen: "La votación está abierta ahora",
     oneVote: "Un voto por persona",
     secureVoting: "Votación segura",
+    // Login steps
+    step1Title: "Inicia sesión con tu cuenta de Google",
+    step2Title: "Vota en todas las categorías",
+    step3Title: "Revisa y envía tu papeleta",
+    // Terms
+    loginTerms: "Al iniciar sesión, aceptas nuestros términos. Tu voto será registrado de forma segura.",
+    unableToSignIn: "No se pudo iniciar sesión",
+    connecting: "Conectando...",
     
     // Votación
     categoryLabel: "Categoría",
@@ -46,6 +54,19 @@ const translations = {
     submitting: "Enviando...",
     submitBallot: "Enviar papeleta",
     editVotes: "Editar votos",
+    completionStatus: "Estado de finalización",
+    missingVotes: "Votos faltantes",
+    readyToSubmit: "Listo para enviar",
+    completeAllCategories: "Debes votar en todas las categorías antes de enviar tu ballot",
+    remaining: "restante",
+    cancel: "Cancelar",
+    cancelVoting: "Cancelar votación y volver al inicio",
+    allVotes: "Todos tus votos",
+    topVotes: "🏆 Tus Mejores Votos",
+    notVoted: "No votado",
+    displayName: "Nombre para mostrar",
+    enterNickname: "Ingresa tu apodo",
+    categoriesVoted: "categorías votadas",
     
     // Éxito
     ballotSubmitted: "Papeleta enviada",
@@ -83,6 +104,7 @@ const translations = {
     overview: "Resumen",
     winners: "Ganadores",
     allBallots: "Todas las papeletas",
+    view: "Ver",
     totalBallots: "Papeletas totales",
     categories: "Categorías",
     participation: "Participación",
@@ -119,6 +141,14 @@ const translations = {
     votingNowOpen: "Voting is open now",
     oneVote: "One vote per person",
     secureVoting: "Secure voting",
+    // Login steps
+    step1Title: "Sign in with your Google account",
+    step2Title: "Vote across all categories",
+    step3Title: "Review and submit your ballot",
+    // Terms
+    loginTerms: "By signing in, you agree to our terms. Your vote will be securely recorded.",
+    unableToSignIn: "Unable to sign in",
+    connecting: "Connecting...",
     
     // Votación
     categoryLabel: "Category",
@@ -149,6 +179,19 @@ const translations = {
     submitting: "Submitting...",
     submitBallot: "Submit Ballot",
     editVotes: "Edit Votes",
+    completionStatus: "Completion Status",
+    missingVotes: "Missing Votes",
+    readyToSubmit: "Ready to Submit",
+    completeAllCategories: "You must vote in all categories before submitting your ballot",
+    remaining: "remaining",
+    cancel: "Cancel",
+    cancelVoting: "Cancel voting and return to home",
+    allVotes: "All Your Votes",
+    topVotes: "🏆 Your Top Votes",
+    notVoted: "Not voted",
+    displayName: "Display Name",
+    enterNickname: "Enter your nickname",
+    categoriesVoted: "categories voted",
     
     // Éxito
     ballotSubmitted: "Ballot Submitted",
@@ -186,6 +229,7 @@ const translations = {
     overview: "Overview",
     winners: "Winners",
     allBallots: "All Ballots",
+    view: "View",
     totalBallots: "Total Ballots",
     categories: "Categories",
     participation: "Participation",

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, googleProvider, db } from './firebase';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { categories } from './data/categories';
+import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { useTranslation } from './data/literals';
 
 // Componentes modulares
@@ -20,6 +19,10 @@ function App() {
   });
   const t = useTranslation(language);
 
+  // ============ Estado de Categorías (desde Firestore) ============
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
   // ============ Estado de Autenticación ============
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
@@ -33,6 +36,7 @@ function App() {
   
   // ============ Datos del Usuario ============
   const [userNickname, setUserNickname] = useState('');
+  const [userDisplayName, setUserDisplayName] = useState('');
   const [userVotes, setUserVotes] = useState({});
   const [canEditNickname, setCanEditNickname] = useState(true);
   
@@ -44,6 +48,92 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  /**
+   * useEffect: Cargar categorías desde Firestore
+   */
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        console.log('📂 Iniciando carga de categorías...');
+        setCategoriesLoading(true);
+        const categoriesCollection = collection(db, 'categories');
+        const snapshot = await getDocs(categoriesCollection);
+        console.log(`📊 Documentos encontrados: ${snapshot.docs.length}`);
+        
+        const allDocs = snapshot.docs.map(doc => ({
+          id: doc.id, // docId de Firestore
+          ...doc.data()
+        }));
+
+        console.log('📋 Todas las categorías cargadas:', allDocs);
+
+        // Detectar y eliminar automáticamente duplicados por TÍTULO
+        // Mantener solo la versión más reciente de cada título
+        const titleGroups = {};
+        const toDelete = [];
+
+        allDocs.forEach(cat => {
+          // Excluir solo si no tiene título válido (no contar placeholders vacíos como duplicados)
+          if (!cat.title || !cat.title.trim()) return;
+          
+          if (!titleGroups[cat.title]) {
+            titleGroups[cat.title] = [];
+          }
+          titleGroups[cat.title].push(cat);
+        });
+
+        // Para cada título con múltiples instancias, mantener solo la más reciente
+        for (const [title, docs] of Object.entries(titleGroups)) {
+          if (docs.length > 1) {
+            console.warn(`⚠️ Duplicados encontrados para: "${title}"`);
+            docs.sort((a, b) => {
+              const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+              const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+              return bTime - aTime;
+            });
+
+            // Marcar para eliminar todos excepto el primero (más reciente)
+            for (let i = 1; i < docs.length; i++) {
+              toDelete.push(docs[i].id);
+            }
+          }
+        }
+
+        // Eliminar duplicados automáticamente
+        for (const docId of toDelete) {
+          try {
+            console.log(`🗑️ Eliminando duplicado automáticamente: ${docId}`);
+            await deleteDoc(doc(db, 'categories', docId));
+          } catch (error) {
+            console.error(`❌ Error eliminando duplicado ${docId}:`, error);
+          }
+        }
+
+        // Retornar solo documentos válidos (sin duplicados)
+        // NO FILTRAR POR TITLE VACÍO - permitir placeholders pero excluir duplicados
+        const filtered = allDocs.filter(cat => !toDelete.includes(cat.id));
+
+        // Ordenar por createdAt (las más antiguas primero)
+        filtered.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+        
+        console.log(`✅ App.jsx después de limpiar duplicados: ${filtered.length} categorías`, {
+          total: allDocs.length,
+          placeholders: filtered.filter(c => c.isPlaceholder).length,
+          validas: filtered.filter(c => !c.isPlaceholder && c.title && c.title.trim()).length,
+          filtered
+        });
+        setCategories(filtered);
+      } catch (error) {
+        console.error('❌ Error cargando categorias:', error);
+        setCategories([]);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    loadCategories();
+  }, []);
 
   /**
    * useEffect: Verifica deadline, configura autenticación, e inicializa progreso
@@ -73,6 +163,7 @@ function App() {
       if (user) {
         setCurrentUser(user);
         setUserNickname(user.displayName || '');
+        setUserDisplayName(user.displayName || ''); // Inicializar con displayName del usuario
         setCanEditNickname(false); // No editable después del login
         
         // Recuperar progreso previo de localStorage
@@ -157,10 +248,25 @@ function App() {
   };
 
   /**
+   * Volver al inicio sin cerrar sesión (limpia votos pero mantiene sesión)
+   */
+  const handleReturnToHome = () => {
+    setCurrentStep(-1); // Volver a login
+    setUserVotes({}); // Limpiar votos
+    setUserNickname(''); // Limpiar apodo
+    setUserDisplayName(''); // Limpiar displayName
+    setErrorMessage(''); // Limpiar errores
+    setSuccessMessage(''); // Limpiar mensajes de éxito
+    localStorage.removeItem('votingProgress'); // Limpiar localStorage
+    console.log('↩️ Volviendo al inicio, sesión mantenida');
+  };
+
+  /**
    * Selecciona una opción de voto y avanza automáticamente
    */
-  const selectOption = (categoryId, optionValue) => {
-    const updatedVotes = { ...userVotes, [categoryId]: optionValue };
+  const selectOption = (categoryId, option) => {
+    // option = { id: optionId, name: optionName }
+    const updatedVotes = { ...userVotes, [categoryId]: option };
     setUserVotes(updatedVotes);
     
     // Guardar en localStorage
@@ -176,10 +282,14 @@ function App() {
   };
 
   /**
-   * Navega a la categoría anterior
+   * Navega a la categoría anterior, o a una específica si se proporciona el índice
    */
-  const goToPreviousStep = () => {
-    if (currentStep > 0) {
+  const goToPreviousStep = (stepIndex = null) => {
+    if (stepIndex !== null && stepIndex >= 0) {
+      // Ir a un paso específico (desde allVotes)
+      setCurrentStep(stepIndex);
+    } else if (currentStep > 0) {
+      // Ir al paso anterior
       setCurrentStep(currentStep - 1);
     }
   };
@@ -188,10 +298,10 @@ function App() {
    * Navega a la siguiente categoría o revisión
    */
   const goToNextStep = () => {
-    if (currentStep < categories.length - 1) {
+    if (currentStep < validCategories.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      setCurrentStep(categories.length); // Ir a revisión
+      setCurrentStep(validCategories.length); // Ir a revisión
     }
   };
 
@@ -211,8 +321,14 @@ function App() {
       return;
     }
 
-    if (Object.keys(userVotes).length < categories.length) {
-      setErrorMessage('Por favor, vota en todas las categorías.');
+    // Verificar que todas las categorías válidas tengan voto
+    const missingVotes = validCategories.filter(cat => !userVotes[cat.id]);
+    if (missingVotes.length > 0) {
+      const categoryNames = missingVotes.map(cat => cat.title).join(', ');
+      const message = language === 'es' 
+        ? `⚠️ Te faltan ${missingVotes.length} categoría(s) por votar: ${categoryNames}`
+        : `⚠️ You are missing votes in ${missingVotes.length} category(ies): ${categoryNames}`;
+      setErrorMessage(message);
       return;
     }
 
@@ -225,12 +341,19 @@ function App() {
       setIsLoading(true);
       setErrorMessage('');
 
+      // Convertir votos de {id, name} a solo nombres para guardar en Firestore
+      const selections = {};
+      Object.entries(userVotes).forEach(([categoryId, vote]) => {
+        selections[categoryId] = vote.name || vote; // Por si viene en formato antiguo
+      });
+
       // Preparar datos (estructura lista para Firebase)
       const ballotData = {
         userId: currentUser?.uid || 'demo-user',
         userEmail: currentUser?.email || 'demo@example.com',
         userNickname: userNickname,
-        selections: userVotes,
+        userDisplayName: userDisplayName, // Nuevo campo editable
+        selections: selections, // Solo nombres
         submittedAt: new Date().toISOString(),
         isActive: true
       };
@@ -257,13 +380,13 @@ function App() {
    */
   const getProgressPercentage = () => {
     if (currentStep < 0) return 0;
-    if (currentStep >= categories.length) return 100;
-    return Math.round(((currentStep + 1) / categories.length) * 100);
+    if (currentStep >= validCategories.length) return 100;
+    return Math.round(((currentStep + 1) / validCategories.length) * 100);
   };
 
   // ============ RENDERING ============
 
-  // Loading inicial
+  // Loading inicial (autenticación)
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
@@ -275,9 +398,52 @@ function App() {
     );
   }
 
-  // Panel de Admin - Ruta secreta /admin
+  // Loading de categorías
+  if (categoriesLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-5xl mb-4 animate-spin">⏳</div>
+          <p className="text-slate-400">Cargando categorías...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Filtrar solo categorías válidas (no placeholders vacíos)
+  // - Si tiene isPlaceholder, es solo para mantener la tabla en Firestore
+  // - Si tiene title vacío, también es un placeholder
+  const validCategories = categories.filter(cat => 
+    !cat.isPlaceholder && cat.title && cat.title.trim()
+  );
+  
+  console.log(`🔍 Análisis de categorías: 
+    - Total cargadas: ${categories.length}
+    - Con isPlaceholder: ${categories.filter(c => c.isPlaceholder).length}
+    - Válidas para votar: ${validCategories.length}
+  `, { categories, validCategories });
+  
+  // Panel de Admin - Ruta secreta /admin (SIEMPRE accesible, incluso sin categorías)
   if (window.location.pathname === '/admin') {
     return <AdminPanel language={language} onToggleLanguage={toggleLanguage} />;
+  }
+
+  // Sin categorías válidas - mostrar mensaje solo para público
+  if (validCategories.length === 0 && !isLoadingAuth && !categoriesLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="text-5xl mb-4">📋</div>
+          <h1 className="text-2xl font-bold text-white mb-2">No hay categorías disponibles</h1>
+          <p className="text-slate-400">Por favor, intenta de nuevo más tarde.</p>
+          {categories.length > 0 && (
+            <p className="text-xs text-slate-500 mt-4">
+              (Admin: {categories.length} categoría(s) en base de datos, pero vacías)
+            </p>
+          )}
+        </div>
+      </div>
+    );
   }
 
   // Deadline alcanzado
@@ -287,6 +453,7 @@ function App() {
 
   // Pantalla de login
   if (currentStep === -1 || !currentUser) {
+    console.log('🔓 Renderizando LoginScreen:', { currentStep, currentUser: !!currentUser });
     return (
       <LoginScreen
         onLogin={handleLogin}
@@ -300,12 +467,13 @@ function App() {
   }
 
   // Pantalla de votación
-  if (currentStep >= 0 && currentStep < categories.length) {
+  if (currentStep >= 0 && currentStep < validCategories.length) {
+    console.log('🗳️ Renderizando VoteScreen:', { currentStep, validCategories: validCategories.length });
     return (
       <VoteScreen
-        category={categories[currentStep]}
+        category={validCategories[currentStep]}
         currentStep={currentStep}
-        totalSteps={categories.length}
+        totalSteps={validCategories.length}
         userVotes={userVotes}
         onSelectOption={selectOption}
         onPrevious={goToPreviousStep}
@@ -318,16 +486,20 @@ function App() {
     );
   }
 
-  // Pantalla de revisión
-  if (currentStep === categories.length) {
+  // Pantalla de revisión - Solo si hay categorías válidas cargadas
+  if (currentStep === validCategories.length && validCategories.length > 0) {
+    console.log('📋 Renderizando ReviewScreen:', { currentStep, validCategories: validCategories.length });
     return (
       <ReviewScreen
-        categories={categories}
+        categories={validCategories}
         userVotes={userVotes}
         userNickname={userNickname}
         onNicknameChange={setUserNickname}
+        userDisplayName={userDisplayName}
+        onDisplayNameChange={setUserDisplayName}
         onSubmit={submitBallot}
         onPrevious={goToPreviousStep}
+        onReturnHome={handleReturnToHome}
         isLoading={isLoading}
         errorMessage={errorMessage}
         canEditNickname={canEditNickname}
@@ -339,10 +511,12 @@ function App() {
 
   // Pantalla de éxito
   if (currentStep === 99) {
+    console.log('✅ Renderizando SuccessScreen');
     return (
       <SuccessScreen
         userNickname={userNickname}
         onLogout={handleLogout}
+        onReturnHome={handleReturnToHome}
         successMessage={successMessage}
         language={language}
         onToggleLanguage={toggleLanguage}
@@ -350,7 +524,26 @@ function App() {
     );
   }
 
-  return null;
+  // Fallback - Si ninguna condición anterior se cumple, mostrar LoginScreen como último recurso
+  console.warn('⚠️ FALLBACK: Ninguna condición de renderizado coincidió. Estado actual:', {
+    currentStep,
+    currentUser: !!currentUser,
+    categoriesLoading,
+    isLoadingAuth,
+    isDeadlineReached,
+    validCategoriesLength: validCategories.length
+  });
+  
+  return (
+    <LoginScreen
+      onLogin={handleLogin}
+      isLoading={isLoading}
+      errorMessage={errorMessage}
+      daysRemaining={daysRemaining}
+      language={language}
+      onToggleLanguage={toggleLanguage}
+    />
+  );
 }
 
 export default App;

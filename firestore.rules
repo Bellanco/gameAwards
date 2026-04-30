@@ -8,22 +8,54 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Colección: ballots (votos)
+    // Función auxiliar para verificar si es admin (por ahora cualquier usuario autenticado)
+    // TODO: Mejorar con custom claims en Firebase Authentication
+    function isAdmin() {
+      return request.auth != null;
+    }
+    
+    // Colección: ballots (votos de la porra)
     match /ballots/{userId} {
-      // Lectura: Cualquier usuario autenticado puede leer (para futuras vistas de resultados)
+      // Lectura: Cualquier usuario autenticado puede leer
       allow read: if request.auth != null;
       
       // Escritura: Solo el usuario dueño del UID puede escribir/editar su propio documento
       allow write: if request.auth != null && request.auth.uid == userId;
       
-      // Eliminación: No permitida (evita que usuarios borren sus votos)
+      // Eliminación: No permitida
       allow delete: if false;
     }
     
-    // Colección: admin (para datos de configuración, si es necesario)
+    // Colección: categories (categorías de la porra - PÚBLICAS)
+    match /categories/{categoryId} {
+      // Lectura: PÚBLICA - Cualquiera puede leer
+      allow read: if true;
+      
+      // Escritura: Solo admin autenticado
+      allow write, delete: if isAdmin();
+    }
+    
+    // Colección: winners (ganadores seleccionados por el admin)
+    match /winners/{categoryId} {
+      // Lectura: PÚBLICA
+      allow read: if true;
+      
+      // Escritura: Solo admin
+      allow write, delete: if isAdmin();
+    }
+    
+    // Colección: surveyWinners (ganadores según resultados de votación)
+    match /surveyWinners/{categoryId} {
+      // Lectura: PÚBLICA
+      allow read: if true;
+      
+      // Escritura: Solo admin
+      allow write, delete: if isAdmin();
+    }
+    
+    // Colección: admin (para datos de configuración)
     match /admin/{document=**} {
-      // Solo administradores (requiere setup adicional con custom claims)
-      allow read, write: if request.auth.token.admin == true;
+      allow read, write: if isAdmin();
     }
   }
 }
