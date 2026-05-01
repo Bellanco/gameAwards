@@ -35,6 +35,7 @@ export const en = {
   skip: "Skip",
   next: "Next",
   review: "Review",
+  finish: "Finish",
   
   // Revisión
   reviewYourVotes: "Review Your Votes",

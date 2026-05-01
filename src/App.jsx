@@ -253,6 +253,30 @@ function App() {
   };
 
   /**
+   * Finaliza la votación: selecciona el último elemento y va a ReviewScreen (sin auto-avances)
+   */
+  const finishVoting = () => {
+    // Validar que estamos en una categoría válida
+    if (currentStep >= 0 && currentStep < validCategories.length) {
+      const category = validCategories[currentStep];
+      const lastIndex = category.options.length - 1;
+      const lastOption = category.options[lastIndex];
+      const lastOptionId = category.optionIds ? category.optionIds[lastIndex] : `${category.id}_option_${lastIndex}`;
+      
+      // Actualizar votos directamente (sin auto-avances)
+      const updatedVotes = { ...userVotes, [category.id]: { id: lastOptionId, name: lastOption } };
+      setUserVotes(updatedVotes);
+      
+      // Guardar en localStorage
+      const progress = { votes: updatedVotes, step: currentStep };
+      localStorage.setItem('votingProgress', JSON.stringify(progress));
+    }
+    
+    // Ir directamente a ReviewScreen (sin pasar por categorías intermedias)
+    setCurrentStep(validCategories.length);
+  };
+
+  /**
    * Salta categoría sin votar
    */
   const skipCategory = () => {
@@ -427,6 +451,7 @@ function App() {
         onPrevious={goToPreviousStep}
         onNext={goToNextStep}
         onSkip={skipCategory}
+        onFinish={finishVoting}
         progressPercentage={getProgressPercentage()}
         language={language}
         onToggleLanguage={toggleLanguage}

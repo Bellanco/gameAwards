@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckmarkIcon } from './Icons';
+import AutoSizeText from './AutoSizeText';
 
 /**
  * GameCard - Componente reutilizable para mostrar tarjetas de juegos
@@ -21,14 +22,20 @@ export default function GameCard({
   medalGradient = null,
   categoryTitle = null,
   translationLabel = null,
-  statusBadge = null
+  statusBadge = null,
+  compact = false
 }) {
   // Variante: VOTE (selección de juegos)
   if (variant === 'vote') {
+    const heightClass = compact ? 'h-12 sm:h-20 md:h-48 lg:h-64' : 'h-20 sm:h-24 md:h-48 lg:h-64';
+    const autoSizeMinSize = compact ? 8 : 10;
+    const autoSizeMaxSize = compact ? 18 : 28;
+    const paddingClass = compact ? 'p-1 sm:p-2' : 'p-2 sm:p-3';
+
     return (
       <button
         onClick={onSelect}
-        className={`relative rounded-lg overflow-hidden transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-600 border-2 h-20 md:h-48 lg:h-64 w-full ${
+        className={`relative rounded-lg overflow-hidden transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-600 border-2 ${heightClass} w-full ${
           isSelected
             ? 'border-amber-600 shadow-lg shadow-amber-600/50'
             : 'border-slate-700 hover:border-amber-600'
@@ -44,18 +51,18 @@ export default function GameCard({
             : 'bg-black/40 hover:bg-black/30'
         }`} />
 
-        {/* Checkmark - Solo en desktop */}
+        {/* Checkmark - Visible en todos los tamaños */}
         {isSelected && (
-          <div className="hidden md:flex absolute top-2 sm:top-3 right-2 sm:right-3 w-6 sm:w-8 h-6 sm:h-8 bg-amber-600 rounded-full items-center justify-center animate-pulse">
-            <CheckmarkIcon className="w-4 sm:w-5 h-4 sm:h-5 text-white" />
+          <div className="flex absolute top-1 sm:top-2 md:top-3 right-1 sm:right-2 md:right-3 w-5 sm:w-6 md:w-8 h-5 sm:h-6 md:h-8 bg-amber-600 rounded-full items-center justify-center animate-pulse">
+            <CheckmarkIcon className="w-3 sm:w-4 md:w-5 h-3 sm:h-4 md:h-5 text-white" />
           </div>
         )}
 
-        {/* Nombre del juego - Centrado siempre */}
-        <div className="absolute inset-0 flex items-center justify-center p-2 sm:p-3">
-          <p className="font-bold text-sm sm:text-lg md:text-xl lg:text-2xl text-white line-clamp-2 text-center">
+        {/* Nombre del juego - Centrado siempre con auto-resize */}
+        <div className={`absolute inset-0 flex items-center justify-center ${paddingClass}`}>
+          <AutoSizeText minSize={autoSizeMinSize} maxSize={autoSizeMaxSize} stepGranularity={1}>
             {gameName}
-          </p>
+          </AutoSizeText>
         </div>
       </button>
     );
@@ -83,11 +90,11 @@ export default function GameCard({
           {/* Overlay oscuro para contraste de texto */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
           
-          {/* Nombre del juego */}
-          <div className="absolute bottom-0 left-0 right-0 p-4">
-            <p className="font-bold text-white text-base md:text-xl line-clamp-2">
+          {/* Nombre del juego con auto-resize */}
+          <div className="absolute bottom-0 left-0 right-0 p-4 h-20 flex items-center">
+            <AutoSizeText minSize={12} maxSize={20} stepGranularity={1}>
               {gameName}
-            </p>
+            </AutoSizeText>
           </div>
           
           {/* Medal Badge */}
@@ -131,11 +138,13 @@ export default function GameCard({
             </>
           )}
 
-          {/* Info */}
+          {/* Info con auto-resize */}
           <div className="absolute inset-0 md:inset-auto md:bottom-0 md:left-0 md:right-0 flex md:flex-col items-center justify-center md:items-start md:justify-end p-3">
-            <p className="font-bold text-white text-sm md:text-base line-clamp-1 text-center md:text-left">
-              {gameName || translationLabel}
-            </p>
+            <div className="w-full h-8 md:h-12 flex items-center justify-center md:justify-start">
+              <AutoSizeText minSize={11} maxSize={16} stepGranularity={1}>
+                {gameName || translationLabel}
+              </AutoSizeText>
+            </div>
             {categoryTitle && (
               <p className="hidden md:block text-xs text-slate-300 mt-1 opacity-75">
                 {categoryTitle}

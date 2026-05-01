@@ -35,6 +35,7 @@ export const es = {
   skip: "Saltar",
   next: "Siguiente",
   review: "Revisar",
+  finish: "Finalizar",
   
   // Revisión
   reviewYourVotes: "Revisa tus votos",
