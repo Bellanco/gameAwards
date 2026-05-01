@@ -209,13 +209,22 @@ export default function SurveyWinnersSelector({ language = 'es', onClose }) {
               </div>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {getUserDetails(selectedUserId).length > 0 ? (
-                  getUserDetails(selectedUserId).map((detail, idx) => (
-                    <div key={idx} className="bg-green-500/10 border border-green-500/30 rounded p-3 text-sm">
-                      <p className="font-semibold text-green-400">{detail.category}</p>
-                      <p className="text-slate-300">✓ {detail.vote}</p>
-                      <p className="text-right text-green-400 font-bold">+{detail.points} pts</p>
+                  <>
+                    {/* Encabezados */}
+                    <div className="grid grid-cols-3 gap-4 px-3 py-2 border-b border-slate-600 text-xs font-bold text-slate-400 uppercase sticky top-0 bg-slate-800">
+                      <span>Categoría</span>
+                      <span className="text-center">Voto</span>
+                      <span className="text-right">Puntos</span>
                     </div>
-                  ))
+                    {/* Filas de datos */}
+                    {getUserDetails(selectedUserId).map((detail, idx) => (
+                      <div key={idx} className="grid grid-cols-3 gap-4 p-3 bg-green-500/10 border border-green-500/30 rounded items-center">
+                        <span className="text-green-400 font-semibold">{detail.category}</span>
+                        <span className="text-slate-300 text-center">✓ {detail.vote}</span>
+                        <span className="text-green-400 font-bold text-right">+{detail.points} pts</span>
+                      </div>
+                    ))}
+                  </>
                 ) : (
                   <p className="text-slate-400 text-sm">No acertó ninguna votación</p>
                 )}

@@ -1,77 +1,10 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* 
- * Sistema de Temas Dinámicos con Variables CSS
- * Cambia automáticamente cuando se añade/quita la clase 'dark' en <html>
+/**
+ * Clases de Tema Reutilizables
+ * Utiliza variables CSS que cambian según la clase "dark" en <html>
+ * Todos los componentes responden automáticamente al cambio de tema
  */
 
-:root {
-  /* ===== TEMA CLARO (por defecto) ===== */
-  
-  /* Fondos */
-  --bg-primary: #e0eaeb;
-  --bg-secondary: #75a8d8;
-  --bg-tertiary: #bcc8e1;
-  
-  /* Texto */
-  --text-primary: #1f2937;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
-  
-  /* Bordes */
-  --border-primary: #e5e7eb;
-  --border-secondary: #d1d5db;
-  
-  /* Colores de marca */
-  --color-primary: #fafaf8;
-  --color-secondary: #d97706;
-  --color-tertiary: #06b6d4;
-  
-  /* Sombras */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-html.dark {
-  /* ===== TEMA OSCURO: Azul Marino + Naranja Dorado + Blanco + Azul Cielo ===== */
-  
-  /* Fondos */
-  --bg-primary: #031224;
-  --bg-secondary: #132f4c;
-  --bg-tertiary: #1e4d7b;
-  
-  /* Texto */
-  --text-primary: #ffffff;
-  --text-secondary: #e0e0e0;
-  --text-tertiary: #a0a0a0;
-  
-  /* Bordes */
-  --border-primary: #1e4d7b;      /* Azul marino más claro */
-  --border-secondary: #2a6aa5;    /* Azul marino para hover */
-  
-  /* Colores de marca */
-  --color-primary: #132f4c;       /* Azul marino (primario) */
-  --color-secondary: #d97706;     /* Naranja dorado */
-  --color-tertiary: #06b6d4;      /* Azul cian (azul cielo) */
-  
-  /* Sombras */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.7);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.9);
-}
-
-html, body, #root {
-  height: 100%;
-  margin: 0;
-  padding: 0;
-}
-
-/* ===== CLASES DE TEMA REUTILIZABLES ===== */
-
-/* Contenedores Principales */
+/* ===== Contenedores Principales ===== */
 .theme-container-primary {
   background-color: var(--bg-primary);
   color: var(--text-primary);
@@ -90,7 +23,7 @@ html, body, #root {
     to bottom,
     var(--bg-primary),
     var(--bg-secondary)
-  ) !important;
+  );
   color: var(--text-primary);
   transition: background 0.3s ease, color 0.3s ease;
 }
@@ -101,12 +34,12 @@ html, body, #root {
     135deg,
     var(--bg-secondary),
     var(--bg-tertiary)
-  ) !important;
+  );
   color: var(--text-primary);
   transition: background 0.3s ease, color 0.3s ease;
 }
 
-/* Elementos de Texto */
+/* ===== Elementos de Texto ===== */
 .theme-text-primary {
   color: var(--text-primary);
   transition: color 0.3s ease;
@@ -122,7 +55,7 @@ html, body, #root {
   transition: color 0.3s ease;
 }
 
-/* Bordes */
+/* ===== Bordes ===== */
 .theme-border-primary {
   border-color: var(--border-primary);
   transition: border-color 0.3s ease;
@@ -133,7 +66,7 @@ html, body, #root {
   transition: border-color 0.3s ease;
 }
 
-/* Fondos Translúcidos */
+/* ===== Fondos Translúcidos ===== */
 .theme-bg-overlay {
   background-color: var(--bg-secondary);
   opacity: 0.5;
@@ -148,7 +81,7 @@ html, body, #root {
   transition: background-color 0.3s ease, opacity 0.3s ease;
 }
 
-/* Botones y Controles */
+/* ===== Botones y Controles ===== */
 .theme-btn-primary {
   background-color: var(--color-secondary);
   color: var(--text-inverse);
@@ -171,7 +104,7 @@ html, body, #root {
   border-color: var(--border-secondary);
 }
 
-/* Cards */
+/* ===== Cards ===== */
 .theme-card {
   background-color: var(--bg-secondary);
   color: var(--text-primary);
@@ -184,19 +117,19 @@ html, body, #root {
   box-shadow: var(--shadow-md);
 }
 
-/* Header/Navigation */
+/* ===== Header/Navigation ===== */
 .theme-header {
   background: linear-gradient(
     to bottom,
     var(--bg-primary),
     var(--bg-secondary)
-  ) !important;
+  );
   border-bottom-color: var(--border-primary);
   color: var(--text-primary);
   transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
-/* Sombras */
+/* ===== Sombras ===== */
 .theme-shadow-sm {
   box-shadow: var(--shadow-sm);
 }

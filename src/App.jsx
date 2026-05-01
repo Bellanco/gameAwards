@@ -4,6 +4,7 @@ import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { useTranslation } from './data/literals';
 import { loadAndSortCategories } from './services/categoriesService';
+import { useTheme } from './hooks';
 
 // Componentes modulares
 import VoteScreen from './components/VoteScreen';
@@ -19,6 +20,9 @@ function App() {
     return localStorage.getItem('appLanguage') || 'es';
   });
   const t = useTranslation(language);
+
+  // ============ Estado de Tema (Centralizado en Hook) ============
+  const { theme, toggleTheme } = useTheme();
 
   // ============ Estado de Categorías (desde Firestore) ============
   const [categories, setCategories] = useState([]);
@@ -361,7 +365,7 @@ function App() {
   
   // Panel de Admin - Ruta secreta /admin (SIEMPRE accesible, incluso sin categorías)
   if (window.location.pathname === '/admin') {
-    return <AdminPanel language={language} onToggleLanguage={toggleLanguage} />;
+    return <AdminPanel language={language} onToggleLanguage={toggleLanguage} theme={theme} onToggleTheme={toggleTheme} />;
   }
 
   // Sin categorías válidas - mostrar mensaje solo para público
@@ -384,7 +388,7 @@ function App() {
 
   // Deadline alcanzado
   if (isDeadlineReached) {
-    return <DeadlineScreen language={language} onToggleLanguage={toggleLanguage} />;
+    return <DeadlineScreen language={language} onToggleLanguage={toggleLanguage} theme={theme} onToggleTheme={toggleTheme} />;
   }
 
   // Pantalla de login
@@ -398,13 +402,14 @@ function App() {
         daysRemaining={daysRemaining}
         language={language}
         onToggleLanguage={toggleLanguage}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     );
   }
 
   // Pantalla de votación
   if (currentStep >= 0 && currentStep < validCategories.length) {
-    console.log('🗳️ Renderizando VoteScreen:', { currentStep, validCategories: validCategories.length });
     return (
       <VoteScreen
         category={validCategories[currentStep]}
@@ -418,6 +423,8 @@ function App() {
         progressPercentage={getProgressPercentage()}
         language={language}
         onToggleLanguage={toggleLanguage}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     );
   }
@@ -441,6 +448,8 @@ function App() {
         canEditNickname={canEditNickname}
         language={language}
         onToggleLanguage={toggleLanguage}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     );
   }
@@ -456,20 +465,13 @@ function App() {
         successMessage={successMessage}
         language={language}
         onToggleLanguage={toggleLanguage}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
     );
   }
 
   // Fallback - Si ninguna condición anterior se cumple, mostrar LoginScreen como último recurso
-  console.warn('⚠️ FALLBACK: Ninguna condición de renderizado coincidió. Estado actual:', {
-    currentStep,
-    currentUser: !!currentUser,
-    categoriesLoading,
-    isLoadingAuth,
-    isDeadlineReached,
-    validCategoriesLength: validCategories.length
-  });
-  
   return (
     <LoginScreen
       onLogin={handleLogin}
@@ -478,6 +480,8 @@ function App() {
       daysRemaining={daysRemaining}
       language={language}
       onToggleLanguage={toggleLanguage}
+      theme={theme}
+      onToggleTheme={toggleTheme}
     />
   );
 }

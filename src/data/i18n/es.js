@@ -159,4 +159,9 @@ export const es = {
   // Generic
   close: "Cerrar",
   logout: "Cerrar sesión",
+  
+  // Tema
+  theme: "Tema",
+  lightTheme: "Tema claro",
+  darkTheme: "Tema oscuro",
 };

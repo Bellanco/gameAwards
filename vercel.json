@@ -1,4 +1,5 @@
 {
+  "comment": "LEGACY: Este archivo fue para Vercel. El proyecto ahora usa Cloudflare Pages. Ver functions/games.js",
   "functions": {
     "api/games.js": {
       "maxDuration": 10,

@@ -407,13 +407,22 @@ export default function WinnersPanel({
                 {getUserCorrectVotes(selectedUserId).length === 0 ? (
                   <p className="text-slate-400 text-sm">{t('noVotesForCategory')}</p>
                 ) : (
-                  getUserCorrectVotes(selectedUserId).map((vote, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-3 bg-slate-700/50 rounded">
-                      <span className="text-slate-300">{vote.category}</span>
-                      <span className="text-green-400 font-semibold">{vote.vote}</span>
-                      <span className="text-yellow-400 font-bold">+{vote.points} {t('pts')}</span>
+                  <>
+                    {/* Encabezados de las columnas */}
+                    <div className="grid grid-cols-3 gap-4 px-3 py-2 border-b border-slate-600 text-xs font-bold text-slate-400 uppercase">
+                      <span>{t('categories')}</span>
+                      <span className="text-center">{t('vote')}</span>
+                      <span className="text-right">{t('points')}</span>
                     </div>
-                  ))
+                    {/* Filas de datos */}
+                    {getUserCorrectVotes(selectedUserId).map((vote, idx) => (
+                      <div key={idx} className="grid grid-cols-3 gap-4 p-3 bg-slate-700/50 rounded items-center">
+                        <span className="text-slate-300">{vote.category}</span>
+                        <span className="text-green-400 font-semibold text-center">{vote.vote}</span>
+                        <span className="text-yellow-400 font-bold text-right">+{vote.points} {t('pts')}</span>
+                      </div>
+                    ))}
+                  </>
                 )}
               </div>
             </Card.Body>

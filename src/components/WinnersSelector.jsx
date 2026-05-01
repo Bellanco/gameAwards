@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
+import { updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useTranslation } from '../data/literals';
+import { loadAndSortCategories } from '../services/categoriesService';
 
 /**
  * WinnersSelector - Pantalla para elegir ganadores según las categorías
@@ -24,20 +25,10 @@ export default function WinnersSelector({ language = 'es', onClose }) {
     try {
       setIsLoading(true);
 
-      // Cargar categorías
-      const categoriesCollection = collection(db, 'categories');
-      const categoriesSnapshot = await getDocs(categoriesCollection);
-      const allCategoriesData = categoriesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // Cargar categorías ordenadas por orderIndex usando servicio centralizado
+      const validCategories = await loadAndSortCategories(false); // false = no incluir inválidas
       
-      // Filtrar solo categorías válidas (excluir placeholders y vacías)
-      const validCategories = allCategoriesData.filter(cat => 
-        !cat.isPlaceholder && cat.title && cat.title.trim() && cat.options && cat.options.length > 0
-      );
-      
-      console.log(`📊 WinnersSelector: ${allCategoriesData.length} categorías totales, ${validCategories.length} válidas`, { allCategoriesData, validCategories });
+      console.log(`📊 WinnersSelector: ${validCategories.length} categorías válidas ordenadas por orderIndex`, { validCategories });
       setCategories(validCategories);
 
       // Cargar ganadores existentes desde el campo 'winner' de cada categoría

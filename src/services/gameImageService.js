@@ -1,10 +1,10 @@
 /**
- * Game Image Service - RAWG API + Vercel Serverless + localStorage Cache
+ * Game Image Service - RAWG API + Cloudflare Pages Functions + localStorage Cache
  * 
  * ✅ Estrategia 2026 (OPTIMIZADA):
  * - Cache en memoria (rápido)
  * - Cache en localStorage (persistente entre sesiones)
- * - API RAWG vía Vercel Serverless (imágenes reales en producción)
+ * - API RAWG vía Cloudflare Pages Functions (imágenes reales en producción)
  * - Fallback a metadata local (siempre funciona)
  * - Cero problemas de CORS
  */
@@ -16,10 +16,12 @@ const imageCache = new Map();
 const CACHE_KEY = 'tga_game_images_cache';
 const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
 
-// ============ Vercel Serverless Config ============
+// ============ Cloudflare Pages Functions Config ============
+// En desarrollo: http://localhost:8788 (Wrangler dev server)
+// En producción: URL relativa /api/games (resuelve automáticamente)
 const API_BASE = import.meta.env.DEV 
-  ? 'http://localhost:3000'
-  : (import.meta.env.VITE_API_URL || 'https://tga-ballot.vercel.app');
+  ? 'http://localhost:8788'
+  : '';
 
 /**
  * Obtiene cache de localStorage
@@ -74,9 +76,9 @@ function getFromLocalStorage(gameName) {
 }
 
 /**
- * Intenta obtener imagen real desde Vercel serverless con RAWG API
+ * Intenta obtener imagen real desde Cloudflare Pages Functions con RAWG API
  * En desarrollo: usa metadata directamente
- * En producción: intenta serverless con RAWG, luego metadata
+ * En producción: intenta Cloudflare Function con RAWG, luego metadata
  */
 async function fetchFromServerless(gameName) {
   try {
@@ -86,7 +88,7 @@ async function fetchFromServerless(gameName) {
     }
 
     const url = `${API_BASE}/api/games?q=${encodeURIComponent(gameName)}`;
-    console.log(`🔍 Buscando imagen en serverless/RAWG: ${gameName}`);
+    console.log(`🔍 Buscando imagen en Cloudflare/RAWG: ${gameName}`);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -95,7 +97,7 @@ async function fetchFromServerless(gameName) {
     });
 
     if (!response.ok) {
-      console.warn(`Serverless HTTP ${response.status}`);
+      console.warn(`Cloudflare Function HTTP ${response.status}`);
       return null;
     }
 
@@ -116,7 +118,7 @@ async function fetchFromServerless(gameName) {
 
     return null;
   } catch (error) {
-    console.warn(`Serverless fetch failed: ${error.message}`);
+    console.warn(`Cloudflare Function fetch failed: ${error.message}`);
     return null;
   }
 }
@@ -159,7 +161,7 @@ export async function getGameImage(gameName) {
   }
 
   try {
-    // ============ 3. API RAWG vía Vercel Serverless (producción) ============
+    // ============ 3. API RAWG vía Cloudflare Pages Functions (producción) ============
     const serverlessData = await fetchFromServerless(gameName);
     if (serverlessData && serverlessData.image) {
       imageCache.set(gameName, serverlessData);

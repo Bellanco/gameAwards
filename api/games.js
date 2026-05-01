@@ -1,4 +1,14 @@
 /**
+ * LEGACY: Función de Vercel (no se usa)
+ * 
+ * El proyecto migró a Cloudflare Pages.
+ * Ver: functions/games.js para la versión actual
+ * 
+ * Este archivo se mantiene por compatibilidad hacia atrás
+ * en caso de volver a Vercel en el futuro.
+ */
+
+/**
  * Vercel Serverless Function: Game Image Lookup
  * Endpoint: /api/games?q=game_name
  * 

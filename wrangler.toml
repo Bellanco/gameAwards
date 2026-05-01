@@ -1,5 +1,11 @@
 # CloudFlare Pages Configuration
-# For Pages, we only need to specify the build output directory
 name = "game-awards"
 pages_build_output_dir = "dist"
 compatibility_date = "2024-01-15"
+
+# Environment Variables
+[env.production]
+vars = { RAWG_API_KEY = "4b90ea55aa654603ac88b88cf7a0bef3" }
+
+[env.development]
+vars = { RAWG_API_KEY = "4b90ea55aa654603ac88b88cf7a0bef3" }
