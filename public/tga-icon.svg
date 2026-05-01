@@ -1,0 +1,55 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Fondo azul suave con gradiente -->
+  <defs>
+    <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#60a5fa;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#f59e0b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#b45309;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Círculo de fondo con gradiente azul -->
+  <circle cx="100" cy="100" r="98" fill="url(#blueGradient)" stroke="#1e40af" stroke-width="2"/>
+  
+  <!-- Decoración: líneas dorado-cobrizas alrededor -->
+  <circle cx="100" cy="100" r="85" fill="none" stroke="url(#goldGradient)" stroke-width="3" opacity="0.8"/>
+  <circle cx="100" cy="100" r="75" fill="none" stroke="url(#goldGradient)" stroke-width="2" opacity="0.6"/>
+  
+  <!-- Líneas dorado-cobrizas decorativas (4 líneas) -->
+  <line x1="100" y1="20" x2="100" y2="35" stroke="url(#goldGradient)" stroke-width="3" stroke-linecap="round"/>
+  <line x1="180" y1="100" x2="165" y2="100" stroke="url(#goldGradient)" stroke-width="3" stroke-linecap="round"/>
+  <line x1="100" y1="180" x2="100" y2="165" stroke="url(#goldGradient)" stroke-width="3" stroke-linecap="round"/>
+  <line x1="20" y1="100" x2="35" y2="100" stroke="url(#goldGradient)" stroke-width="3" stroke-linecap="round"/>
+  
+  <!-- Líneas diagonales decorativas -->
+  <line x1="142" y1="30" x2="155" y2="20" stroke="url(#goldGradient)" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="170" y1="58" x2="180" y2="45" stroke="url(#goldGradient)" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="170" y1="142" x2="180" y2="155" stroke="url(#goldGradient)" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="142" y1="170" x2="155" y2="180" stroke="url(#goldGradient)" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="58" y1="170" x2="45" y2="180" stroke="url(#goldGradient)" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="30" y1="142" x2="20" y2="155" stroke="url(#goldGradient)" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="30" y1="58" x2="20" y2="45" stroke="url(#goldGradient)" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  <line x1="58" y1="30" x2="45" y2="20" stroke="url(#goldGradient)" stroke-width="2.5" stroke-linecap="round" opacity="0.7"/>
+  
+  <!-- Texto "TGA" en blanco con sombra -->
+  <defs>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <text x="100" y="125" font-family="Arial, sans-serif" font-size="72" font-weight="bold" 
+        text-anchor="middle" fill="white" filter="url(#shadow)" letter-spacing="2">
+    TGA
+  </text>
+  
+  <!-- Subtítulo pequeño -->
+  <text x="100" y="145" font-family="Arial, sans-serif" font-size="14" 
+        text-anchor="middle" fill="url(#goldGradient)" opacity="0.9" letter-spacing="1">
+    AWARDS
+  </text>
+</svg>

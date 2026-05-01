@@ -111,7 +111,7 @@ VITE_FIREBASE_APP_ID=your_app_id
 
 ## Autor
 
-Creado para TGA Ballot 2024+
+Creado para TGA Ballot
 
 ## Licencia
 
@@ -198,5 +198,5 @@ Para reportar bugs o sugerencias, abre un issue en este repo.
 
 ---
 
-**Última actualización:** 2024
+**Última actualización:** 2026
 **Tecnología:** React 18 + Vite + Tailwind CSS + Firebase
