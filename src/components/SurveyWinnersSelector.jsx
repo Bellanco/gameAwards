@@ -137,7 +137,7 @@ export default function SurveyWinnersSelector({ language = 'es', onClose }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <p className="text-slate-400">Cargando resultados...</p>
+        <p className="theme-text-tertiary">Cargando resultados...</p>
       </div>
     );
   }
@@ -148,8 +148,8 @@ export default function SurveyWinnersSelector({ language = 'es', onClose }) {
     <div className="space-y-6">
       {/* Título */}
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">🏆 Resultados Finales</h2>
-        <p className="text-slate-400">Ganadores por categoría y puntuaciones de usuarios</p>
+        <h2 className="text-2xl font-bold theme-text-primary mb-2">🏆 Resultados Finales</h2>
+        <p className="theme-text-tertiary">Ganadores por categoría y puntuaciones de usuarios</p>
       </div>
 
       {/* Mensaje de éxito */}
@@ -167,27 +167,56 @@ export default function SurveyWinnersSelector({ language = 'es', onClose }) {
       {/* Vista de Clasificación - ÚNICA VISTA */}
         <div className="space-y-4">
           {/* Tabla de Clasificación */}
-          <div className="bg-slate-800/30 border border-slate-700 rounded-lg overflow-hidden">
-            <div className="grid grid-cols-4 gap-4 bg-slate-900/50 p-4 font-bold text-slate-300 border-b border-slate-700">
-              <div>Puesto</div>
-              <div>Usuario</div>
-              <div className="text-right">Puntos</div>
-              <div className="text-center">Detalles</div>
+          <div className="theme-container-secondary theme-border-primary border rounded-lg overflow-hidden">
+            <div className="hidden md:grid md:grid-cols-4 gap-4 theme-container-tertiary p-4 font-bold theme-text-secondary border-b theme-border-primary">
+              <div>{t('position')}</div>
+              <div>{t('userName')}</div>
+              <div className="text-right">{t('points')}</div>
+              <div className="text-center">{t('details')}</div>
             </div>
-            <div className="divide-y divide-slate-700">
+            <div className="divide-y theme-border-primary">
               {ranking.map(entry => (
-                <div key={entry.userId} className="grid grid-cols-4 gap-4 p-4 items-center hover:bg-slate-800/50 transition-colors">
-                  <div className="font-bold text-white">
+                <div key={entry.userId} className="p-4 space-y-3 md:space-y-0 md:grid md:grid-cols-4 md:gap-4 md:items-center hover:theme-bg-overlay-light transition-colors">
+                  {/* Puesto (visible solo en mobile antes del nombre) */}
+                  <div className="md:hidden flex items-center gap-2">
+                    <span className="text-2xl">
+                      {entry.rank === 1 && '🥇'} {entry.rank === 2 && '🥈'} {entry.rank === 3 && '🥉'}
+                    </span>
+                    <div>
+                      <div className="text-sm theme-text-tertiary">#{entry.rank}</div>
+                      <div className="font-bold theme-text-primary">{entry.nickname}</div>
+                    </div>
+                  </div>
+
+                  {/* Desktop: Puesto */}
+                  <div className="hidden md:block font-bold theme-text-primary">
                     {entry.rank === 1 && '🥇'} {entry.rank === 2 && '🥈'} {entry.rank === 3 && '🥉'} {entry.rank}
                   </div>
-                  <div className="text-slate-300 text-sm font-semibold">{entry.nickname}</div>
-                  <div className="text-right font-bold text-yellow-400">{entry.score} pts</div>
-                  <button
-                    onClick={() => setSelectedUserId(entry.userId)}
-                    className="text-center text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1 rounded transition-colors"
-                  >
-                    Ver
-                  </button>
+
+                  {/* Desktop: Nombre */}
+                  <div className="hidden md:block text-sm font-semibold theme-text-primary">{entry.nickname}</div>
+
+                  {/* Puntos */}
+                  <div className="flex justify-between md:block md:text-right">
+                    <span className="md:hidden theme-text-tertiary text-xs">{t('points')}:</span>
+                    <span className="font-bold theme-accent">{entry.score} {t('pts')}</span>
+                  </div>
+
+                  {/* Botón Toggle Detalles/Cerrar */}
+                  <div className="flex gap-2 md:flex md:justify-center">
+                    <button
+                      onClick={() => {
+                        setSelectedUserId(selectedUserId === entry.userId ? null : entry.userId);
+                      }}
+                      className={`flex-1 md:flex-none text-sm px-3 py-2 border rounded transition-colors font-semibold ${
+                        selectedUserId === entry.userId
+                          ? 'theme-accent-bg text-white border-amber-600 hover:border-amber-500'
+                          : 'theme-container-secondary theme-border-primary theme-text-primary hover:theme-container-tertiary'
+                      }`}
+                    >
+                      {selectedUserId === entry.userId ? 'Cerrar' : 'Detalle'}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -195,38 +224,43 @@ export default function SurveyWinnersSelector({ language = 'es', onClose }) {
 
           {/* Detalles del Usuario Seleccionado */}
           {selectedUserId && (
-            <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-white">
-                  Votos correctos de: {ballots.find(b => b.userId === selectedUserId)?.userNickname || 'Anónimo'}
+            <div className="theme-container-secondary theme-border-primary border rounded-lg p-4">
+              <div className="mb-4">
+                <h3 className="font-bold theme-text-primary">
+                  {t('correctVotes')}: {ballots.find(b => b.userId === selectedUserId)?.userDisplayName || ballots.find(b => b.userId === selectedUserId)?.userNickname || 'Anónimo'}
                 </h3>
-                <button
-                  onClick={() => setSelectedUserId(null)}
-                  className="text-slate-400 hover:text-slate-300"
-                >
-                  ✕
-                </button>
               </div>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2 max-h-96 overflow-y-auto">
                 {getUserDetails(selectedUserId).length > 0 ? (
                   <>
-                    {/* Encabezados */}
-                    <div className="grid grid-cols-3 gap-4 px-3 py-2 border-b border-slate-600 text-xs font-bold text-slate-400 uppercase sticky top-0 bg-slate-800">
-                      <span>Categoría</span>
-                      <span className="text-center">Voto</span>
-                      <span className="text-right">Puntos</span>
+                    {/* Encabezados - visible solo en desktop */}
+                    <div className="hidden md:grid md:grid-cols-3 gap-4 px-3 py-2 border-b theme-border-primary text-xs font-bold theme-text-secondary uppercase sticky top-0 theme-container-tertiary rounded">
+                      <span>{t('categoryTitle')}</span>
+                      <span className="text-center">{t('vote')}</span>
+                      <span className="text-right">{t('points')}</span>
                     </div>
                     {/* Filas de datos */}
                     {getUserDetails(selectedUserId).map((detail, idx) => (
-                      <div key={idx} className="grid grid-cols-3 gap-4 p-3 bg-green-500/10 border border-green-500/30 rounded items-center">
-                        <span className="text-green-400 font-semibold">{detail.category}</span>
-                        <span className="text-slate-300 text-center">✓ {detail.vote}</span>
-                        <span className="text-green-400 font-bold text-right">+{detail.points} pts</span>
+                      <div key={idx} className="md:grid md:grid-cols-3 md:gap-4 p-3 bg-green-500/10 border border-green-500/30 rounded space-y-2 md:space-y-0 md:items-center">
+                        <div>
+                          <div className="md:hidden text-xs theme-text-tertiary font-bold">{t('categoryTitle')}</div>
+                          <span className="text-green-400 font-semibold">{detail.category}</span>
+                        </div>
+                        <div className="md:text-center">
+                          <div className="md:hidden text-xs theme-text-tertiary font-bold">{t('vote')}</div>
+                          <span className="theme-text-secondary">✓ {detail.vote}</span>
+                        </div>
+                        <div className="md:text-right">
+                          <div className="md:hidden text-xs theme-text-tertiary font-bold">{t('points')}</div>
+                          <span className="text-green-400 font-bold">+{detail.points} {t('pts')}</span>
+                        </div>
                       </div>
                     ))}
                   </>
                 ) : (
-                  <p className="text-slate-400 text-sm">No acertó ninguna votación</p>
+                  <p className="theme-text-tertiary text-sm p-4 text-center">
+                    {language === 'es' ? 'No acertó ninguna votación' : 'No correct votes'}
+                  </p>
                 )}
               </div>
             </div>

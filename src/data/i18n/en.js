@@ -77,7 +77,7 @@ export const en = {
   confirmation: "Confirmation",
   yourVoteConfirmed: "Your vote is confirmed.",
   willNotBeAbleToChange: "You will not be able to change it.",
-  checkBackDecember: "Check back on December 1st to see who wins The Game Awards.",
+  checkBackDecember: "Check back on December to see who wins The Game Awards.",
   signOut: "Sign Out",
   thankYouForVoting: "Thank you for voting in The Game Awards",
   officialsVotingPlatform: "The official voting platform for The Game Awards",
@@ -135,7 +135,7 @@ export const en = {
   saveWinners: "Save Winners",
   winnersUnsaved: "You have unsaved changes",
   noCategories: "No categories. Create categories first.",
-  finalResults: "🏆 Final Results",
+  finalResults: "Final Results",
   winnersByCategoryAndScores: "Winners by category and user scores",
   ranking: "Ranking",
   position: "Position",
@@ -155,6 +155,13 @@ export const en = {
   unselectWinner: "Click again to deselect",
   noVotesForCategory: "No votes for this category",
   categoryEmpty: "This category is empty (placeholder)",
+  
+  // Category Manager
+  weight: "Weight",
+  options: "Options",
+  categoryTitle: "Name",
+  delete: "Delete",
+  cancel: "Cancel",
   
   // Generic
   close: "Close",

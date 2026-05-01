@@ -4,6 +4,7 @@ import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { useTranslation } from './data/literals';
 import { loadAndSortCategories } from './services/categoriesService';
+import { cleanPlaceholderCaches } from './services/gameImageService';
 import { useTheme } from './hooks';
 
 // Componentes modulares
@@ -105,6 +106,12 @@ function App() {
         setUserNickname(user.displayName || '');
         setUserDisplayName(user.displayName || ''); // Inicializar con displayName del usuario
         setCanEditNickname(false); // No editable después del login
+        
+        // Limpiar placeholders del cache (para regenerar con URLs reales de RAWG)
+        const cleaned = cleanPlaceholderCaches();
+        if (cleaned > 0) {
+          console.log(`🧹 Placeholders limpios: ${cleaned}`);
+        }
         
         // Recuperar progreso previo de localStorage
         const savedProgress = localStorage.getItem('votingProgress');

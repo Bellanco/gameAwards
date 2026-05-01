@@ -219,16 +219,16 @@ export default function WinnersPanel({
     }
 
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-black text-slate-100">
+      <div className="min-h-screen theme-gradient-primary">
         {/* Header */}
-        <div className="bg-gradient-to-b from-black/80 to-transparent border-b border-slate-800 sticky top-0 z-40 backdrop-blur">
+        <div className="theme-container-secondary theme-border-primary border-b sticky top-0 z-40 backdrop-blur">
           <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h1 className="text-3xl md:text-4xl font-black text-white">
+                <h1 className="text-3xl md:text-4xl font-black theme-text-primary">
                   {t('selectWinners')}
                 </h1>
-                <p className="text-slate-400 text-sm">{t('chooseWinnersPerCategory')}</p>
+                <p className="theme-text-secondary text-sm">{t('chooseWinnersPerCategory')}</p>
               </div>
               <Button variant="secondary" size="md" onClick={onClose}>
                 {t('back')}
@@ -269,7 +269,7 @@ export default function WinnersPanel({
           {categories.length === 0 ? (
             <Card>
               <Card.Body className="text-center">
-                <p className="text-slate-400 text-lg">{t('noCategories')}</p>
+                <p className="theme-text-secondary text-lg">{t('noCategories')}</p>
               </Card.Body>
             </Card>
           ) : (
@@ -282,7 +282,7 @@ export default function WinnersPanel({
                 return (
                   <Card key={category.id}>
                     <Card.Header>
-                      <h2 className="text-xl font-bold text-white">{category.title}</h2>
+                      <h2 className="text-xl font-bold theme-text-primary">{category.title}</h2>
                       {winners[category.id] && (
                         <p className="text-green-400 text-sm mt-2">
                           ✓ {t('selected')}: {winners[category.id].name}
@@ -329,8 +329,8 @@ export default function WinnersPanel({
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-white mb-2">{t('finalResults')}</h2>
-          <p className="text-slate-400">{t('winnersByCategoryAndScores')}</p>
+          <h2 className="text-2xl font-bold theme-text-primary mb-2">{t('finalResults')}</h2>
+          <p className="theme-text-secondary">{t('winnersByCategoryAndScores')}</p>
         </div>
 
         {alertMessage && (
@@ -346,37 +346,39 @@ export default function WinnersPanel({
         {/* Tabla de Clasificación */}
         <Card>
           <Card.Header>
-            <h3 className="text-lg font-bold text-white">{t('ranking')}</h3>
+            <h3 className="text-lg font-bold theme-text-primary">{t('ranking')}</h3>
           </Card.Header>
           <Card.Body>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-700">
-                    <th className="text-left py-3 px-4 font-bold text-slate-300">{t('position')}</th>
-                    <th className="text-left py-3 px-4 font-bold text-slate-300">{t('userName')}</th>
-                    <th className="text-right py-3 px-4 font-bold text-slate-300">{t('points')}</th>
-                    <th className="text-center py-3 px-4 font-bold text-slate-300">{t('details')}</th>
+                  <tr className="border-b theme-border-primary">
+                    <th className="text-left py-3 px-4 font-bold theme-text-secondary">{t('position')}</th>
+                    <th className="text-left py-3 px-4 font-bold theme-text-secondary">{t('userName')}</th>
+                    <th className="text-right py-3 px-4 font-bold theme-text-secondary">{t('points')}</th>
+                    <th className="text-center py-3 px-4 font-bold theme-text-secondary">{t('details')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {ranking.map(entry => (
-                    <tr key={entry.userId} className="border-b border-slate-700 hover:bg-slate-800/50">
-                      <td className="py-3 px-4 font-bold text-white">
+                    <tr key={entry.userId} className="border-b theme-border-primary hover:theme-bg-overlay-light">
+                      <td className="py-3 px-4 font-bold theme-text-primary">
                         {entry.rank === 1 && '🥇'} 
                         {entry.rank === 2 && '🥈'} 
                         {entry.rank === 3 && '🥉'} 
                         {entry.rank}
                       </td>
-                      <td className="py-3 px-4 text-slate-300">{entry.nickname}</td>
-                      <td className="py-3 px-4 text-right font-bold text-yellow-400">{entry.score} {t('pts')}</td>
+                      <td className="py-3 px-4 theme-text-secondary">{entry.nickname}</td>
+                      <td className="py-3 px-4 text-right font-bold theme-accent">{entry.score} {t('pts')}</td>
                       <td className="py-3 px-4 text-center">
                         <Button
-                          variant="secondary"
+                          variant={selectedUserId === entry.userId ? "success" : "secondary"}
                           size="sm"
-                          onClick={() => setSelectedUserId(entry.userId)}
+                          onClick={() => setSelectedUserId(selectedUserId === entry.userId ? null : entry.userId)}
                         >
-                          {t('details')}
+                          <span style={{ display: 'inline-block', transition: 'transform 0.2s ease', transform: selectedUserId === entry.userId ? 'rotate(45deg)' : 'rotate(0deg)' }}>
+                            +
+                          </span>
                         </Button>
                       </td>
                     </tr>
@@ -391,21 +393,12 @@ export default function WinnersPanel({
         {selectedUserId && (
           <Card>
             <Card.Header>
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-white">{t('correctVotes')}</h3>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => setSelectedUserId(null)}
-                >
-                  ✕ {t('close')}
-                </Button>
-              </div>
+              <h3 className="text-lg font-bold theme-text-primary">{t('correctVotes')}</h3>
             </Card.Header>
             <Card.Body>
               <div className="space-y-2">
                 {getUserCorrectVotes(selectedUserId).length === 0 ? (
-                  <p className="text-slate-400 text-sm">{t('noVotesForCategory')}</p>
+                  <p className="theme-text-secondary text-sm">{t('noVotesForCategory')}</p>
                 ) : (
                   <>
                     {/* Encabezados de las columnas */}
@@ -419,7 +412,7 @@ export default function WinnersPanel({
                       <div key={idx} className="grid grid-cols-3 gap-4 p-3 bg-slate-700/50 rounded items-center">
                         <span className="text-slate-300">{vote.category}</span>
                         <span className="text-green-400 font-semibold text-center">{vote.vote}</span>
-                        <span className="text-yellow-400 font-bold text-right">+{vote.points} {t('pts')}</span>
+                        <span className="theme-accent font-bold text-right">+{vote.points} {t('pts')}</span>
                       </div>
                     ))}
                   </>

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../data/literals';
-import { getGameImage } from '../services/gameImageService';
 import { getRandomGradients } from '../utils/gradients';
 import GameCard from './GameCard';
 import { ScreenLayout } from './layouts';
@@ -46,30 +45,11 @@ export default function VoteScreen({
     );
   }
 
-  // Cargar imágenes cuando cambia la categoría
+  // Cargar gradientes cuando cambia la categoría
   useEffect(() => {
-    const loadImages = async () => {
-      setLoadingImages(true);
-      const images = {};
-      
-      const promises = category.options.map(async (gameName) => {
-        try {
-          const imageUrl = await getGameImage(gameName);
-          images[gameName] = imageUrl;
-        } catch (error) {
-          console.warn(`Failed to load image for ${gameName}:`, error);
-          images[gameName] = `https://via.placeholder.com/400x600/1f2937/ffffff?text=${encodeURIComponent(gameName)}`;
-        }
-      });
-
-      await Promise.all(promises);
-      setGameImages(images);
-      const gradients = getRandomGradients(category.options);
-      setGameGradients(gradients);
-      setLoadingImages(false);
-    };
-
-    loadImages();
+    const gradients = getRandomGradients(category.options);
+    setGameGradients(gradients);
+    setLoadingImages(false);
   }, [category.id, category.options]);
 
   // Header con progreso y controles
@@ -105,7 +85,7 @@ export default function VoteScreen({
 
       <button
         onClick={onNext}
-        className="flex-1 py-2 sm:py-2.5 px-3 rounded font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 text-black hover:from-yellow-400 hover:to-yellow-500 text-xs sm:text-sm transition transform hover:scale-105"
+        className="flex-1 py-2 sm:py-2.5 px-3 rounded font-bold bg-gradient-to-r from-amber-600 to-amber-700 text-white hover:from-amber-500 hover:to-amber-600 text-xs sm:text-sm transition transform hover:scale-105"
       >
         {currentStep === totalSteps - 1 ? t('review') : t('next')}
       </button>
@@ -132,32 +112,36 @@ export default function VoteScreen({
       )}
 
       {/* Grid - Contenedor que crece y escala */}
-      <main className="flex-1 overflow-hidden flex flex-col px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-        <div className="flex-1 overflow-hidden min-h-0">
-          <div className={`grid gap-2 sm:gap-3 md:gap-12 lg:gap-16 h-full auto-rows-max w-full
-            ${category.options.length <= 2 ? 'grid-cols-1 md:grid-cols-2' :
-              category.options.length === 3 ? 'grid-cols-2 md:grid-cols-3' :
-              category.options.length === 4 ? 'grid-cols-2 md:grid-cols-2 lg:grid-cols-4' :
-              category.options.length === 5 ? 'grid-cols-2 md:grid-cols-3' :
-              category.options.length === 6 ? 'grid-cols-2 md:grid-cols-3' :
-              'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+      <main className="flex-1 overflow-hidden flex flex-col px-2 sm:px-3 lg:px-4 py-2 sm:py-3 items-center justify-center">
+        <div className="flex-1 overflow-hidden min-h-0 w-full flex items-center justify-center">
+          <div className={`grid gap-1 sm:gap-2 md:gap-6 lg:gap-8 h-fit w-full auto-rows-max px-2 sm:px-3
+            ${category.options.length <= 2 ? 'grid-cols-1 sm:grid-cols-1 md:grid-cols-2' :
+              category.options.length === 3 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3' :
+              category.options.length === 4 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4' :
+              category.options.length === 5 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5' :
+              category.options.length === 6 ? 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6' :
+              'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'
             }`}
-            style={{ gridAutoRows: '1fr' }}
           >
             {category.options.map((option, index) => {
               const optionId = category.optionIds ? category.optionIds[index] : `${category.id}_option_${index}`;
               const isSelected = selectedOption?.id === optionId;
-              const gameImageUrl = gameImages[option] || `https://via.placeholder.com/400x600/1f2937/ffffff?text=${encodeURIComponent(option)}`;
+              const isLastOption = index === category.options.length - 1;
 
               return (
                 <GameCard
                   key={`${category.id}_${optionId}`}
                   variant="vote"
                   gameName={option}
-                  gameImage={gameImageUrl}
                   gradient={gameGradients[option] || 'bg-gradient-to-br from-slate-900/60 to-slate-900/80'}
                   isSelected={isSelected}
-                  onSelect={() => onSelectOption(category.id, { id: optionId, name: option })}
+                  onSelect={() => {
+                    onSelectOption(category.id, { id: optionId, name: option });
+                    // Si es la última opción, ir a revisar automáticamente
+                    if (isLastOption) {
+                      setTimeout(() => onNext(), 100);
+                    }
+                  }}
                 />
               );
             })}

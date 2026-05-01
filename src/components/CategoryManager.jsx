@@ -3,7 +3,7 @@ import { setDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useTranslation } from '../data/literals';
 import { useFirestoreCategories } from '../hooks';
-import { Button, Card, LoadingSpinner, Alert } from './ui';
+import { Button, Card, Alert } from './ui';
 import { logError, ERROR_TYPES } from '../services/errorService';
 
 /**
@@ -77,7 +77,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
   const handleOptionChange = (index, value) => {
     setFormData(prev => {
       const newOptions = [...prev.options];
-      newOptions[index] = value;
+      newOptions[index] = value.trim();
       return { ...prev, options: newOptions };
     });
   };
@@ -249,19 +249,40 @@ export default function CategoryManager({ language = 'es', onClose }) {
   };
 
   if (isLoading) {
-    return <LoadingSpinner text={t('loadingData')} fullScreen />;
+    return (
+      <div className="h-screen flex flex-col theme-gradient-primary items-center justify-center">
+        <div className="relative w-24 h-24">
+          {/* Spinner giratorio */}
+          <div className="absolute inset-0 rounded-full border-4 theme-border-primary"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-amber-600 border-r-amber-700 animate-spin"></div>
+          
+          {/* Núcleo interior con degradado */}
+          <div className="absolute inset-2 rounded-full bg-gradient-to-br from-amber-600/20 to-orange-600/20 flex items-center justify-center">
+            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-amber-600 to-orange-600 animate-pulse"></div>
+          </div>
+        </div>
+        
+        {/* Texto */}
+        <div className="mt-12 text-center">
+          <p className="text-lg font-semibold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+            {t('loadingData')}
+          </p>
+          <p className="text-sm theme-text-secondary mt-3">Preparando panel...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-black text-slate-100 overflow-hidden">
+    <div className="h-screen flex flex-col theme-gradient-primary overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-black/90 to-slate-900/50 border-b border-slate-700/50 backdrop-blur px-4 md:px-6 py-3 flex-shrink-0 z-40">
+      <div className="theme-container-secondary theme-border-primary border-b backdrop-blur px-4 md:px-6 py-3 flex-shrink-0 z-40">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-xl md:text-2xl font-black bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+            <h1 className="text-xl md:text-2xl font-black bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
               {t('categories')}
             </h1>
-            <p className="text-slate-400 text-xs md:text-sm mt-0.5">{validCategories.length} activas</p>
+            <p className="theme-text-secondary text-xs md:text-sm mt-0.5">{validCategories.length} activas</p>
           </div>
           <Button variant="secondary" size="md" onClick={onClose}>
             ✕ {t('back')}
@@ -274,20 +295,20 @@ export default function CategoryManager({ language = 'es', onClose }) {
         
         {/* Sidebar - List */}
         <Card className="md:col-span-1 flex flex-col overflow-hidden">
-          <div className="p-3 border-b border-slate-700/50 flex-shrink-0">
+          <div className="p-3 border-b theme-border-primary flex-shrink-0">
             <input
               type="text"
               placeholder="Buscar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded text-white placeholder-slate-400 text-sm focus:outline-none focus:border-yellow-400/50"
+              className="w-full px-3 py-2 theme-container-secondary theme-border-primary border rounded theme-text-primary theme-placeholder text-sm focus:outline-none focus:border-amber-600/50"
               disabled={isSaving}
             />
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-1.5 p-3">
             {filteredCategories.length === 0 ? (
-              <p className="text-slate-400 text-center text-xs py-4">
+              <p className="theme-text-tertiary text-center text-xs py-4">
                 {searchTerm ? 'No encontradas' : 'Sin categorías'}
               </p>
             ) : (
@@ -303,13 +324,13 @@ export default function CategoryManager({ language = 'es', onClose }) {
                   onDrop={(e) => handleDropCategory(e, category, index)}
                   className={`p-3 rounded border transition-all flex items-center gap-2 group cursor-grab ${
                     draggedCategory?.docId === category.docId && isSaving
-                      ? 'bg-yellow-500/40 border-yellow-400 ring-2 ring-yellow-400'
+                      ? 'bg-yellow-200/60 border-yellow-300 ring-2 ring-yellow-300 dark:bg-yellow-500/40 dark:border-yellow-400 dark:ring-yellow-400'
                       : draggedCategory?.docId === category.docId
                       ? 'bg-slate-700/20 border-slate-500 opacity-50 scale-95'
                       : hoveredIndex === index && draggedCategory && !isSaving
-                      ? 'bg-yellow-500/30 border-yellow-400 ring-2 ring-yellow-400/50'
+                      ? 'bg-yellow-100/60 border-yellow-300 ring-2 ring-yellow-300/50 dark:bg-yellow-500/30 dark:border-yellow-400 dark:ring-yellow-400/50'
                       : editingId === category.docId
-                      ? 'bg-yellow-500/20 border-yellow-400/50'
+                      ? 'bg-yellow-100/50 border-yellow-300/50 dark:bg-yellow-500/20 dark:border-yellow-400/50'
                       : 'bg-slate-700/30 border-slate-600/30 hover:border-slate-500/50'
                   }`}
                 >
@@ -319,8 +340,11 @@ export default function CategoryManager({ language = 'es', onClose }) {
                       disabled={isSaving}
                       className="w-full text-left mb-2 disabled:opacity-50"
                     >
-                      <div className="font-semibold truncate text-white text-sm">{category.title}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">{category.options?.length || 0} opciones</div>
+                      <div className="font-semibold truncate theme-text-primary text-sm">{category.title}</div>
+                      <div className="flex gap-3 mt-1 text-xs theme-text-tertiary">
+                        <span>{category.options?.length || 0} opciones</span>
+                        <span className="font-semibold theme-accent">{category.weight || 1}x</span>
+                      </div>
                     </button>
                     
                     <Button
@@ -328,9 +352,9 @@ export default function CategoryManager({ language = 'es', onClose }) {
                       size="sm"
                       fullWidth
                       onClick={() => handleDeleteCategory(category.docId)}
-                      loading={isSaving}
+                      loading={false}
                     >
-                      {t('delete') || 'Eliminar'}
+                      {t('delete')}
                     </Button>
                   </div>
 
@@ -342,7 +366,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
             )}
           </div>
 
-          <div className="p-3 border-t border-slate-700/50 text-xs text-slate-400 flex-shrink-0 text-center">
+          <div className="p-3 border-t theme-border-primary theme-text-tertiary flex-shrink-0 text-center text-xs">
             {filteredCategories.length} / {validCategories.length}
           </div>
         </Card>
@@ -363,8 +387,8 @@ export default function CategoryManager({ language = 'es', onClose }) {
 
           <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
             <Card.Header>
-              <h2 className="text-lg font-bold text-white">
-                {editingId ? '✏️ Editar' : '➕ Nueva'}
+              <h2 className="text-lg font-bold theme-text-primary">
+                {editingId ? 'Editar' : 'Nueva'}
               </h2>
             </Card.Header>
             
@@ -372,19 +396,19 @@ export default function CategoryManager({ language = 'es', onClose }) {
               <form onSubmit={handleAddCategory} className="space-y-4 flex flex-col h-full">
                 
                 <div>
-                  <label className="text-sm font-semibold text-slate-200 block mb-2">{t('categoryTitle') || 'Nombre'}</label>
+                  <label className="text-sm font-semibold theme-text-primary block mb-2">{t('categoryTitle')}</label>
                   <input
                     type="text"
                     value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value.trim() })}
                     placeholder="ej: Game of the Year"
-                    className="w-full px-4 py-3 bg-slate-700/50 border border-slate-600/50 rounded text-white text-base placeholder-slate-400 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/30"
+                    className="w-full px-4 py-3 theme-container-secondary theme-border-primary border rounded theme-text-primary theme-placeholder text-base focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30"
                     disabled={isSaving}
                   />
                 </div>
 
                 <div>
-                  <label className="text-sm font-semibold text-slate-200 block mb-2">{t('weight') || 'Peso'}</label>
+                  <label className="text-sm font-semibold theme-text-primary block mb-2">{t('weight')}</label>
                   <div className="flex gap-2">
                     {[0.5, 1, 2, 3].map((value) => (
                       <button
@@ -394,8 +418,8 @@ export default function CategoryManager({ language = 'es', onClose }) {
                         disabled={isSaving}
                         className={`flex-1 py-2.5 px-3 rounded text-sm font-bold transition-all ${
                           formData.weight === value
-                            ? 'bg-yellow-500/80 text-slate-900 border border-yellow-400'
-                            : 'bg-slate-700/30 text-slate-300 border border-slate-600/30 hover:border-slate-500/50'
+                            ? 'theme-accent-bg text-white border border-amber-600'
+                            : 'theme-container-secondary theme-text-secondary theme-border-primary border hover:border-amber-600/50'
                         }`}
                       >
                         {value}
@@ -405,8 +429,8 @@ export default function CategoryManager({ language = 'es', onClose }) {
                 </div>
 
                 <div className="flex-1 flex flex-col min-h-0">
-                  <label className="text-sm font-semibold text-slate-200 block mb-2">
-                    {t('options') || 'Opciones'} ({formData.options.filter(o => o.trim()).length})
+                  <label className="text-sm font-semibold theme-text-primary block mb-2">
+                    {t('options')} ({formData.options.filter(o => o.trim()).length})
                   </label>
                   <div className="space-y-2 overflow-y-auto flex-1 pr-2">
                     {formData.options.map((option, index) => (
@@ -416,7 +440,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
                           value={option}
                           onChange={(e) => handleOptionChange(index, e.target.value)}
                           placeholder={`Opción ${index + 1}`}
-                          className="flex-1 px-3 py-2 bg-slate-700/50 border border-slate-600/50 rounded text-white text-sm placeholder-slate-400 focus:outline-none focus:border-yellow-400 focus:ring-1 focus:ring-yellow-400/30"
+                          className="flex-1 px-3 py-2 theme-container-secondary theme-border-primary border rounded theme-text-primary text-sm theme-placeholder focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30"
                           disabled={isSaving}
                         />
                         {formData.options.length > 2 && (
@@ -424,7 +448,8 @@ export default function CategoryManager({ language = 'es', onClose }) {
                             variant="danger"
                             size="sm"
                             onClick={() => handleRemoveOption(index)}
-                            loading={isSaving}
+                            loading={false}
+                            type="button"
                           >
                             ✕
                           </Button>
@@ -436,8 +461,9 @@ export default function CategoryManager({ language = 'es', onClose }) {
                     variant="secondary"
                     fullWidth
                     onClick={handleAddOption}
-                    loading={isSaving}
+                    loading={false}
                     className="mt-3"
+                    type="button"
                   >
                     + Opción
                   </Button>
@@ -447,7 +473,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
                   <Button
                     variant="primary"
                     fullWidth
-                    loading={isSaving}
+                    loading={false}
                     type="submit"
                   >
                     {editingId ? 'Guardar' : 'Crear'}
@@ -457,9 +483,10 @@ export default function CategoryManager({ language = 'es', onClose }) {
                       variant="secondary"
                       fullWidth
                       onClick={handleCancel}
-                      loading={isSaving}
+                      loading={false}
+                      type="button"
                     >
-                      {t('cancel') || 'Cancelar'}
+                      {t('cancel')}
                     </Button>
                   )}
                 </div>

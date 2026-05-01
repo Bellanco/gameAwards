@@ -4,6 +4,7 @@ import { signOut, signInWithPopup } from 'firebase/auth';
 import { useTranslation } from '../data/literals';
 import { LanguageIcon, ThemeIcon, MedalGoldIcon, MedalSilverIcon, MedalBronzeIcon } from './Icons';
 import { useAdminCheck, useFirestoreCategories, useFirestoreBallots } from '../hooks';
+import { sortCategoriesByOrder } from '../services/categoriesService';
 import { LoadingSpinner } from './ui';
 
 // Importar pantallas de administración
@@ -95,6 +96,22 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
   };
 
   /**
+   * Obtener selecciones del ballot ordenadas por orderIndex de categorías
+   * Usa la misma función que en el resto de la aplicación
+   */
+  const getSortedBallotSelections = (ballot) => {
+    if (!ballot.selections) return [];
+    
+    // Obtener categorías ordenadas por orderIndex
+    const sortedCats = sortCategoriesByOrder(categories);
+    
+    // Mapear selecciones manteniendo el orden
+    return sortedCats
+      .filter(cat => ballot.selections[cat.id])
+      .map(cat => [cat.id, ballot.selections[cat.id]]);
+  };
+
+  /**
    * Obtener ganador y votación de una categoría
    */
   const getWinner = (categoryId) => {
@@ -102,35 +119,6 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
     const category = statsData[categoryId];
     const winner = Object.entries(category).sort(([, a], [, b]) => b - a)[0];
     return { name: winner[0], votes: winner[1] };
-  };
-
-  /**
-   * Descargar datos como JSON
-   */
-  const downloadJSON = () => {
-    const dataStr = JSON.stringify(ballots, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `ballots-${new Date().toISOString()}.json`;
-    link.click();
-  };
-
-  /**
-   * Descargar datos como CSV
-   */
-  const downloadCSV = () => {
-    let csv = 'User,Email,Nickname,Submitted At\n';
-    ballots.forEach(ballot => {
-      csv += `"${ballot.userId || ballot.id}","${ballot.userEmail || ''}","${ballot.userNickname || ''}","${ballot.submittedAt || ''}"\n`;
-    });
-    const dataBlob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `ballots-${new Date().toISOString()}.csv`;
-    link.click();
   };
 
   /**
@@ -194,7 +182,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
           <p className="theme-text-tertiary text-sm mb-6">{t('connecting')}: {currentUser?.email}</p>
           <button
             onClick={handleLogout}
-            className="px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-black font-semibold rounded-lg transition-all"
+            className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-all"
           >
             {t('signOut')}
           </button>
@@ -251,7 +239,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                 onClick={() => setViewMode(mode)}
                 className={`py-2 px-4 rounded-lg font-semibold text-sm transition-all whitespace-nowrap ${
                   viewMode === mode
-                    ? 'bg-yellow-500 text-slate-900'
+                    ? 'theme-accent-bg text-white'
                     : 'theme-card theme-border-primary border theme-text-secondary hover:theme-border-secondary'
                 }`}
               >
@@ -276,26 +264,16 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="theme-card theme-border-primary border rounded-lg p-6">
                 <p className="text-xs theme-text-tertiary uppercase mb-2">{t('totalBallots')}</p>
-                <p className="text-4xl font-black text-yellow-500">{getValidBallots().length}</p>
+                <p className="text-4xl font-black theme-accent">{getValidBallots().length}</p>
               </div>
               <div className="theme-card theme-border-primary border rounded-lg p-6">
                 <p className="text-xs theme-text-tertiary uppercase mb-2">{t('categories')}</p>
-                <p className="text-4xl font-black text-yellow-500">{statsData ? Object.keys(statsData).length : 0}</p>
+                <p className="text-4xl font-black theme-accent">{statsData ? Object.keys(statsData).length : 0}</p>
               </div>
               <div className="theme-card theme-border-primary border rounded-lg p-6">
                 <p className="text-xs theme-text-tertiary uppercase mb-2">{t('participation')}</p>
-                <p className="text-4xl font-black text-yellow-500">100%</p>
+                <p className="text-4xl font-black theme-accent">100%</p>
               </div>
-            </div>
-
-            {/* Download Buttons */}
-            <div className="flex gap-4">
-              <button onClick={downloadJSON} className="py-3 px-6 bg-blue-600 hover:bg-blue-700 rounded-lg font-semibold transition-all">
-                {t('downloadJSON')}
-              </button>
-              <button onClick={downloadCSV} className="py-3 px-6 bg-green-600 hover:bg-green-700 rounded-lg font-semibold transition-all">
-                {t('downloadCSV')}
-              </button>
             </div>
 
             {/* Results by Category */}
@@ -307,11 +285,11 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                     const winner = Object.entries(votes).sort(([, a], [, b]) => b - a)[0];
                     return (
                       <div key={category} className="theme-card theme-border-primary border rounded-lg p-6 hover:border-yellow-500/50 transition-all cursor-pointer" onClick={() => { setViewMode('results'); setSelectedCategory(category); }}>
-                        <h3 className="text-lg font-bold text-yellow-400 mb-4">{getCategoryTitle(category)}</h3>
+                        <h3 className="text-lg font-bold theme-accent mb-4">{getCategoryTitle(category)}</h3>
                         <div className="space-y-2">
                           {Object.entries(votes).sort(([, a], [, b]) => b - a).slice(0, 3).map(([option, count], idx) => (
                             <div key={option} className="flex justify-between items-center">
-                              <span className={`text-sm flex items-center gap-2 ${idx === 0 ? 'text-yellow-400 font-bold' : 'theme-text-secondary'}`}>
+                              <span className={`text-sm flex items-center gap-2 ${idx === 0 ? 'theme-accent font-bold' : 'theme-text-secondary'}`}>
                                 {idx === 0 && <MedalGoldIcon className="w-4 h-4" />}
                                 {idx === 1 && <MedalSilverIcon className="w-4 h-4" />}
                                 {idx === 2 && <MedalBronzeIcon className="w-4 h-4" />}
@@ -335,10 +313,10 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2">
               <div className="bg-black rounded-lg overflow-hidden theme-border-primary border shadow-2xl">
-                <div className="aspect-video bg-gradient-to-br from-yellow-500 to-yellow-700 flex items-center justify-center relative">
+                <div className="aspect-video bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center relative">
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <p className="text-white text-xl font-bold text-center px-4">{t('theWinners')}</p>
-                    <p className="text-yellow-200 text-sm mt-2">
+                    <p className="text-amber-100 text-sm mt-2">
                       {selectedCategory && getWinner(selectedCategory) ? getWinner(selectedCategory).name : t('selectACategory')}
                     </p>
                   </div>
@@ -347,7 +325,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                   <div className="p-6 theme-container-secondary theme-border-primary border-t">
                     <div className="mb-4">
                       <p className="text-xs theme-text-tertiary uppercase mb-2">{t('categoryLabel')}</p>
-                      <h3 className="text-2xl font-black text-yellow-400">{getCategoryTitle(selectedCategory)}</h3>
+                      <h3 className="text-2xl font-black theme-accent">{getCategoryTitle(selectedCategory)}</h3>
                     </div>
                     <div>
                       <p className="text-xs theme-text-tertiary uppercase mb-2">{t('winner')}</p>
@@ -362,18 +340,18 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                   <h3 className="text-lg font-bold theme-text-primary mb-4">{t('top3')}</h3>
                   <div className="space-y-2">
                     {Object.entries(statsData[selectedCategory]).sort(([, a], [, b]) => b - a).slice(0, 3).map(([option, votes], idx) => (
-                      <div key={option} className={`p-4 rounded-lg border transition-all ${idx === 0 ? 'bg-yellow-500/10 border-yellow-500 shadow-lg shadow-yellow-500/20' : 'theme-card theme-border-primary'}`}>
+                      <div key={option} className={`p-4 rounded-lg border transition-all ${idx === 0 ? 'bg-amber-600/10 border-amber-600 shadow-lg shadow-amber-600/20' : 'theme-card theme-border-primary'}`}>
                         <div className="flex justify-between items-center">
                           <span className="text-lg font-bold flex items-center gap-2">
-                            {idx === 0 && <MedalGoldIcon className="w-5 h-5 text-yellow-500" />}
+                            {idx === 0 && <MedalGoldIcon className="w-5 h-5 theme-accent" />}
                             {idx === 1 && <MedalSilverIcon className="w-5 h-5 text-gray-400" />}
                             {idx === 2 && <MedalBronzeIcon className="w-5 h-5 text-amber-700" />}
                             {option}
                           </span>
-                          <span className="text-yellow-400 font-bold text-xl">{votes}</span>
+                          <span className="theme-accent font-bold text-xl">{votes}</span>
                         </div>
-                        <div className="mt-2 h-2 bg-slate-700 rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-yellow-500 to-yellow-400"
+                        <div className="mt-2 h-2 theme-container-secondary rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-amber-600 to-amber-500"
                             style={{ width: `${(votes / Math.max(...Object.values(statsData[selectedCategory]))) * 100}%` }} />
                         </div>
                       </div>
@@ -391,8 +369,8 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                     const isSelected = selectedCategory === category;
                     return (
                       <button key={category} onClick={() => setSelectedCategory(category)}
-                        className={`w-full text-left p-4 rounded-lg border transition-all ${isSelected ? 'bg-yellow-500/10 border-yellow-500 shadow-lg' : 'theme-container-secondary theme-border-primary hover:theme-border-secondary'}`}>
-                        <p className={`text-sm font-semibold mb-1 ${isSelected ? 'text-yellow-400' : 'theme-text-secondary'}`}>
+                        className={`w-full text-left p-4 rounded-lg border transition-all ${isSelected ? 'bg-amber-600/10 border-amber-600 shadow-lg' : 'theme-container-secondary theme-border-primary hover:theme-border-secondary'}`}>
+                        <p className={`text-sm font-semibold mb-1 ${isSelected ? 'theme-accent' : 'theme-text-secondary'}`}>
                           {getCategoryTitle(category)}
                         </p>
                         <p className="text-xs theme-text-tertiary">{t('winner')}: {winner?.name.substring(0, 20)}...</p>
@@ -400,16 +378,16 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                     );
                   })}
                 </div>
-                <div className="mt-6 bg-gradient-to-br from-yellow-500/10 to-yellow-500/5 border border-yellow-500/30 rounded-lg p-6">
-                  <h3 className="text-sm font-bold text-yellow-400 uppercase mb-4">{t('summary')}</h3>
+                <div className="mt-6 bg-gradient-to-br from-amber-600/10 to-amber-600/5 border border-amber-600/30 rounded-lg p-6">
+                  <h3 className="text-sm font-bold theme-accent uppercase mb-4">{t('summary')}</h3>
                   <div className="space-y-2 text-sm theme-text-secondary">
                     <div className="flex justify-between">
                       <span>{t('totalVotes')}:</span>
-                      <span className="font-bold text-yellow-400">{getValidBallots().length}</span>
+                      <span className="font-bold theme-accent">{getValidBallots().length}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>{t('categories')}:</span>
-                      <span className="font-bold text-yellow-400">{statsData ? Object.keys(statsData).length : 0}</span>
+                      <span className="font-bold theme-accent">{statsData ? Object.keys(statsData).length : 0}</span>
                     </div>
                   </div>
                 </div>
@@ -442,11 +420,11 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                       </td>
                       <td className="p-4">
                         <details className="cursor-pointer">
-                          <summary className="text-yellow-400 font-semibold hover:text-yellow-300">
+                          <summary className="theme-accent font-semibold hover:theme-accent/80">
                             {t('view')} ({Object.keys(ballot.selections || {}).length})
                           </summary>
                           <div className="mt-2 p-2 theme-container-secondary rounded text-xs font-mono theme-text-secondary">
-                            {Object.entries(ballot.selections || {}).map(([cat, val]) => (
+                            {getSortedBallotSelections(ballot).map(([cat, val]) => (
                               <div key={cat}><span className="text-blue-400">{getCategoryTitle(cat)}:</span> {val}</div>
                             ))}
                           </div>

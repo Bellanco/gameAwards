@@ -52,7 +52,7 @@ export default function Header({
               {progress}
             </span>
             {progressPercentage !== null && (
-              <span className="font-bold text-yellow-400">{progressPercentage}%</span>
+              <span className="font-bold theme-accent">{progressPercentage}%</span>
             )}
           </div>
           <div className="h-1 theme-bg-overlay-light rounded-full overflow-hidden">

@@ -18,7 +18,7 @@
   /* Texto */
   --text-primary: #1f2937;
   --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
+  --text-tertiary: #4b5563;      /* Más oscuro para mejor contraste en tema claro */
   
   /* Bordes */
   --border-primary: #e5e7eb;
@@ -28,6 +28,8 @@
   --color-primary: #fafaf8;
   --color-secondary: #d97706;
   --color-tertiary: #06b6d4;
+  --color-accent: #a16207;        /* Cobrizo apagado para tema claro */
+  --placeholder-color: #465468;   /* Gris más oscuro para placeholders en tema claro */
   
   /* Sombras */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -56,6 +58,8 @@ html.dark {
   --color-primary: #132f4c;       /* Azul marino (primario) */
   --color-secondary: #d97706;     /* Naranja dorado */
   --color-tertiary: #06b6d4;      /* Azul cian (azul cielo) */
+  --color-accent: #fbbf24;        /* Amarillo dorado para tema oscuro */
+  --placeholder-color: #6b7280;   /* Gris más claro para placeholders */
   
   /* Sombras */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
@@ -80,6 +84,12 @@ html, body, #root {
 
 .theme-container-secondary {
   background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.theme-container-tertiary {
+  background-color: var(--bg-tertiary);
   color: var(--text-primary);
   transition: background-color 0.3s ease, color 0.3s ease;
 }
@@ -131,6 +141,25 @@ html, body, #root {
 .theme-border-secondary {
   border-color: var(--border-secondary);
   transition: border-color 0.3s ease;
+}
+
+/* Placeholder */
+.theme-placeholder::placeholder {
+  color: var(--placeholder-color);
+  opacity: 0.85;
+}
+
+/* Accent Color (cobrizo/dorado según tema) */
+.theme-accent {
+  color: var(--color-accent);
+}
+
+.theme-accent-bg {
+  background-color: var(--color-accent);
+}
+
+.theme-accent-border {
+  border-color: var(--color-accent);
 }
 
 /* Fondos Translúcidos */

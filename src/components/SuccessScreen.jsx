@@ -42,7 +42,7 @@ export default function SuccessScreen({
     >
       {/* Confeti animado de fondo */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-yellow-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-0 right-1/4 w-96 h-96 bg-amber-600/10 rounded-full blur-3xl animate-pulse"></div>
         <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-green-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
       </div>
 
@@ -52,13 +52,13 @@ export default function SuccessScreen({
           {/* Animación de celebración */}
           <div className="mb-8 flex justify-center items-center gap-2">
             <div className="animate-bounce" style={{ animationDelay: '0s' }}>
-              <StarIcon className="w-16 h-16 md:w-20 md:h-20 text-yellow-500" />
+              <StarIcon className="w-16 h-16 md:w-20 md:h-20 text-amber-600" />
             </div>
             <div className="animate-bounce" style={{ animationDelay: '0.2s' }}>
-              <StarIcon className="w-16 h-16 md:w-20 md:h-20 text-yellow-500" />
+              <StarIcon className="w-16 h-16 md:w-20 md:h-20 text-amber-600" />
             </div>
             <div className="animate-bounce" style={{ animationDelay: '0.4s' }}>
-              <StarIcon className="w-16 h-16 md:w-20 md:h-20 text-yellow-500" />
+              <StarIcon className="w-16 h-16 md:w-20 md:h-20 text-amber-600" />
             </div>
           </div>
 
@@ -68,7 +68,7 @@ export default function SuccessScreen({
           </h1>
 
           {/* Subtítulo */}
-          <p className="text-xl md:text-2xl text-yellow-400 font-bold mb-2">
+          <p className="text-xl md:text-2xl text-amber-700 font-bold mb-2">
             {t('thankYou')}, {userNickname}
           </p>
           <p className="theme-text-secondary mb-8">
@@ -79,19 +79,19 @@ export default function SuccessScreen({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
             <div className="theme-card theme-border-primary border rounded-lg p-6">
               <div className="text-2xl mb-2 flex justify-center">
-                <StarIcon className="w-8 h-8 text-yellow-500" />
+                <StarIcon className="w-8 h-8 text-amber-600" />
               </div>
               <p className="text-sm theme-text-secondary">{t('yourVoteSecure')}</p>
             </div>
             <div className="theme-card theme-border-primary border rounded-lg p-6">
               <div className="text-2xl mb-2 flex justify-center">
-                <StarIcon className="w-8 h-8 text-yellow-500" />
+                <StarIcon className="w-8 h-8 text-amber-600" />
               </div>
               <p className="text-sm theme-text-secondary">{t('oneVotePerPerson')}</p>
             </div>
             <div className="theme-card theme-border-primary border rounded-lg p-6">
               <div className="text-2xl mb-2 flex justify-center">
-                <StarIcon className="w-8 h-8 text-yellow-500" />
+                <StarIcon className="w-8 h-8 text-amber-600" />
               </div>
               <p className="text-sm theme-text-secondary">{t('resultsComingSoon')}</p>
             </div>
@@ -108,16 +108,6 @@ export default function SuccessScreen({
             </p>
           </div>
 
-          {/* Botones de acción */}
-          <div className="flex flex-col md:flex-row gap-4 w-full justify-center">
-            {/* Cerrar sesión */}
-            <button
-              onClick={onLogout}
-              className="py-4 px-8 rounded-lg font-bold bg-gradient-to-r from-yellow-500 to-yellow-400 text-slate-900 hover:from-yellow-400 hover:to-yellow-300 hover:shadow-lg hover:shadow-yellow-500/30 transform hover:scale-105 transition-all"
-            >
-              {t('signOut')}
-            </button>
-          </div>
 
           {/* Footer message */}
           <p className="mt-8 text-xs theme-text-tertiary text-center">

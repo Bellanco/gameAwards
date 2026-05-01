@@ -211,7 +211,7 @@ export default function WinnersSelector({ language = 'es', onClose }) {
                 </div>
 
                 {winners[category.id] && (
-                  <p className="mt-4 text-sm text-yellow-400">
+                  <p className="mt-4 text-sm theme-accent">
                     Ganador seleccionado: <span className="font-bold">{winners[category.id].name}</span>
                   </p>
                 )}

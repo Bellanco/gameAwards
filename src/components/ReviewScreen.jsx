@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from '../data/literals';
-import { getGameImage } from '../services/gameImageService';
 import { getRandomGradients } from '../utils/gradients';
 import GameCard from './GameCard';
 import { ScreenLayout } from './layouts';
@@ -52,43 +51,18 @@ export default function ReviewScreen({
   const [gameGradients, setGameGradients] = useState({});
   const [loadingImages, setLoadingImages] = useState(true);
 
-  // ============ Carga dinámica de imágenes de votos ============
+  // ============ Carga de gradientes (sin imágenes) ============
   useEffect(() => {
-    const loadVotedImages = async () => {
-      setLoadingImages(true);
-      const images = {};
-      
-      // Cargar imágenes para cada voto
-      const votedGames = Object.values(userVotes).filter(Boolean);
-      const promises = votedGames.map(async (voteData) => {
-        const gameName = typeof voteData === 'object' ? voteData.name : voteData;
-        if (!images[gameName]) {
-          try {
-            const imageUrl = await getGameImage(gameName);
-            images[gameName] = imageUrl;
-          } catch (error) {
-            console.warn(`Failed to load review image for ${gameName}:`, error);
-            images[gameName] = `https://via.placeholder.com/300x400/1f2937/ffffff?text=${encodeURIComponent(gameName)}`;
-          }
-        }
-      });
-
-      await Promise.all(promises);
-      setGameImages(images);
-      
-      // Generar gradientes aleatorios para juegos votados
-      const votedGameNames = Object.values(userVotes)
-        .filter(Boolean)
-        .map(voteData => typeof voteData === 'object' ? voteData.name : voteData)
-        .filter(Boolean);
-      
-      const gradients = getRandomGradients(votedGameNames);
-      setGameGradients(gradients);
-      
-      setLoadingImages(false);
-    };
-
-    loadVotedImages();
+    // Generar gradientes aleatorios para juegos votados
+    const votedGameNames = Object.values(userVotes)
+      .filter(Boolean)
+      .map(voteData => typeof voteData === 'object' ? voteData.name : voteData)
+      .filter(Boolean);
+    
+    const gradients = getRandomGradients(votedGameNames);
+    setGameGradients(gradients);
+    
+    setLoadingImages(false);
   }, [userVotes]);
 
   // Header
@@ -131,7 +105,7 @@ export default function ReviewScreen({
             value={userDisplayName}
             onChange={(e) => onDisplayNameChange(e.target.value)}
             placeholder={t('enterNickname')}
-            className="w-full px-4 py-3 theme-container-secondary theme-border-primary border rounded-lg theme-text-primary placeholder-slate-500 focus:border-yellow-500 focus:outline-none transition-colors"
+            className="w-full px-4 py-3 theme-container-secondary theme-border-primary border rounded-lg theme-text-primary theme-placeholder focus:border-amber-600 focus:outline-none transition-colors"
           />
           <p className="text-xs theme-text-tertiary mt-2">
             {userDisplayName.length}/50
@@ -140,13 +114,13 @@ export default function ReviewScreen({
 
         {/* 2. Warning if incomplete */}
         {!isComplete && (
-          <div className="p-4 border border-yellow-500/30 bg-yellow-900/20 rounded-lg mb-8">
-            <p className="text-sm font-semibold text-yellow-400">
+          <div className="p-4 border border-amber-600/30 bg-amber-900/20 rounded-lg mb-8">
+            <p className="text-sm font-semibold text-amber-700">
               {language === 'es' 
                 ? `⚠️ Completa tu voto en ${missingVotes} categoría${missingVotes !== 1 ? 's' : ''} más`
                 : `⚠️ Complete your vote in ${missingVotes} more category${missingVotes !== 1 ? 'ies' : ''}`}
             </p>
-            <p className="text-xs text-yellow-300/80 mt-1">
+            <p className="text-xs text-amber-600/80 mt-1">
               {language === 'es'
                 ? 'Debes votar en todas las categorías antes de enviar tu ballot'
                 : 'You must vote in all categories before submitting your ballot'}
@@ -158,7 +132,7 @@ export default function ReviewScreen({
         <div className="flex gap-3 md:gap-4 w-full mb-8">
           <button
             onClick={onPrevious}
-            className="flex-1 py-3 px-4 rounded-lg font-semibold theme-card theme-border-primary border theme-text-secondary transition-all hover:border-yellow-500"
+            className="flex-1 py-3 px-4 rounded-lg font-semibold theme-card theme-border-primary border theme-text-secondary transition-all hover:border-amber-600"
           >
             {t('editVotes')}
           </button>
@@ -167,7 +141,7 @@ export default function ReviewScreen({
             disabled={!isComplete || isLoading}
             className={`flex-1 py-3 px-4 rounded-lg font-bold transition-all ${
               isComplete && !isLoading
-                ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 text-slate-900 hover:from-yellow-400 hover:to-yellow-500 hover:shadow-lg hover:shadow-yellow-500/30 transform hover:scale-105'
+                ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white hover:from-amber-500 hover:to-amber-600 hover:shadow-lg hover:shadow-amber-600/30 transform hover:scale-105'
                 : 'theme-card theme-text-tertiary cursor-not-allowed opacity-50'
             }`}
             title={!isComplete ? t('completeAllCategories') : ''}
@@ -190,7 +164,7 @@ export default function ReviewScreen({
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
             {validCategories.map((category, categoryIndex) => {
               const votedGame = userVotes[category.id];
 
@@ -199,7 +173,6 @@ export default function ReviewScreen({
                   key={category.id}
                   variant="review"
                   gameName={votedGame?.name}
-                  gameImage={votedGame && gameImages[votedGame?.name]?.image}
                   gradient={votedGame ? gameGradients[votedGame?.name] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80' : 'bg-slate-900/80'}
                   isVoted={!!votedGame}
                   onSelect={() => onPrevious(categoryIndex)}

@@ -69,7 +69,7 @@ export default function LoginScreen({
             {/* Días restantes */}
             {daysRemaining !== null && (
               <div className="mb-8 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-center">
-                <p className="text-yellow-400 font-bold text-lg">
+                <p className="theme-accent font-bold text-lg">
                   {daysRemaining > 0 
                     ? `${daysRemaining} ${t('daysRemaining')}`
                     : t('votingNowOpen')}
@@ -91,8 +91,8 @@ export default function LoginScreen({
               disabled={isLoading}
               className={`w-full py-4 px-6 rounded-lg font-bold text-lg transition-all duration-300 flex items-center justify-center gap-3 mb-6 ${
                 isLoading
-                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-yellow-500 to-yellow-400 text-slate-900 hover:from-yellow-400 hover:to-yellow-300 hover:shadow-lg hover:shadow-yellow-500/30 transform hover:scale-105'
+                  ? 'theme-container-secondary theme-text-tertiary cursor-not-allowed'
+                  : 'bg-gradient-to-r from-amber-600 to-amber-500 text-white hover:from-amber-500 hover:to-amber-400 hover:shadow-lg hover:shadow-amber-600/30 transform hover:scale-105'
               }`}
             >
               {isLoading ? (

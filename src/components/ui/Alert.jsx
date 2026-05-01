@@ -38,7 +38,7 @@ export default function Alert({
   const typeStyles = {
     success: 'bg-green-900/20 border-green-500/30 text-green-400',
     error: 'bg-red-900/20 border-red-500/30 text-red-400',
-    warning: 'bg-yellow-900/20 border-yellow-500/30 text-yellow-400',
+    warning: 'bg-amber-900/20 border-amber-600/30 text-amber-700',
     info: 'bg-blue-900/20 border-blue-500/30 text-blue-400'
   };
 
