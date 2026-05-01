@@ -5,7 +5,11 @@ export default {
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      screens: {
+        'xs': '360px', // iPhone SE y pantallas pequeñas
+      },
+    },
   },
   plugins: [],
 }

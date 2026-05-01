@@ -581,9 +581,9 @@ export default function AdminPanel({ language = 'es', onToggleLanguage }) {
                 <tbody>
                   {getValidBallots().map((ballot) => (
                     <tr key={ballot.id} className="border-b border-slate-700/50 hover:bg-slate-800/20 transition-colors">
-                      <td className="p-4 text-xs font-mono text-slate-400">{ballot.id.substring(0, 8)}...</td>
+                      <td className="p-4 text-xs font-mono text-slate-400">{ballot.userNickname || '-'}</td>
                       <td className="p-4">{ballot.userEmail || '-'}</td>
-                      <td className="p-4 font-semibold">{ballot.userNickname || '-'}</td>
+                      <td className="p-4 font-semibold">{ballot.userDisplayName || '-'}</td>
                       <td className="p-4 text-xs text-slate-400">
                         {ballot.submittedAt 
                           ? new Date(ballot.submittedAt).toLocaleString()

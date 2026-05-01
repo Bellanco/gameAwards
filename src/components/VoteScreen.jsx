@@ -3,11 +3,12 @@ import { useTranslation } from '../data/literals';
 import { getGameImage } from '../services/gameImageService';
 import { getRandomGradients } from '../utils/gradients';
 import { categoryBackgrounds } from '../data/gameData';
-import { CheckmarkIcon, LanguageIcon } from './Icons';
+import { LanguageIcon } from './Icons';
+import GameCard from './GameCard';
 
 /**
- * VoteScreen v3 - Con imágenes dinámicas desde APIs
- * Las imágenes se cargan automáticamente según el nombre del juego
+ * VoteScreen - Patrón responsive clásico
+ * Layout: Header (fijo) | Grid (flexible) | Footer (fijo)
  */
 export default function VoteScreen({
   category,
@@ -31,31 +32,28 @@ export default function VoteScreen({
   const selectedOption = userVotes[category.id];
   const categoryBg = categoryBackgrounds[category.id] || 'https://media.rawg.io/media/games/56d/56d006318db933179cdee675e37e3f1a.jpg';
 
-  // ============ Validación defensiva ============
+  // Validación defensiva
   if (!category || !category.options || category.options.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+      <div className="h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="text-5xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-white mb-2">Categoría inválida</h1>
-          <p className="text-slate-400">Esta categoría no tiene opciones disponibles.</p>
+          <h1 className="text-2xl font-bold text-white mb-2">⚠️ Categoría inválida</h1>
+          <p className="text-slate-400">Sin opciones disponibles.</p>
         </div>
       </div>
     );
   }
 
-  // ============ Carga dinámica de imágenes cuando cambia la categoría ============
+  // Cargar imágenes cuando cambia la categoría
   useEffect(() => {
     const loadImages = async () => {
       setLoadingImages(true);
       const images = {};
       
-      // Cargar imágenes para todos los juegos de esta categoría
       const promises = category.options.map(async (gameName) => {
         try {
           const imageUrl = await getGameImage(gameName);
           images[gameName] = imageUrl;
-          console.log(`✅ Loaded image for: ${gameName}`);
         } catch (error) {
           console.warn(`Failed to load image for ${gameName}:`, error);
           images[gameName] = `https://via.placeholder.com/400x600/1f2937/ffffff?text=${encodeURIComponent(gameName)}`;
@@ -64,62 +62,37 @@ export default function VoteScreen({
 
       await Promise.all(promises);
       setGameImages(images);
-      
-      // Asignar degradados aleatorios
       const gradients = getRandomGradients(category.options);
       setGameGradients(gradients);
-      
       setLoadingImages(false);
     };
 
     loadImages();
   }, [category.id, category.options]);
 
-  function getGridColsClass(optionCount) {
-    if (optionCount <= 2) return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2';
-    if (optionCount === 3) return 'grid-cols-1 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-3';
-    if (optionCount === 4) return 'grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4';
-    if (optionCount <= 6) return 'grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-6';
-    if (optionCount <= 8) return 'grid-cols-2 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8';
-    return 'grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6';
-  }
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 overflow-hidden">
-      {/* Selector de idioma */}
-      <div className="absolute top-4 right-4 z-50">
-        <button
-          onClick={onToggleLanguage}
-          className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 hover:bg-slate-800 border border-slate-700 rounded-lg text-sm font-semibold transition-all"
-        >
-          <LanguageIcon className="w-4 h-4" />
-          <span>{language.toUpperCase()}</span>
-        </button>
-      </div>
+    <div className="h-screen bg-slate-950 text-white flex flex-col">
+      {/* HEADER - Fijo */}
+      <header className="flex-shrink-0 bg-gradient-to-b from-black/95 to-black/80 border-b border-slate-800 relative z-40">
+        <div className="absolute inset-0 overflow-hidden opacity-30">
+          <img
+            src={categoryBg}
+            alt={category.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.target.src = 'https://via.placeholder.com/1920x400/1f2937/666666?text=Category';
+            }}
+          />
+        </div>
 
-      {/* Background Image con Overlay */}
-      <div className="absolute inset-0 h-96 overflow-hidden">
-        <img
-          src={categoryBg}
-          alt={category.title}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            e.target.src = 'https://via.placeholder.com/1920x400/1f2937/666666?text=Category';
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/60 to-slate-950" />
-      </div>
-
-      {/* Header con barra de progreso - Fixed */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/80 to-transparent backdrop-blur-sm border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-4">
+        <div className="relative px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
           {/* Barra de progreso */}
-          <div className="mb-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">
-                {currentStep + 1} {t('of')} {totalSteps}
+          <div className="mb-2 sm:mb-3">
+            <div className="flex justify-between items-center mb-1.5 text-xs sm:text-sm">
+              <span className="font-bold text-slate-300 uppercase">
+                {currentStep + 1} / {totalSteps}
               </span>
-              <span className="text-xs font-bold text-yellow-500">{progressPercentage}%</span>
+              <span className="font-bold text-yellow-400">{progressPercentage}%</span>
             </div>
             <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
               <div
@@ -129,159 +102,101 @@ export default function VoteScreen({
             </div>
           </div>
 
-          {/* Título de categoría */}
-          <h1 className="text-2xl md:text-4xl font-black tracking-tight text-white">
+          {/* Título */}
+          <h1 className="text-lg sm:text-xl md:text-3xl lg:text-4xl font-black text-white line-clamp-2">
             {category.title}
           </h1>
         </div>
-      </div>
 
-      {/* Contenido principal */}
-      <div className="relative z-10 pt-32 pb-32 px-4 md:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Subtítulo */}
-          <p className="text-slate-300 mt-2 mb-10 text-sm md:text-base">
-            {isVoted 
-              ? `${t('yourSelection')}: ${selectedOption?.name}` 
-              : t('chooseYourFavorite')}
-          </p>
+        {/* Selector de idioma */}
+        <button
+          onClick={onToggleLanguage}
+          className="absolute top-3 sm:top-4 right-4 sm:right-6 lg:right-8 flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded text-xs sm:text-sm font-semibold transition"
+        >
+          <LanguageIcon className="w-4 h-4" />
+          <span className="hidden xs:inline">{language.toUpperCase()}</span>
+        </button>
+      </header>
 
-          {/* Grid de opciones - Responsivo */}
-          <div className={`grid gap-4 md:gap-6 lg:gap-8 mb-12 ${getGridColsClass(category.options.length)}`}>
+      {/* MAIN - Flexible, crece para llenar espacio */}
+      <main className="flex-1 overflow-hidden flex flex-col px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+        {/* Subtítulo */}
+        <p className="text-xs sm:text-sm text-slate-300 mb-2 flex-shrink-0">
+          {isVoted 
+            ? `${t('yourSelection')}: ${selectedOption?.name}` 
+            : t('chooseYourFavorite')}
+        </p>
+
+        {/* Indicador de carga */}
+        {loadingImages && (
+          <div className="text-center text-xs sm:text-sm text-slate-400 mb-2 flex-shrink-0">
+            ⏳ {t('loading')}
+          </div>
+        )}
+
+        {/* Grid - Contenedor que crece y escala */}
+        <div className="flex-1 overflow-hidden min-h-0">
+          <div className={`grid gap-2 sm:gap-3 md:gap-4 h-full auto-rows-max w-full
+            ${category.options.length <= 2 ? 'grid-cols-1 md:grid-cols-2' :
+              category.options.length === 3 ? 'grid-cols-2 md:grid-cols-3' :
+              category.options.length === 4 ? 'grid-cols-2 md:grid-cols-2 lg:grid-cols-4' :
+              category.options.length === 5 ? 'grid-cols-2 md:grid-cols-3' :
+              category.options.length === 6 ? 'grid-cols-2 md:grid-cols-3' :
+              'grid-cols-2 md:grid-cols-3 lg:grid-cols-4'
+            }`}
+            style={{ gridAutoRows: '1fr' }}
+          >
             {category.options.map((option, index) => {
-              // Usar optionId del array, o generarlo si no existe
               const optionId = category.optionIds ? category.optionIds[index] : `${category.id}_option_${index}`;
               const isSelected = selectedOption?.id === optionId;
-              // Usa imágenes del estado (cargadas dinámicamente)
               const gameImageUrl = gameImages[option] || `https://via.placeholder.com/400x600/1f2937/ffffff?text=${encodeURIComponent(option)}`;
 
               return (
-                <button
+                <GameCard
                   key={optionId}
-                  onClick={() => onSelectOption(category.id, { id: optionId, name: option })}
-                  className="group relative overflow-hidden rounded-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                >
-                  {/* Card */}
-                  <div className={`relative w-full aspect-square overflow-hidden rounded-lg border-2 transition-all ${
-                    isSelected
-                      ? 'border-yellow-500 shadow-lg shadow-yellow-500/50'
-                      : 'border-slate-700 hover:border-yellow-500/50'
-                  }`}>
-                    {/* Mostrar imagen real si existe, sino metadata estilizada */}
-                    {gameImages[option]?.image ? (
-                      <img
-                        src={gameImages[option].image}
-                        alt={option}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                        onError={(e) => {
-                          // Si falla, mostrar fallback estilizado
-                          e.target.style.display = 'none';
-                          e.target.nextElementSibling.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    
-                    {/* Fallback estilizado (si no hay imagen) */}
-                    <div 
-                      className={`w-full h-full bg-gradient-to-br transition-transform duration-300 group-hover:scale-110 flex flex-col items-center justify-center p-4 ${
-                        gameImages[option]?.image ? 'hidden' : ''
-                      }`}
-                      style={{
-                        background: gameImages[option]?.color 
-                          ? `linear-gradient(135deg, ${gameImages[option].color} 0%, ${gameImages[option].accentColor} 100%)`
-                          : 'linear-gradient(135deg, #95A5A6 0%, #1a1a2e 100%)'
-                      }}
-                    >
-                      
-                    </div>
-                    
-                    {/* Overlay con degradado aleatorio */}
-                    <div className={`absolute inset-0 transition-all duration-300 ${gameGradients[option] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80'}`} />
-                    
-                    {/* Overlay de selección */}
-                    <div className={`absolute inset-0 transition-all duration-300 ${
-                      isSelected
-                        ? 'bg-gradient-to-t from-black to-yellow-500/20'
-                        : 'bg-gradient-to-t from-black/80 to-transparent group-hover:from-black'
-                    }`} />
-
-                    {/* Checkmark */}
-                    {isSelected && (
-                      <div className="absolute top-3 right-3 w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center animate-pulse z-10">
-                        <CheckmarkIcon className="w-5 h-5 text-black" />
-                      </div>
-                    )}
-
-                    {/* Nombre del juego */}
-                    <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
-                      <p className="font-bold text-sm md:text-base text-white line-clamp-2 leading-tight">
-                        {option}
-                      </p>
-                    </div>
-                  </div>
-                </button>
+                  variant="vote"
+                  gameName={option}
+                  gameImage={gameImageUrl}
+                  gradient={gameGradients[option] || 'bg-gradient-to-br from-slate-900/60 to-slate-900/80'}
+                  isSelected={isSelected}
+                  onSelect={() => onSelectOption(category.id, { id: optionId, name: option })}
+                />
               );
             })}
           </div>
-
-          {/* Indicador de estado */}
-          <div className="flex items-center justify-between px-4 py-3 bg-slate-800/30 border border-slate-700 rounded-lg mb-8">
-            <span className={`text-xs font-bold uppercase tracking-wider ${
-              isVoted ? 'text-green-400' : 'text-amber-400'
-            }`}>
-              {isVoted ? t('voted') : t('pending')}
-            </span>
-            <span className="text-xs text-slate-400">
-              {t('categoryLabel')} {currentStep + 1} {t('of')} {totalSteps}
-            </span>
-          </div>
-
-          {/* Indicador de carga de imágenes */}
-          {loadingImages && (
-            <div className="p-4 bg-slate-800/20 border border-slate-700 rounded-lg text-center">
-              <p className="text-sm text-slate-400">
-                ⏳ Cargando metadatos de juegos...
-              </p>
-            </div>
-          )}
         </div>
-      </div>
 
-      {/* Footer con botones - Fixed */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black via-black/90 to-transparent border-t border-slate-800 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
-          <div className="flex items-center gap-3 md:gap-4">
-            {/* Botón anterior */}
-            <button
-              onClick={onPrevious}
-              disabled={currentStep === 0}
-              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all text-sm md:text-base ${
-                currentStep === 0
-                  ? 'bg-slate-800/30 text-slate-600 cursor-not-allowed opacity-50'
-                  : 'bg-slate-800 border border-slate-700 text-slate-300 hover:border-slate-600 hover:bg-slate-800/70'
-              }`}
-            >
-              {t('previous')}
-            </button>
-
-            {/* Botón saltar */}
-            <button
-              onClick={onSkip}
-              className="flex-1 py-3 px-4 rounded-lg font-semibold bg-slate-800 border border-slate-700 text-slate-300 hover:border-slate-600 hover:bg-slate-800/70 transition-all text-sm md:text-base"
-            >
-              {t('skip')}
-            </button>
-
-            {/* Botón siguiente */}
-            <button
-              onClick={onNext}
-              className="flex-1 py-3 px-4 rounded-lg font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 text-slate-900 hover:from-yellow-400 hover:to-yellow-500 hover:shadow-lg hover:shadow-yellow-500/30 transition-all transform hover:scale-105 text-sm md:text-base"
-            >
-              {currentStep === totalSteps - 1 ? t('review') : t('next')}
-            </button>
-          </div>
+        {/* Status - Compact */}
+        <div className="mt-2 sm:mt-3 px-2 sm:px-3 py-1 sm:py-1.5 bg-slate-800/30 border border-slate-700 rounded text-xs flex-shrink-0">
+          <span className={`font-bold ${isVoted ? 'text-green-400' : 'text-amber-400'}`}>
+            {isVoted ? t('voted') : t('pending')}
+          </span>
         </div>
-      </div>
+      </main>
+
+      {/* FOOTER - Fijo */}
+      <footer className="flex-shrink-0 bg-gradient-to-t from-black to-black/80 border-t border-slate-800 px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+        <div className="flex gap-2 sm:gap-3">
+          <button
+            onClick={onPrevious}
+            disabled={currentStep === 0}
+            className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-semibold text-xs sm:text-sm transition ${
+              currentStep === 0
+                ? 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-50'
+                : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+            }`}
+          >
+            {t('previous')}
+          </button>
+
+          <button
+            onClick={onNext}
+            className="flex-1 py-2 sm:py-2.5 px-3 rounded font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 text-black hover:from-yellow-400 hover:to-yellow-500 text-xs sm:text-sm transition transform hover:scale-105"
+          >
+            {currentStep === totalSteps - 1 ? t('review') : t('next')}
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }

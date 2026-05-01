@@ -35,7 +35,10 @@ src/
 ├── main.jsx             # React entry point
 ├── data/
 │   ├── categories.js    # Award categories & nominees (DYNAMIC - changes yearly)
-│   └── literals.js      # UI text/labels (DYNAMIC - i18n ready)
+│   ├── literals.js      # i18n index (imports from i18n folder)
+│   └── i18n/            # Internationalization translations
+│       ├── es.js        # Spanish literals (150+ keys)
+│       └── en.js        # English literals (150+ keys)
 └── components/          # Reusable components (future expansion)
 ```
 
@@ -63,8 +66,11 @@ src/
 
 2. **Data Externalization**  
    - Categories live in `src/data/categories.js` (edit once per year)  
-   - UI text lives in `src/data/literals.js` (edit for i18n or tone changes)  
-   - Never hardcode domain data in components
+   - **Literals MUST ALWAYS go in `src/data/i18n/` folder** (NOT in components)  
+     - Spanish: `src/data/i18n/es.js`  
+     - English: `src/data/i18n/en.js`  
+   - Import via: `import { useTranslation } from '../data/literals'`  
+   - Never hardcode UI text or domain data in components
 
 3. **camelCase Everywhere**  
    - JSON keys: `userNickname`, `userEmail`, `submittedAt`  
@@ -140,19 +146,36 @@ When assigned a task, follow this sequence:
 - Test that voting flow includes new category
 
 ### Changing UI Text (Localization)
-**File**: `src/data/literals.js`  
-**Pattern**:
+**Location**: `src/data/i18n/` (es.js for Spanish, en.js for English)  
+**Pattern** (Spanish in `es.js`):
 ```javascript
-export const appText = {
-  loginBtn: "Sign in with Google",
+export const es = {
+  loginBtn: "Inicia sesión con Google",
   successTitle: "¡Voto registrado!",
-  // ... all user-visible strings
-}
+  // ... all user-visible strings (camelCase keys)
+};
 ```
-**Notes**:
-- Keep text short for mobile display
-- Use British English or locale-neutral phrasing
-- Test on mobile (text wrapping)
+**Pattern** (English in `en.js`):
+```javascript
+export const en = {
+  loginBtn: "Sign in with Google",
+  successTitle: "Ballot submitted!",
+  // ... all user-visible strings (same keys as es.js)
+};
+```
+**Usage in Components**:
+```javascript
+const t = useTranslation(language);
+return <button>{t('loginBtn')}</button>;
+```
+**Rules**:
+- ✅ **DO**: Add literals to both `es.js` AND `en.js`
+- ✅ **DO**: Use camelCase for all keys
+- ✅ **DO**: Keep text short for mobile display
+- ❌ **DON'T**: Hardcode text in components
+- ❌ **DON'T**: Create literals anywhere else (not in components, not in utils)
+- ❌ **DON'T**: Forget to add both language versions
+- ❌ **DON'T**: Use special characters or spaces in keys
 
 ### Building a New Component (Feature)
 **Location**: `src/components/YourComponent.jsx`  
@@ -255,7 +278,95 @@ allow write: if request.auth != null && request.auth.uid == userId;
 
 ---
 
-## 🚀 Scalability & Future Iterations
+## � Analytics & Error Tracking
+
+### Firebase Analytics (Implemented)
+- **Location**: `src/firebase.js` (initialization), `src/services/analyticsService.js` (events)
+- **Auto-initialized**: Yes (via `getAnalytics()`)
+- **Console**: [Firebase Console → Analytics → Realtime](https://console.firebase.google.com/)
+
+### Key Events to Track
+
+**User Actions**:
+```javascript
+import { trackLogin, trackVoteSelected, trackBallotSubmitted } from '../services/analyticsService';
+
+// Login
+trackLogin(email);
+
+// Vote selection
+trackVoteSelected(categoryId, categoryTitle, selectedOption);
+
+// Ballot submission
+trackBallotSubmitted(totalVotes, nickname);
+```
+
+**Voting Flow**:
+- `category_viewed` - User views category
+- `vote_selected` - User selects option
+- `vote_changed` - User changes vote
+- `review_started` - User starts review
+- `ballot_submitted` - Ballot submitted
+- `incomplete_ballot_attempt` - Incomplete submit attempt
+
+**System Events**:
+- `login` / `logout`
+- `language_changed`
+- `app_error` (automatic)
+- `admin_access_attempted`
+- `results_downloaded`
+
+### Error Handling Service
+
+**Location**: `src/services/errorService.js`
+
+**Setup** (in App.jsx):
+```javascript
+import { setupGlobalErrorHandler } from './services/errorService';
+
+useEffect(() => {
+  setupGlobalErrorHandler(); // Catches unhandled errors
+}, []);
+```
+
+**Usage in Components**:
+```javascript
+import { logError, ERROR_TYPES } from '../services/errorService';
+
+try {
+  await submitBallot();
+} catch (error) {
+  logError(ERROR_TYPES.FIRESTORE_ERROR, error, {
+    operation: 'submitBallot'
+  });
+}
+```
+
+**Error Types**:
+- `AUTH_ERROR` - Authentication failures
+- `FIRESTORE_ERROR` - Database operations
+- `VALIDATION_ERROR` - Input validation
+- `NETWORK_ERROR` - Network issues
+- `UI_ERROR` - Render/component errors
+- `COMPONENT_ERROR` - Component lifecycle
+- `UNKNOWN_ERROR` - Unhandled errors
+
+**Error Log**:
+```javascript
+import { getErrorLog, downloadErrorLog } from '../services/errorService';
+
+// Get recent errors (last 50)
+const errors = getErrorLog();
+
+// Export for analysis
+downloadErrorLog();
+```
+
+**See Setup**: [ANALYTICS_SETUP.md](./ANALYTICS_SETUP.md) for complete integration guide
+
+---
+
+## �🚀 Scalability & Future Iterations
 
 ### Phase 1 (Current): MVP
 - ✅ Basic voting UI
@@ -288,7 +399,9 @@ allow write: if request.auth != null && request.auth.uid == userId;
 |---|---|---|---|
 | `src/App.jsx` | State orchestration, main views | Adding views, state logic, workflow | 🔴 High |
 | `src/data/categories.js` | Award data | Yearly updates, new categories | 🟢 Low |
-| `src/data/literals.js` | UI text | Localization, tone changes | 🟢 Low |
+| `src/data/i18n/es.js` | Spanish literals (150+ keys) | Add/update UI text in Spanish | 🟢 Low |
+| `src/data/i18n/en.js` | English literals (150+ keys) | Add/update UI text in English | 🟢 Low |
+| `src/data/literals.js` | i18n index (imports from i18n folder) | Rarely - architecture changes only | 🟡 Medium |
 | `src/firebase.js` | Firebase config | New features (Storage, Functions) | 🟡 Medium |
 | `src/components/*` | UI pieces | Feature additions, component reuse | 🟡 Medium |
 | `src/index.css` | Tailwind setup | Custom colors, animations | 🟡 Medium |
@@ -301,6 +414,10 @@ allow write: if request.auth != null && request.auth.uid == userId;
 
 ❌ **Hardcode categories in JSX**  
 → Always use `src/data/categories.js`
+
+❌ **Hardcode UI text/literals in components**  
+→ Always use `src/data/i18n/es.js` (Spanish) and `src/data/i18n/en.js` (English)  
+→ Never create text strings directly in JSX
 
 ❌ **Use localStorage as source of truth for votes**  
 → localStorage is UI-only; Firestore is single source of truth
@@ -325,7 +442,19 @@ allow write: if request.auth != null && request.auth.uid == userId;
 
 ✅ **Manage state in App.jsx** (single source of truth)
 
-✅ **Externalize data to `src/data/`** for easy updates
+✅ **Externalize data to `src/data/`** for easy updates  
+   - Categories in `src/data/categories.js`  
+   - **Always add literals to BOTH** `src/data/i18n/es.js` **AND** `src/data/i18n/en.js`
+
+✅ **Track user actions with Analytics**  
+   - Import from `src/services/analyticsService.js`  
+   - Track: login, votes, submissions, navigation  
+   - Never hardcode event names
+
+✅ **Wrap errors with error handler**  
+   - Use `logError()` from `src/services/errorService.js`  
+   - Include context (operation name, user, etc)  
+   - Let global handler catch unhandled errors
 
 ✅ **Test mobile-first** (start with 320px viewport)
 

@@ -13,8 +13,43 @@ const firebaseConfig = {
   measurementId: "G-5ZZGWP5CGQ"
 };
 
-
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+
+// Lazy load Analytics para evitar errores de inicialización
+let analyticsInstance = null;
+let analyticsLoaded = false;
+
+export const getAnalyticsInstance = async () => {
+  if (analyticsLoaded) return analyticsInstance;
+  
+  try {
+    const { getAnalytics } = await import("firebase/analytics");
+    analyticsInstance = getAnalytics(app);
+    analyticsLoaded = true;
+  } catch (error) {
+    console.warn('Analytics not available:', error);
+    analyticsLoaded = true;
+  }
+  
+  return analyticsInstance;
+};
+
+/**
+ * Track eventos en Google Analytics
+ * @param {string} eventName - Nombre del evento
+ * @param {object} parameters - Parámetros adicionales
+ */
+export const trackEvent = async (eventName, parameters = {}) => {
+  try {
+    const analytics = await getAnalyticsInstance();
+    if (analytics) {
+      const { logEvent } = await import("firebase/analytics");
+      logEvent(analytics, eventName, parameters);
+    }
+  } catch (error) {
+    console.warn('Error tracking event:', error);
+  }
+};

@@ -118,7 +118,7 @@ export default function SurveyWinnersSelector({ language = 'es', onClose }) {
         return {
           rank: index + 1,
           userId,
-          nickname: ballot?.userNickname || 'Anónimo',
+          nickname: ballot?.userDisplayName || ballot?.userNickname || 'Anónimo',
           score
         };
       });

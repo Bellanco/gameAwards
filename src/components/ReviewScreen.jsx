@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from '../data/literals';
 import { getGameImage } from '../services/gameImageService';
 import { getRandomGradients } from '../utils/gradients';
 import { LanguageIcon, MedalGoldIcon, MedalSilverIcon, MedalBronzeIcon } from './Icons';
+import GameCard from './GameCard';
 
 /**
  * ReviewScreen v4 - Con imágenes dinámicas y displayName editable
@@ -24,8 +25,11 @@ export default function ReviewScreen({
   onToggleLanguage
 }) {
   // Filtrar solo categorías válidas (no placeholders, no vacías)
-  const validCategories = categories.filter(cat => 
-    !cat.isPlaceholder && cat.title && cat.title.trim()
+  const validCategories = useMemo(() => 
+    categories.filter(cat => 
+      !cat.isPlaceholder && cat.title && cat.title.trim()
+    ),
+    [categories]
   );
   
   // Contar solo votos válidos (que están en validCategories)
@@ -56,7 +60,9 @@ export default function ReviewScreen({
       
       // Cargar imágenes para cada voto
       const votedGames = Object.values(userVotes).filter(Boolean);
-      const promises = votedGames.map(async (gameName) => {
+      const promises = votedGames.map(async (voteData) => {
+        // Extraer nombre si es objeto, o usar directamente si es string
+        const gameName = typeof voteData === 'object' ? voteData.name : voteData;
         if (!images[gameName]) {
           try {
             const imageUrl = await getGameImage(gameName);
@@ -72,8 +78,14 @@ export default function ReviewScreen({
       await Promise.all(promises);
       setGameImages(images);
       
-      // Asignar degradados aleatorios a los votos
-      const gradients = getRandomGradients(votedGames);
+      // Cargar degradados con nombres de juegos (no objetos)
+      const allGameNames = validCategories
+        .map(cat => {
+          const voteData = userVotes[cat.id];
+          return typeof voteData === 'object' ? voteData.name : voteData;
+        })
+        .filter(Boolean);
+      const gradients = getRandomGradients(allGameNames);
       setGameGradients(gradients);
       
       setLoadingImages(false);
@@ -133,181 +145,8 @@ export default function ReviewScreen({
 
       {/* Contenido principal */}
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
-        {/* Top 3 Votos con Medallas */}
-        {topVotes.length > 0 && (
-          <div className="mb-12">
-            <h2 className="text-xl md:text-2xl font-bold text-yellow-400 mb-6 flex items-center gap-2">
-              {t('topVotes')}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {topVotes.map((game, index) => {
-                const medals = [
-                  { icon: MedalGoldIcon, color: 'text-yellow-500', label: '1st' },
-                  { icon: MedalSilverIcon, color: 'text-gray-400', label: '2nd' },
-                  { icon: MedalBronzeIcon, color: 'text-amber-700', label: '3rd' }
-                ];
-                const medal = medals[index];
-                const MedalIcon = medal.icon;
-
-                return (
-                  <div key={game} className="relative group">
-                    <div className="relative overflow-hidden rounded-lg shadow-2xl transform transition-transform duration-300 hover:scale-105">
-                      {/* Mostrar imagen real si existe */}
-                      {gameImages[game]?.image ? (
-                        <img
-                          src={gameImages[game].image}
-                          alt={game}
-                          className="w-full h-64 object-cover"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.nextElementSibling.style.display = 'flex';
-                          }}
-                        />
-                      ) : null}
-                      
-                      {/* Fallback estilizado */}
-                      <div 
-                        className={`w-full h-64 flex flex-col items-center justify-center ${
-                          gameImages[game]?.image ? 'hidden' : ''
-                        }`}
-                        style={{
-                          background: gameImages[game]?.color 
-                            ? `linear-gradient(135deg, ${gameImages[game].color} 0%, ${gameImages[game].accentColor} 100%)`
-                            : 'linear-gradient(135deg, #95A5A6 0%, #1a1a2e 100%)'
-                        }}
-                      >
-                      </div>
-                      
-                      {/* Overlay con degradado aleatorio */}
-                      <div className={`absolute inset-0 ${gameGradients[game] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80'}`} />
-                      {/* Overlay oscuro para contraste de texto */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                      <div className="absolute bottom-0 left-0 right-0 p-4">
-                        <p className="font-bold text-white text-sm md:text-base line-clamp-2">
-                          {game}
-                        </p>
-                      </div>
-                      {/* Medal Badge */}
-                      <div className={`absolute top-3 right-3 ${medal.color} p-2 bg-black/30 rounded-full`}>
-                        <MedalIcon className="w-6 h-6 md:w-8 md:h-8" />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Grid de votos completo */}
-        <div className="mb-12">
-          <h2 className="text-xl md:text-2xl font-bold text-white mb-6">
-            {t('allVotes')}
-          </h2>
-          
-          {loadingImages && (
-            <div className="p-4 bg-slate-800/20 border border-slate-700 rounded-lg text-center mb-6">
-              <p className="text-sm text-slate-400">
-                ⏳ Cargando imágenes...
-              </p>
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {validCategories.map((category, categoryIndex) => {
-              const votedGame = userVotes[category.id];
-
-              return (
-                <div
-                  key={category.id}
-                  className={`group cursor-pointer overflow-hidden rounded-lg transition-all transform hover:scale-105 ${
-                    votedGame ? 'border-2 border-yellow-500/50' : 'border-2 border-red-500/60 shadow-lg shadow-red-500/20'
-                  }`}
-                  onClick={() => onPrevious(categoryIndex)}
-                >
-                  <div className="relative w-full h-48 md:h-64">
-                    {/* Mostrar imagen real si existe */}
-                    {votedGame && gameImages[votedGame?.name]?.image ? (
-                      <img
-                        src={gameImages[votedGame.name].image}
-                        alt={votedGame.name}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextElementSibling.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    
-                    {/* Fallback estilizado */}
-                    <div 
-                      className={`w-full h-full flex items-center justify-center transition-transform duration-300 group-hover:scale-110 ${
-                        votedGame && gameImages[votedGame?.name]?.image ? 'hidden' : ''
-                      }`}
-                      style={{
-                        background: votedGame && gameImages[votedGame?.name]?.color
-                          ? `linear-gradient(135deg, ${gameImages[votedGame.name].color} 0%, ${gameImages[votedGame.name].accentColor} 100%)`
-                          : 'linear-gradient(135deg, #2d3748 0%, #1a1a2e 100%)'
-                      }}
-                    >
-                      <div className="text-4xl">
-                        
-                      </div>
-                    </div>
-                    
-                    {/* Overlay con degradado aleatorio - o negro si no votó */}
-                    <div className={`absolute inset-0 ${votedGame ? gameGradients[votedGame?.name] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80' : 'bg-black'}`} />
-                    {votedGame && (
-                      <>
-                        {/* Overlay oscuro para contraste - solo si tiene voto */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-                      </>
-                    )}
-
-                    {/* Info */}
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <p className="font-bold text-white text-xs md:text-sm line-clamp-1">
-                        {votedGame?.name || `${t('notVoted')}`}
-                      </p>
-                      <p className="text-xs text-slate-300 mt-1 opacity-75">
-                        {category.title}
-                      </p>
-                    </div>
-
-                    {/* Status Badge */}
-                    {votedGame && (
-                      <div className="absolute top-2 right-2 bg-green-500/80 px-2 py-1 rounded text-xs font-bold text-white">
-                        {t('voted')}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Nickname Input - OCULTO */}
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6 mb-6 hidden">
-          <label className="block text-sm font-bold text-slate-300 mb-3">
-            {t('displayName')}
-          </label>
-          <input
-            type="text"
-            maxLength="30"
-            value={userNickname}
-            onChange={(e) => onNicknameChange(e.target.value)}
-            disabled={!canEditNickname}
-            placeholder={t('enterNickname')}
-            className="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:border-yellow-500 focus:outline-none transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-          <p className="text-xs text-slate-400 mt-2">
-            {userNickname.length}/30
-          </p>
-        </div>
-
         {/* Display Name Input - Editable */}
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6 mb-12">
+        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6 mb-6">
           <label className="block text-sm font-bold text-slate-300 mb-3">
             {t('displayName')}
           </label>
@@ -351,17 +190,7 @@ export default function ReviewScreen({
         )}
 
         {/* Botones de acción */}
-        <div className="flex gap-3 md:gap-4">
-          {/* Cancelar y volver al inicio */}
-          {onReturnHome && (
-            <button
-              onClick={onReturnHome}
-              className="flex-1 py-3 px-4 rounded-lg font-semibold bg-slate-900 border border-slate-700 text-slate-300 hover:border-slate-600 hover:bg-slate-900/70 transition-all"
-              title={t('cancelVoting')}
-            >
-              ← {t('cancel')}
-            </button>
-          )}
+        <div className="flex gap-3 md:gap-4 mb-12">
           {/* Editar votos */}
           <button
             onClick={onPrevious}
@@ -385,8 +214,87 @@ export default function ReviewScreen({
           </button>
         </div>
 
+        {/* Top 3 Votos con Medallas */}
+        {topVotes.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-xl md:text-2xl font-bold text-yellow-400 mb-6 flex items-center gap-2">
+              {t('topVotes')}
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {topVotes.map((game, index) => {
+                const medals = [
+                  { icon: MedalGoldIcon, borderColor: 'border-yellow-500', medalColor: '#EAB308', gradient: 'bg-gradient-to-br from-yellow-600/80 to-amber-600/80' },
+                  { icon: MedalSilverIcon, borderColor: 'border-gray-400', medalColor: '#9CA3AF', gradient: 'bg-gradient-to-br from-gray-500/80 to-slate-600/80' },
+                  { icon: MedalBronzeIcon, borderColor: 'border-amber-700', medalColor: '#B45309', gradient: 'bg-gradient-to-br from-amber-700/80 to-orange-700/80' }
+                ];
+                const medal = medals[index];
+
+                return (
+                  <GameCard
+                    key={game}
+                    variant="medal"
+                    gameName={game}
+                    gameImage={gameImages[game]?.image}
+                    medalIndex={index}
+                    MedalIcon={medal.icon}
+                    medalColor={medal.medalColor}
+                    medalGradient={medal.gradient}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Grid de votos completo */}
+        <div className="mb-12">
+          <h2 className="text-xl md:text-2xl font-bold text-white mb-6">
+            {t('allVotes')}
+          </h2>
+          
+          {loadingImages && (
+            <div className="p-4 bg-slate-800/20 border border-slate-700 rounded-lg text-center mb-6">
+              <p className="text-sm text-slate-400">
+                ⏳ Cargando imágenes...
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {validCategories.map((category, categoryIndex) => {
+              const votedGame = userVotes[category.id];
+
+              return (
+                <GameCard
+                  key={category.id}
+                  variant="review"
+                  gameName={votedGame?.name}
+                  gameImage={votedGame && gameImages[votedGame?.name]?.image}
+                  gradient={votedGame ? gameGradients[votedGame?.name] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80' : null}
+                  isVoted={!!votedGame}
+                  onSelect={() => onPrevious(categoryIndex)}
+                  categoryTitle={category.title}
+                  translationLabel={t('notVoted')}
+                  statusBadge={t('voted')}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Cancelar y volver al inicio */}
+        {onReturnHome && (
+          <button
+            onClick={onReturnHome}
+            className="w-full py-3 px-4 rounded-lg font-semibold bg-slate-900 border border-slate-700 text-slate-300 hover:border-slate-600 hover:bg-slate-900/70 transition-all mb-6"
+            title={t('cancelVoting')}
+          >
+            ← {t('cancel')}
+          </button>
+        )}
+
         {/* Status Info */}
-        <div className="mt-8 p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+        <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
           <p className="text-sm text-blue-300">
             <strong>ℹ️ {t('completionStatus')}</strong>
             <br />
