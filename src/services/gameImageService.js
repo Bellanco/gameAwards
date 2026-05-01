@@ -1,69 +1,97 @@
 /**
- * Game Image Service - Metadata Estilizada (Solución Final)
+ * Game Image Service - RAWG API + Vercel Serverless + localStorage Cache
  * 
- * ✅ Estrategia 2026 (PRAGMÁTICA):
- * - Mapeo directo de juegos a metadata (colores, emojis, plataformas)
- * - Rendimiento instantáneo
+ * ✅ Estrategia 2026 (OPTIMIZADA):
+ * - Cache en memoria (rápido)
+ * - Cache en localStorage (persistente entre sesiones)
+ * - API RAWG vía Vercel Serverless (imágenes reales en producción)
+ * - Fallback a metadata local (siempre funciona)
  * - Cero problemas de CORS
- * - Diseño visual atractivo y profesional
  */
-
-import { getGameMetadata } from '../data/gameMetadata';
 
 // ============ Cache en memoria ============
 const imageCache = new Map();
 
+// ============ localStorage Config ============
+const CACHE_KEY = 'tga_game_images_cache';
+const CACHE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 días
+
 // ============ Vercel Serverless Config ============
-// En producción (vercel.app): usa la función serverless
-// En desarrollo: usa metadata directamente
 const API_BASE = import.meta.env.DEV 
-  ? 'http://localhost:3000'  // Cambiar a la URL de Vercel después de deploy
-  : 'https://tga-ballot.vercel.app'; // Reemplazar con tu URL real
+  ? 'http://localhost:3000'
+  : (import.meta.env.VITE_API_URL || 'https://tga-ballot.vercel.app');
 
 /**
- * Normaliza nombre del juego para búsqueda
+ * Obtiene cache de localStorage
+ * @returns {Object} Cache deserializado o {}
  */
-function normalizeGameName(name) {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
+function getLocalStorageCache() {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) return {};
+    
+    const parsed = JSON.parse(cached);
+    // Limpiar entradas expiradas
+    Object.keys(parsed).forEach(key => {
+      if (parsed[key].expiresAt && Date.now() > parsed[key].expiresAt) {
+        delete parsed[key];
+      }
+    });
+    
+    return parsed;
+  } catch (error) {
+    console.warn('localStorage read error:', error);
+    return {};
+  }
 }
 
-
 /**
- * Obtiene metadata estilizada de un juego
- * (Sin intentar APIs externas - velocidad instantánea)
+ * Guarda en localStorage
  */
-function getGameData(gameName) {
-  const metadata = getGameMetadata(gameName);
-  return {
-    name: gameName,
-    metadata: metadata,
-    source: 'metadata'
-  };
+function saveToLocalStorage(gameName, data) {
+  try {
+    const cache = getLocalStorageCache();
+    cache[gameName] = {
+      ...data,
+      expiresAt: Date.now() + CACHE_EXPIRY_MS
+    };
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  } catch (error) {
+    console.warn('localStorage write error:', error);
+  }
 }
 
 /**
- * Intenta obtener imagen real desde Vercel serverless
+ * Obtiene del localStorage
+ */
+function getFromLocalStorage(gameName) {
+  const cache = getLocalStorageCache();
+  if (cache[gameName] && (!cache[gameName].expiresAt || Date.now() < cache[gameName].expiresAt)) {
+    console.log(`📱 localStorage hit: ${gameName}`);
+    return cache[gameName];
+  }
+  return null;
+}
+
+/**
+ * Intenta obtener imagen real desde Vercel serverless con RAWG API
  * En desarrollo: usa metadata directamente
- * En producción: intenta serverless, luego metadata
+ * En producción: intenta serverless con RAWG, luego metadata
  */
 async function fetchFromServerless(gameName) {
   try {
-    // En desarrollo (localhost:5173), no intenta serverless
+    // En desarrollo, no intenta serverless
     if (import.meta.env.DEV) {
       return null;
     }
 
     const url = `${API_BASE}/api/games?q=${encodeURIComponent(gameName)}`;
-    console.log(`🔍 Buscando imagen en serverless: ${gameName}`);
+    console.log(`🔍 Buscando imagen en serverless/RAWG: ${gameName}`);
 
     const response = await fetch(url, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(5000) // Timeout de 5 segundos
     });
 
     if (!response.ok) {
@@ -74,14 +102,15 @@ async function fetchFromServerless(gameName) {
     const data = await response.json();
 
     if (data.image_url) {
-      console.log(`✅ Imagen encontrada en serverless: ${gameName}`);
+      console.log(`✅ Imagen encontrada en RAWG: ${gameName}`);
       return {
         name: data.name || gameName,
         image: data.image_url,
         platforms: data.platforms || [],
         rating: data.rating,
         genres: data.genres || [],
-        source: 'serverless'
+        releaseDate: data.release_date,
+        source: 'rawg'
       };
     }
 
@@ -93,42 +122,100 @@ async function fetchFromServerless(gameName) {
 }
 
 /**
- * Función principal: obtiene datos de juego
- * Retorna metadata con color, emoji y plataformas
+ * Función principal: obtiene datos de juego con caché multinivel
+ * 
+ * @typedef {Object} GameImageReturn
+ * @property {string} image - URL de imagen o fallback
+ * @property {string} name - Nombre del juego
+ * @property {string} source - Fuente ('memory'|'localStorage'|'rawg'|'metadata')
+ * @property {Array} [platforms] - Plataformas del juego
+ * @property {number} [rating] - Rating de RAWG
+ * 
+ * @param {string} gameName - Nombre del juego
+ * @returns {Promise<GameImageReturn>}
  */
 export async function getGameImage(gameName) {
   if (!gameName || typeof gameName !== 'string') {
-    return getGameMetadata('Unknown Game');
+    return {
+      image: 'https://via.placeholder.com/400x600/1f2937/ffffff?text=Unknown',
+      name: 'Unknown Game',
+      source: 'placeholder'
+    };
   }
 
-  // ============ 1. Verifica cache ============
+  console.log(`🎮 getGameImage('${gameName}')`);
+
+  // ============ 1. Cache en memoria (más rápido) ============
   if (imageCache.has(gameName)) {
-    console.log(`📸 Cache hit: ${gameName}`);
+    console.log(`💾 Memory cache hit: ${gameName}`);
     return imageCache.get(gameName);
   }
 
-  console.log(`🎮 Obteniendo datos para: ${gameName}`);
+  // ============ 2. Cache en localStorage (persistente) ============
+  const localData = getFromLocalStorage(gameName);
+  if (localData) {
+    imageCache.set(gameName, localData); // Repoblar memory cache
+    return localData;
+  }
 
   try {
-    // ============ 2. Intenta serverless en producción ============
-    if (!import.meta.env.DEV) {
-      const serverlessData = await fetchFromServerless(gameName);
-      if (serverlessData && serverlessData.image) {
-        imageCache.set(gameName, serverlessData);
-        return serverlessData;
-      }
+    // ============ 3. API RAWG vía Vercel Serverless (producción) ============
+    const serverlessData = await fetchFromServerless(gameName);
+    if (serverlessData && serverlessData.image) {
+      imageCache.set(gameName, serverlessData);
+      saveToLocalStorage(gameName, serverlessData);
+      return serverlessData;
     }
 
-    // ============ 3. Fallback a metadata (siempre funciona) ============
-    console.log(`📦 Usando metadata estilizada: ${gameName}`);
-    const metadata = getGameMetadata(gameName);
-    imageCache.set(gameName, metadata);
-    return metadata;
+    // ============ 4. Fallback a placeholder ============
+    console.log(`📦 Fallback a placeholder: ${gameName}`);
+    const fallback = {
+      image: `https://via.placeholder.com/400x600/1f2937/ffffff?text=${encodeURIComponent(gameName)}`,
+      name: gameName,
+      source: 'placeholder'
+    };
+    imageCache.set(gameName, fallback);
+    saveToLocalStorage(gameName, fallback);
+    return fallback;
 
   } catch (error) {
-    console.error(`❌ Error en getGameImage(${gameName}):`, error);
-    return getGameMetadata(gameName);
+    console.error(`❌ Error en getGameImage('${gameName}'):`, error);
+    const fallback = {
+      image: `https://via.placeholder.com/400x600/1f2937/ffffff?text=${encodeURIComponent(gameName)}`,
+      name: gameName,
+      source: 'placeholder'
+    };
+    imageCache.set(gameName, fallback);
+    return fallback;
   }
+}
+
+/**
+ * Limpia todo el cache (localStorage + memoria)
+ */
+export function clearGameImageCache() {
+  imageCache.clear();
+  try {
+    localStorage.removeItem(CACHE_KEY);
+    console.log('✅ Cache limpiado (memoria + localStorage)');
+  } catch (error) {
+    console.warn('Error limpiando cache:', error);
+  }
+}
+
+/**
+ * Obtiene estadísticas del cache
+ */
+export function getCacheStats() {
+  const memoryCacheSize = imageCache.size;
+  const localCache = getLocalStorageCache();
+  const localStorageSize = Object.keys(localCache).length;
+  
+  return {
+    memoryCache: memoryCacheSize,
+    localStorageCache: localStorageSize,
+    totalCached: memoryCacheSize + localStorageSize
+  };
 }
 
 /**

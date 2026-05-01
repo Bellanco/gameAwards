@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useTranslation } from '../data/literals';
+import { loadAndSortCategories } from '../services/categoriesService';
 
 /**
  * SurveyWinnersSelector v2 - Resultados Finales con Puntuación
@@ -27,19 +28,8 @@ export default function SurveyWinnersSelector({ language = 'es', onClose }) {
     try {
       setIsLoading(true);
 
-      // Cargar categorías
-      const categoriesCollection = collection(db, 'categories');
-      const categoriesSnapshot = await getDocs(categoriesCollection);
-      const allCategoriesData = categoriesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        docId: doc.id,
-        ...doc.data()
-      }));
-      
-      const categoriesData = allCategoriesData.filter(cat => 
-        !cat.isPlaceholder && cat.title && cat.title.trim() && cat.options && cat.options.length > 0
-      );
-      
+      // Cargar categorías usando el servicio centralizado
+      const categoriesData = await loadAndSortCategories(false); // false = no incluir inválidas
       setCategories(categoriesData);
 
       // Cargar votos (ballots)

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../data/literals';
 import { getGameImage } from '../services/gameImageService';
 import { getRandomGradients } from '../utils/gradients';
-import { categoryBackgrounds } from '../data/gameData';
 import { LanguageIcon } from './Icons';
 import GameCard from './GameCard';
 
@@ -30,7 +29,7 @@ export default function VoteScreen({
   
   const isVoted = !!userVotes[category.id];
   const selectedOption = userVotes[category.id];
-  const categoryBg = categoryBackgrounds[category.id] || 'https://media.rawg.io/media/games/56d/56d006318db933179cdee675e37e3f1a.jpg';
+  const categoryBg = 'https://media.rawg.io/media/games/56d/56d006318db933179cdee675e37e3f1a.jpg';
 
   // Validación defensiva
   if (!category || !category.options || category.options.length === 0) {
@@ -136,7 +135,7 @@ export default function VoteScreen({
 
         {/* Grid - Contenedor que crece y escala */}
         <div className="flex-1 overflow-hidden min-h-0">
-          <div className={`grid gap-2 sm:gap-3 md:gap-4 h-full auto-rows-max w-full
+          <div className={`grid gap-2 sm:gap-3 md:gap-12 lg:gap-16 h-full auto-rows-max w-full
             ${category.options.length <= 2 ? 'grid-cols-1 md:grid-cols-2' :
               category.options.length === 3 ? 'grid-cols-2 md:grid-cols-3' :
               category.options.length === 4 ? 'grid-cols-2 md:grid-cols-2 lg:grid-cols-4' :
@@ -153,7 +152,7 @@ export default function VoteScreen({
 
               return (
                 <GameCard
-                  key={optionId}
+                  key={`${category.id}_${optionId}`}
                   variant="vote"
                   gameName={option}
                   gameImage={gameImageUrl}

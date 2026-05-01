@@ -1,0 +1,11 @@
+{
+  "functions": {
+    "api/games.js": {
+      "maxDuration": 10,
+      "memory": 512
+    }
+  },
+  "env": {
+    "RAWG_API_KEY": "@rawg_api_key"
+  }
+}

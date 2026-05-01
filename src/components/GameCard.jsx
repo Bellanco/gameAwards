@@ -38,7 +38,7 @@ export default function GameCard({
         {/* Imagen */}
         <img
           src={gameImage}
-          alt={gameName}
+          alt=""
           className="w-full h-full object-cover"
         />
 

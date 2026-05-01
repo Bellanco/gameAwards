@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { auth, googleProvider, db } from './firebase';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, setDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { useTranslation } from './data/literals';
+import { loadAndSortCategories } from './services/categoriesService';
 
 // Componentes modulares
 import VoteScreen from './components/VoteScreen';
@@ -55,75 +56,10 @@ function App() {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        console.log('📂 Iniciando carga de categorías...');
+        console.log('📂 Iniciando carga de categorías desde App.jsx...');
         setCategoriesLoading(true);
-        const categoriesCollection = collection(db, 'categories');
-        const snapshot = await getDocs(categoriesCollection);
-        console.log(`📊 Documentos encontrados: ${snapshot.docs.length}`);
-        
-        const allDocs = snapshot.docs.map(doc => ({
-          id: doc.id, // docId de Firestore
-          ...doc.data()
-        }));
-
-        console.log('📋 Todas las categorías cargadas:', allDocs);
-
-        // Detectar y eliminar automáticamente duplicados por TÍTULO
-        // Mantener solo la versión más reciente de cada título
-        const titleGroups = {};
-        const toDelete = [];
-
-        allDocs.forEach(cat => {
-          // Excluir solo si no tiene título válido (no contar placeholders vacíos como duplicados)
-          if (!cat.title || !cat.title.trim()) return;
-          
-          if (!titleGroups[cat.title]) {
-            titleGroups[cat.title] = [];
-          }
-          titleGroups[cat.title].push(cat);
-        });
-
-        // Para cada título con múltiples instancias, mantener solo la más reciente
-        for (const [title, docs] of Object.entries(titleGroups)) {
-          if (docs.length > 1) {
-            console.warn(`⚠️ Duplicados encontrados para: "${title}"`);
-            docs.sort((a, b) => {
-              const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
-              const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
-              return bTime - aTime;
-            });
-
-            // Marcar para eliminar todos excepto el primero (más reciente)
-            for (let i = 1; i < docs.length; i++) {
-              toDelete.push(docs[i].id);
-            }
-          }
-        }
-
-        // Eliminar duplicados automáticamente
-        for (const docId of toDelete) {
-          try {
-            console.log(`🗑️ Eliminando duplicado automáticamente: ${docId}`);
-            await deleteDoc(doc(db, 'categories', docId));
-          } catch (error) {
-            console.error(`❌ Error eliminando duplicado ${docId}:`, error);
-          }
-        }
-
-        // Retornar solo documentos válidos (sin duplicados)
-        // NO FILTRAR POR TITLE VACÍO - permitir placeholders pero excluir duplicados
-        const filtered = allDocs.filter(cat => !toDelete.includes(cat.id));
-
-        // Ordenar por createdAt (las más antiguas primero)
-        filtered.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
-        
-        console.log(`✅ App.jsx después de limpiar duplicados: ${filtered.length} categorías`, {
-          total: allDocs.length,
-          placeholders: filtered.filter(c => c.isPlaceholder).length,
-          validas: filtered.filter(c => !c.isPlaceholder && c.title && c.title.trim()).length,
-          filtered
-        });
-        setCategories(filtered);
+        const loadedCategories = await loadAndSortCategories(false); // false = no incluir inválidas
+        setCategories(loadedCategories);
       } catch (error) {
         console.error('❌ Error cargando categorias:', error);
         setCategories([]);
