@@ -23,7 +23,8 @@ export default function GameCard({
   categoryTitle = null,
   translationLabel = null,
   statusBadge = null,
-  compact = false
+  compact = false,
+  isTransitioning = false
 }) {
   // Variante: VOTE (selección de juegos)
   if (variant === 'vote') {
@@ -34,7 +35,8 @@ export default function GameCard({
 
     return (
       <button
-        onClick={onSelect}
+        onClick={() => !isTransitioning && onSelect && onSelect()}
+        disabled={isTransitioning}
         className={`relative rounded-lg overflow-hidden transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-600 border-2 ${heightClass} w-full ${
           isSelected
             ? 'border-amber-600 shadow-lg shadow-amber-600/50'

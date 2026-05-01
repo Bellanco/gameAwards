@@ -31,6 +31,7 @@ export default function VoteScreen({
   const [loadingImages, setLoadingImages] = useState(true);
   const [hasVerticalScroll, setHasVerticalScroll] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const scrollContainerRef = useRef(null);
   
   const isVoted = !!userVotes[category.id];
@@ -54,6 +55,7 @@ export default function VoteScreen({
     const gradients = getRandomGradients(category.options);
     setGameGradients(gradients);
     setLoadingImages(false);
+    setIsTransitioning(false); // Reset transition state when category changes
     
     // Verificar scroll cuando cambien las opciones
     setTimeout(() => {
@@ -123,6 +125,21 @@ export default function VoteScreen({
     }
   };
 
+  // Manejadores de navegación con protección contra ghost clicks
+  const handleNext = () => {
+    setIsTransitioning(true);
+    onNext();
+  };
+
+  const handlePrevious = () => {
+    setIsTransitioning(true);
+    onPrevious();
+  };
+
+  const handleSelectOption = (categoryId, option) => {
+    onSelectOption(categoryId, option);
+  };
+
   // Header con progreso y controles
   const headerContent = (
     <Header
@@ -145,7 +162,7 @@ export default function VoteScreen({
       {/* Fila 1: Anterior y Siguiente */}
       <div className="flex gap-2 sm:gap-3 flex-col sm:flex-row w-full">
         <button
-          onClick={onPrevious}
+          onClick={handlePrevious}
           disabled={currentStep === 0}
           className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-semibold text-xs sm:text-sm transition ${
             currentStep === 0
@@ -157,7 +174,7 @@ export default function VoteScreen({
         </button>
 
         <button
-          onClick={onNext}
+          onClick={handleNext}
           disabled={currentStep === totalSteps - 1}
           className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-bold text-xs sm:text-sm transition transform ${
             currentStep === totalSteps - 1
@@ -204,7 +221,9 @@ export default function VoteScreen({
           ref={scrollContainerRef}
           className="flex-1 overflow-y-auto min-h-0 w-full flex flex-col items-center justify-start"
         >
-          <div className={`grid gap-1 md:gap-6 lg:gap-8 h-fit w-full auto-rows-max px-2 md:px-3
+          <div className={`grid gap-1 md:gap-6 lg:gap-8 h-fit w-full auto-rows-max px-2 md:px-3 ${
+            isTransitioning ? 'pointer-events-none' : ''
+          }
             ${category.options.length <= 2 ? 'grid-cols-1 md:grid-cols-2' :
               category.options.length === 3 ? 'grid-cols-1 md:grid-cols-3' :
               category.options.length === 4 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' :
@@ -226,11 +245,14 @@ export default function VoteScreen({
                   gradient={gameGradients[option] || 'bg-gradient-to-br from-slate-900/60 to-slate-900/80'}
                   isSelected={isSelected}
                   compact={category.options.length > 4}
+                  isTransitioning={isTransitioning}
                   onSelect={() => {
-                    onSelectOption(category.id, { id: optionId, name: option });
-                    // Si es la última opción, ir a revisar automáticamente
-                    if (isLastOption) {
-                      setTimeout(() => onNext(), 100);
+                    if (!isTransitioning) {
+                      handleSelectOption(category.id, { id: optionId, name: option });
+                      // Si es la última opción, ir a revisar automáticamente
+                      if (isLastOption) {
+                        setTimeout(() => handleNext(), 100);
+                      }
                     }
                   }}
                 />
