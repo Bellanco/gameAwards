@@ -66,6 +66,11 @@
   transition: border-color 0.3s ease;
 }
 
+.theme-border-empty {
+  border-color: var(--border-empty);
+  transition: border-color 0.3s ease;
+}
+
 /* ===== Fondos Translúcidos ===== */
 .theme-bg-overlay {
   background-color: var(--bg-secondary);

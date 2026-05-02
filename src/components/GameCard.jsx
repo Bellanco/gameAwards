@@ -44,9 +44,9 @@ export default function GameCard({
           }
           ${isSelected
             ? 'border-amber-600 shadow-lg shadow-amber-600/50'
-            : 'border-slate-700'
+            : 'theme-border-empty'
           }
-          ${isTransitioning ? 'scale-100 border-slate-700' : ''}
+          ${isTransitioning ? 'scale-100 theme-border-empty' : ''}
         `}
       >
         {/* Degradado de fondo */}
@@ -125,7 +125,9 @@ export default function GameCard({
           <div 
             className="absolute inset-0 flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
             style={{
-              background: `linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%)`
+              background: isVoted 
+                ? `linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%)`
+                : `linear-gradient(135deg, var(--bg-unvoted) 0%, var(--bg-secondary) 100%)`
             }}
           />
           

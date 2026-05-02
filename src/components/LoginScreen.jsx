@@ -50,10 +50,10 @@ export default function LoginScreen({
           <div className="theme-card backdrop-blur-xl border rounded-2xl p-8 md:p-12 shadow-2xl mb-8">
             {/* Descripción */}
             <div className="mb-8 text-center">
-              <p className="theme-text-secondary text-lg leading-relaxed mb-4">
+              <p className="theme-text-primary text-lg leading-relaxed mb-4">
                 {t('loginSubtitle')}
               </p>
-              <div className="flex items-center justify-center gap-4 text-sm theme-text-tertiary flex-wrap">
+              <div className="flex items-center justify-center gap-4 text-sm theme-text-primary flex-wrap">
                 <span className="flex items-center gap-2">
                   <span className="w-2 h-2 bg-status-warning rounded-full"></span>
                   {t('oneVote')}

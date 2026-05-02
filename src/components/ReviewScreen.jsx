@@ -51,6 +51,18 @@ export default function ReviewScreen({
   const [gameGradients, setGameGradients] = useState({});
   const [loadingImages, setLoadingImages] = useState(true);
 
+  // Encontrar la primera categoría sin votar
+  const firstUnvotedIndex = validCategories.findIndex(cat => !userVotes[cat.id]);
+  
+  const handleEditVotes = () => {
+    if (firstUnvotedIndex !== -1) {
+      onPrevious(firstUnvotedIndex);
+    } else {
+      // Si todas están votadas, volver a la primera
+      onPrevious(0);
+    }
+  };
+
   // ============ Carga de gradientes (sin imágenes) ============
   useEffect(() => {
     // Generar gradientes aleatorios para juegos votados
@@ -105,7 +117,7 @@ export default function ReviewScreen({
             value={userDisplayName}
             onChange={(e) => onDisplayNameChange(e.target.value)}
             placeholder={t('enterNickname')}
-            className="w-full px-4 py-3 bg-white theme-text-primary border-2 border-gray-300 dark:theme-container-secondary dark:theme-border-primary dark:border rounded-lg theme-placeholder focus:border-status-warning focus:outline-none focus:ring-1 focus:ring-status-warning transition-colors"
+            className="w-full px-4 py-3 bg-white dark:bg-slate-800 theme-text-primary border-2 border-gray-300 dark:border-slate-600 rounded-lg theme-placeholder focus:border-status-warning focus:outline-none focus:ring-1 focus:ring-status-warning transition-colors"
           />
           <p className="text-xs theme-text-tertiary mt-2">
             {userDisplayName.length}/50
@@ -127,7 +139,7 @@ export default function ReviewScreen({
         {/* 3. Botones de Editar y Enviar */}
         <div className="flex gap-3 md:gap-4 w-full mb-8">
           <button
-            onClick={onPrevious}
+            onClick={handleEditVotes}
             className="flex-1 py-3 px-4 rounded-lg font-semibold theme-card theme-border-primary border theme-text-primary transition-all hover:border-status-warning hover:bg-status-warning/10"
           >
             {t('editVotes')}
