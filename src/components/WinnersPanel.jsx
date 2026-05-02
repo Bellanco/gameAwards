@@ -48,10 +48,10 @@ export default function WinnersPanel({
 
   // Calcular puntuaciones si modo es 'ranking'
   useEffect(() => {
-    if (mode === 'ranking' && categories.length > 0 && ballots.length > 0) {
+    if (mode === 'ranking' && categories.length > 0 && ballots.length > 0 && Object.keys(winners).length > 0) {
       calculateScores();
     }
-  }, [mode, categories, ballots]);
+  }, [mode, categories, ballots, winners]);
 
   /**
    * Cargar ganadores existentes desde Firestore
