@@ -27,8 +27,8 @@ export default function LoginScreen({
     >
       {/* Fondo decorativo */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/5 rounded-full blur-3xl"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-status-warning/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-status-info/10 rounded-full blur-3xl"></div>
       </div>
 
       {/* Contenido */}
@@ -38,9 +38,9 @@ export default function LoginScreen({
           <div className="text-center mb-16">
             <h1 className="text-5xl md:text-7xl font-black tracking-tighter theme-text-primary mb-4 leading-tight">
               THE GAME
-              <span className="block text-yellow-500">AWARDS</span>
+              <span className="block text-status-warning">AWARDS</span>
             </h1>
-            <div className="h-1 w-32 bg-gradient-to-r from-yellow-500 to-yellow-400 rounded-full mx-auto mb-6"></div>
+            <div className="h-1 w-32 bg-gradient-to-r from-status-warning to-orange-600 rounded-full mx-auto mb-6"></div>
             <p className="text-lg md:text-2xl theme-text-secondary font-light">
               {t('votingOpen')}
             </p>
@@ -55,12 +55,12 @@ export default function LoginScreen({
               </p>
               <div className="flex items-center justify-center gap-4 text-sm theme-text-tertiary flex-wrap">
                 <span className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                  <span className="w-2 h-2 bg-status-warning rounded-full"></span>
                   {t('oneVote')}
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                  <span className="w-2 h-2 bg-status-warning rounded-full"></span>
                   {t('secureVoting')}
                 </span>
               </div>
@@ -68,8 +68,8 @@ export default function LoginScreen({
 
             {/* Días restantes */}
             {daysRemaining !== null && (
-              <div className="mb-8 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-center">
-                <p className="theme-accent font-bold text-lg">
+              <div className="mb-8 p-4 bg-status-warning-light border border-status-warning rounded-lg text-center">
+                <p className="text-status-warning font-bold text-lg">
                   {daysRemaining > 0 
                     ? `${daysRemaining} ${t('daysRemaining')}`
                     : t('votingNowOpen')}
@@ -116,15 +116,15 @@ export default function LoginScreen({
           {/* Information Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="theme-card border rounded-lg p-4">
-              <p className="text-2xl mb-2 text-yellow-500">1</p>
+              <p className="text-2xl mb-2 text-status-warning">1</p>
               <p className="text-sm theme-text-secondary">{t('step1Title')}</p>
             </div>
             <div className="theme-card border rounded-lg p-4">
-              <p className="text-2xl mb-2 text-yellow-500">2</p>
+              <p className="text-2xl mb-2 text-status-warning">2</p>
               <p className="text-sm theme-text-secondary">{t('step2Title')}</p>
             </div>
             <div className="theme-card border rounded-lg p-4">
-              <p className="text-2xl mb-2 text-yellow-500">3</p>
+              <p className="text-2xl mb-2 text-status-warning">3</p>
               <p className="text-sm theme-text-secondary">{t('step3Title')}</p>
             </div>
           </div>
