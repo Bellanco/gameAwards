@@ -91,7 +91,7 @@ export default function SurveyWinnersSelector({ language = 'es', onClose }) {
       setIsLoading(true);
       // Los ganadores ya están guardados en la colección 'categories' con el campo 'winner'
       // Este función es legacy - el guardado se hace desde WinnersSelector
-      setSuccessMessage(`✅ Ganadores ya están guardados`);
+      setSuccessMessage(`Ganadores ya están guardados`);
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error:', error);
@@ -137,7 +137,7 @@ export default function SurveyWinnersSelector({ language = 'es', onClose }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <p className="theme-text-tertiary">Cargando resultados...</p>
+        <p className="theme-text-tertiary">{t('loadingResults')}</p>
       </div>
     );
   }

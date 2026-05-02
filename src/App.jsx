@@ -61,12 +61,11 @@ function App() {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        console.log('📂 Iniciando carga de categorías desde App.jsx...');
         setCategoriesLoading(true);
         const loadedCategories = await loadAndSortCategories(false); // false = no incluir inválidas
         setCategories(loadedCategories);
       } catch (error) {
-        console.error('❌ Error cargando categorias:', error);
+        console.error('Error cargando categorias:', error);
         setCategories([]);
       } finally {
         setCategoriesLoading(false);
@@ -109,9 +108,7 @@ function App() {
         
         // Limpiar placeholders del cache (para regenerar con URLs reales de RAWG)
         const cleaned = cleanPlaceholderCaches();
-        if (cleaned > 0) {
-          console.log(`🧹 Placeholders limpios: ${cleaned}`);
-        }
+        // Silently clean cache
         
         // Recuperar progreso previo de localStorage
         const savedProgress = localStorage.getItem('votingProgress');
@@ -297,8 +294,8 @@ function App() {
     if (missingVotes.length > 0) {
       const categoryNames = missingVotes.map(cat => cat.title).join(', ');
       const message = language === 'es' 
-        ? `⚠️ Te faltan ${missingVotes.length} categoría(s) por votar: ${categoryNames}`
-        : `⚠️ You are missing votes in ${missingVotes.length} category(ies): ${categoryNames}`;
+        ? `Te faltan ${missingVotes.length} categoría(s) por votar: ${categoryNames}`
+        : `You are missing votes in ${missingVotes.length} category(ies): ${categoryNames}`;
       setErrorMessage(message);
       return;
     }
@@ -329,7 +326,7 @@ function App() {
         isActive: true
       };
 
-      console.log('📊 Ballot data prepared:', ballotData);
+      console.log('Ballot data prepared:', ballotData);
 
       // Guardado en Firebase
       await setDoc(doc(db, "ballots", currentUser.uid), ballotData);
@@ -339,7 +336,7 @@ function App() {
       setCurrentStep(99); // Pantalla de éxito
       localStorage.removeItem('votingProgress');
     } catch (error) {
-      console.error('💾 Ballot Submit Error:', error);
+      console.error('Ballot Submit Error:', error);
       setErrorMessage('Error al guardar tu voto. Intenta de nuevo.');
     } finally {
       setIsLoading(false);
@@ -362,8 +359,10 @@ function App() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-5xl mb-4 animate-bounce">🎮</div>
-          <p className="text-slate-400">Cargando aplicación...</p>
+          <div className="mb-4 flex justify-center">
+            <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
+          </div>
+          <p className="text-slate-400">{t('loadingApp')}</p>
         </div>
       </div>
     );
@@ -372,10 +371,12 @@ function App() {
   // Loading de categorías
   if (categoriesLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="text-5xl mb-4 animate-spin">⏳</div>
-          <p className="text-slate-400">Cargando categorías...</p>
+          <div className="mb-4 flex justify-center">
+            <div className="w-12 h-12 border-4 border-slate-700 border-t-emerald-500 rounded-full animate-spin"></div>
+          </div>
+          <p className="text-slate-400">{t('loadingCategories')}</p>
         </div>
       </div>
     );
@@ -387,12 +388,6 @@ function App() {
   const validCategories = categories.filter(cat => 
     !cat.isPlaceholder && cat.title && cat.title.trim()
   );
-  
-  console.log(`🔍 Análisis de categorías: 
-    - Total cargadas: ${categories.length}
-    - Con isPlaceholder: ${categories.filter(c => c.isPlaceholder).length}
-    - Válidas para votar: ${validCategories.length}
-  `, { categories, validCategories });
   
   // Panel de Admin - Ruta secreta /admin (SIEMPRE accesible, incluso sin categorías)
   if (window.location.pathname === '/admin') {
@@ -406,7 +401,7 @@ function App() {
         <div className="text-center">
           <div className="text-5xl mb-4">📋</div>
           <h1 className="text-2xl font-bold text-white mb-2">No hay categorías disponibles</h1>
-          <p className="text-slate-400">Por favor, intenta de nuevo más tarde.</p>
+          <p className="text-slate-400">{t('errorTryAgain')}</p>
           {categories.length > 0 && (
             <p className="text-xs text-slate-500 mt-4">
               (Admin: {categories.length} categoría(s) en base de datos, pero vacías)
@@ -424,7 +419,6 @@ function App() {
 
   // Pantalla de login
   if (currentStep === -1 || !currentUser) {
-    console.log('🔓 Renderizando LoginScreen:', { currentStep, currentUser: !!currentUser });
     return (
       <LoginScreen
         onLogin={handleLogin}
@@ -463,7 +457,6 @@ function App() {
 
   // Pantalla de revisión - Solo si hay categorías válidas cargadas
   if (currentStep === validCategories.length && validCategories.length > 0) {
-    console.log('📋 Renderizando ReviewScreen:', { currentStep, validCategories: validCategories.length });
     return (
       <ReviewScreen
         categories={validCategories}
@@ -488,10 +481,9 @@ function App() {
 
   // Pantalla de éxito
   if (currentStep === 99) {
-    console.log('✅ Renderizando SuccessScreen');
     return (
       <SuccessScreen
-        userNickname={userNickname}
+        userNickname={userDisplayName || userNickname}
         onLogout={handleLogout}
         onReturnHome={handleReturnToHome}
         successMessage={successMessage}

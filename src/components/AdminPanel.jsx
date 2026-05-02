@@ -11,6 +11,7 @@ import { LoadingSpinner } from './ui';
 import CategoryManager from './CategoryManager';
 import WinnersPanel from './WinnersPanel';
 import LoginScreen from './LoginScreen';
+import NotFoundScreen from './NotFoundScreen';
 
 /**
  * AdminPanel v4 - Panel de administración refactorizado
@@ -156,38 +157,16 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
     );
   }
 
-  // Autenticado pero no es admin
+  // Autenticado pero no es admin - Mostrar 404 para evitar ataques de enumeración
   if (!authLoading && !isAdmin) {
     return (
-      <div className="min-h-screen theme-gradient-primary flex items-center justify-center p-4">
-        <div className="absolute top-4 right-4 z-50 flex gap-2">
-          <button
-            onClick={onToggleTheme}
-            className="flex items-center gap-2 px-3 py-2 theme-card theme-border-primary border rounded-lg text-sm font-semibold transition-all"
-            title={theme === 'light' ? t('darkTheme') : t('lightTheme')}
-          >
-            <ThemeIcon className="w-4 h-4" isDark={theme === 'dark'} />
-          </button>
-          <button
-            onClick={onToggleLanguage}
-            className="flex items-center gap-2 px-3 py-2 theme-card theme-border-primary border rounded-lg text-sm font-semibold transition-all"
-          >
-            <LanguageIcon className="w-4 h-4" />
-            <span>{language.toUpperCase()}</span>
-          </button>
-        </div>
-        <div className="text-center">
-          <h1 className="text-3xl font-black theme-text-primary mb-4">{t('unauthorized')}</h1>
-          <p className="theme-text-secondary mb-6">{t('onlyForAdministrators')}</p>
-          <p className="theme-text-tertiary text-sm mb-6">{t('connecting')}: {currentUser?.email}</p>
-          <button
-            onClick={handleLogout}
-            className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-all"
-          >
-            {t('signOut')}
-          </button>
-        </div>
-      </div>
+      <NotFoundScreen
+        language={language}
+        onToggleLanguage={onToggleLanguage}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+        onGoHome={() => window.location.href = '/'}
+      />
     );
   }
 
@@ -425,7 +404,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                           </summary>
                           <div className="mt-2 p-2 theme-container-secondary rounded text-xs font-mono theme-text-secondary">
                             {getSortedBallotSelections(ballot).map(([cat, val]) => (
-                              <div key={cat}><span className="text-blue-400">{getCategoryTitle(cat)}:</span> {val}</div>
+                              <div key={cat}><span className="text-info">{getCategoryTitle(cat)}:</span> {val}</div>
                             ))}
                           </div>
                         </details>

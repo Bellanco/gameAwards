@@ -79,7 +79,7 @@ export default function LoginScreen({
 
             {/* Mensajes de Error */}
             {errorMessage && (
-              <div className="mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-lg text-red-300 text-sm">
+              <div className="mb-6 p-4 status-error rounded-lg text-sm">
                 <p className="font-semibold">{t('unableToSignIn')}</p>
                 <p>{errorMessage}</p>
               </div>

@@ -1,61 +1,88 @@
 /**
- * Archivo de ejemplo de Reglas de Firestore
+ * Archivo de Reglas de Firestore - Seguro para Producción
  * Copia este contenido en Firebase Console > Firestore Database > Rules
  * Luego haz clic en "Publish" para aplicar
+ * 
+ * Para usar estas reglas, asigna custom claims a los admins:
+ * Firebase Console → Authentication → Users → Elegir usuario → Custom Claims
+ * Agregar: { "admin": true }
  */
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Función auxiliar para verificar si es admin (por ahora cualquier usuario autenticado)
-    // TODO: Mejorar con custom claims en Firebase Authentication
+    /**
+     * Función auxiliar: Verificar si el usuario es admin
+     * Busca custom claim 'admin: true' en el token de autenticación
+     * SEGURIDAD: Verificado por Firebase, imposible falsificar desde cliente
+     */
     function isAdmin() {
-      return request.auth != null;
+      return request.auth != null && 
+             request.auth.token.get('admin', false) == true;
     }
     
-    // Colección: ballots (votos de la porra)
+    /**
+     * Función auxiliar: Verificar si es el propietario del documento
+     */
+    function isOwner(userId) {
+      return request.auth != null && 
+             request.auth.uid == userId;
+    }
+    
+    // ========== COLECCIÓN: ballots (votos de usuarios) ==========
     match /ballots/{userId} {
-      // Lectura: Cualquier usuario autenticado puede leer
+      // Lectura: Solo usuarios autenticados pueden leer
       allow read: if request.auth != null;
       
-      // Escritura: Solo el usuario dueño del UID puede escribir/editar su propio documento
-      allow write: if request.auth != null && request.auth.uid == userId;
+      // Escritura: SOLO el propietario del UID puede escribir/editar su voto
+      // SEGURIDAD: Imposible votar como otro usuario
+      allow write: if isOwner(userId) && 
+                      request.auth.uid != null;
       
-      // Eliminación: No permitida
+      // Eliminación: No permitida (soft-delete solo)
       allow delete: if false;
     }
     
-    // Colección: categories (categorías de la porra - PÚBLICAS)
+    // ========== COLECCIÓN: categories (categorías - PÚBLICAS) ==========
     match /categories/{categoryId} {
       // Lectura: PÚBLICA - Cualquiera puede leer
       allow read: if true;
       
-      // Escritura: Solo admin autenticado
-      allow write, delete: if isAdmin();
+      // Escritura: Solo admins autenticados
+      allow write: if isAdmin();
+      
+      // Eliminación: Solo admins
+      allow delete: if isAdmin();
     }
     
-    // Colección: winners (ganadores seleccionados por el admin)
+    // ========== COLECCIÓN: winners (ganadores seleccionados por admin) ==========
     match /winners/{categoryId} {
       // Lectura: PÚBLICA
       allow read: if true;
       
-      // Escritura: Solo admin
-      allow write, delete: if isAdmin();
+      // Escritura: Solo admins
+      allow write: if isAdmin();
+      
+      // Eliminación: Solo admins
+      allow delete: if isAdmin();
     }
     
-    // Colección: surveyWinners (ganadores según resultados de votación)
+    // ========== COLECCIÓN: surveyWinners (ganadores por votación) ==========
     match /surveyWinners/{categoryId} {
       // Lectura: PÚBLICA
       allow read: if true;
       
-      // Escritura: Solo admin
-      allow write, delete: if isAdmin();
+      // Escritura: Solo admins
+      allow write: if isAdmin();
+      
+      // Eliminación: Solo admins
+      allow delete: if isAdmin();
     }
     
-    // Colección: admin (para datos de configuración)
+    // ========== COLECCIÓN: admin (configuración sensible) ==========
     match /admin/{document=**} {
-      allow read, write: if isAdmin();
+      allow read, write, delete: if isAdmin();
     }
   }
 }

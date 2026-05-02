@@ -172,4 +172,25 @@ export const en = {
   theme: "Theme",
   lightTheme: "Light Theme",
   darkTheme: "Dark Theme",
+  
+  // Validation messages
+  invalidCategory: "Invalid Category",
+  noOptions: "No options available",
+  selectedWinner: "Selected winner:",
+  chooseWinnersCategory: "Choose the winners for each category",
+  loadingApp: "Loading application...",
+  loadingCategories: "Loading categories...",
+  errorTryAgain: "Please try again later",
+  loadingResults: "Loading results...",
+  loading: "Loading...",
+  completeVoteInCategory: "Complete your vote in",
+  moreCategories: "more categories",
+  mustVoteAllBefore: "You must vote in all categories before submitting your ballot",
+  
+  // 404 Not Found
+  pageNotFound: "Page Not Found",
+  pageNotExist: "This page does not exist",
+  pageNotFoundDescription: "The URL you are looking for is not available on our site",
+  goHome: "Go Home",
+  changeLanguage: "Change Language",
 };

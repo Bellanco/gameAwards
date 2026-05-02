@@ -80,13 +80,13 @@ export default function WinnersSelector({ language = 'es', onClose }) {
           const category = categories.find(c => c.id === categoryId);
           
           if (!category) {
-            console.warn(`⚠️ WinnersSelector: Categoría ${categoryId} no encontrada, saltando...`);
+            console.warn(`WinnersSelector: Categoría ${categoryId} no encontrada, saltando...`);
             skippedCount++;
             continue;
           }
           
           if (!category.options || category.options.length === 0) {
-            console.warn(`⚠️ WinnersSelector: Categoría ${categoryId} está vacía (placeholder), saltando...`);
+            console.warn(`WinnersSelector: Categoría ${categoryId} está vacía (placeholder), saltando...`);
             skippedCount++;
             continue;
           }
@@ -133,14 +133,14 @@ export default function WinnersSelector({ language = 'es', onClose }) {
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h1 className="text-3xl md:text-4xl font-black text-white">Seleccionar Ganadores</h1>
-              <p className="text-slate-400 text-sm">Elige los ganadores para cada categoría</p>
+              <h1 className="text-3xl md:text-4xl font-black text-white">{t('selectWinners')}</h1>
+              <p className="text-slate-400 text-sm">{t('chooseWinnersCategory')}</p>
             </div>
             <button
               onClick={onClose}
               className="py-2 px-4 bg-slate-800 hover:bg-slate-700 rounded-lg font-semibold text-sm transition-all"
             >
-              Volver
+              {t('back')}
             </button>
           </div>
 
@@ -151,7 +151,7 @@ export default function WinnersSelector({ language = 'es', onClose }) {
               disabled={isLoading}
               className="py-3 px-6 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold rounded-lg transition-all w-full md:w-auto"
             >
-              Guardar Ganadores
+              {t('saveWinners')}
             </button>
           )}
         </div>
@@ -160,7 +160,7 @@ export default function WinnersSelector({ language = 'es', onClose }) {
       {/* Mensajes */}
       <div className="max-w-7xl mx-auto px-4 md:px-6 pt-6">
         {successMessage && (
-          <div className="mb-6 p-4 bg-green-900/20 border border-green-500/30 rounded-lg text-green-400">
+          <div className="mb-6 p-4 status-success rounded-lg">
             {successMessage}
           </div>
         )}
@@ -170,14 +170,14 @@ export default function WinnersSelector({ language = 'es', onClose }) {
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
         {categories.length === 0 ? (
           <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-8 text-center">
-            <p className="text-slate-400 text-lg">No hay categorías. Crea categorías primero.</p>
+            <p className="text-slate-400 text-lg">{t('noCategories')}</p>
           </div>
         ) : (
           <div className="space-y-6">
             {categories.map(category => {
               // Validación defensiva
               if (!category.options || category.options.length === 0) {
-                console.warn(`⚠️ WinnersSelector: categoría "${category.title}" sin opciones`);
+                console.warn(`WinnersSelector: categoría "${category.title}" sin opciones`);
                 return null;
               }
               
@@ -212,7 +212,7 @@ export default function WinnersSelector({ language = 'es', onClose }) {
 
                 {winners[category.id] && (
                   <p className="mt-4 text-sm theme-accent">
-                    Ganador seleccionado: <span className="font-bold">{winners[category.id].name}</span>
+                    {t('selectedWinner')} <span className="font-bold">{winners[category.id].name}</span>
                   </p>
                 )}
               </div>

@@ -6,6 +6,7 @@
 import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { logError, ERROR_TYPES } from './errorService';
+import logger from './loggerService';
 
 /**
  * Carga todas las categorías desde Firestore
@@ -24,7 +25,7 @@ export async function loadAndSortCategories(includeInvalid = false, onDeleteDupl
       ...doc.data()
     }));
 
-    console.log(`📊 Documentos encontrados: ${allDocs.length}`);
+    logger.log(`📊 Documentos encontrados: ${allDocs.length}`);
 
     // Detectar y eliminar automáticamente duplicados por TÍTULO
     // Mantener solo la versión más reciente de cada título
@@ -44,7 +45,7 @@ export async function loadAndSortCategories(includeInvalid = false, onDeleteDupl
     // Para cada título con múltiples instancias, mantener solo la más reciente
     for (const [title, docs] of Object.entries(titleGroups)) {
       if (docs.length > 1) {
-        console.warn(`⚠️ Duplicados encontrados para: "${title}"`);
+        logger.warn(`Duplicados encontrados para: "${title}"`);
         docs.sort((a, b) => {
           const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
           const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
@@ -61,13 +62,13 @@ export async function loadAndSortCategories(includeInvalid = false, onDeleteDupl
     // Eliminar duplicados automáticamente
     for (const docId of toDelete) {
       try {
-        console.log(`🗑️ Eliminando duplicado automáticamente: ${docId}`);
+        logger.log(`🗑️ Eliminando duplicado automáticamente: ${docId}`);
         await deleteDoc(doc(db, 'categories', docId));
         if (onDeleteDuplicate) {
           onDeleteDuplicate(docId);
         }
       } catch (error) {
-        console.error(`❌ Error eliminando duplicado ${docId}:`, error);
+        logger.error(`Error eliminando duplicado ${docId}:`, error);
       }
     }
 
@@ -92,7 +93,7 @@ export async function loadAndSortCategories(includeInvalid = false, onDeleteDupl
       return indexA - indexB;
     });
 
-    console.log(`✅ Categorías cargadas y ordenadas: ${sortedCategories.length}`, {
+    logger.log(`Categorías cargadas y ordenadas: ${sortedCategories.length}`, {
       total: allDocs.length,
       placeholders: filtered.filter(c => c.isPlaceholder).length,
       validas: categoriesData.length,
@@ -104,7 +105,7 @@ export async function loadAndSortCategories(includeInvalid = false, onDeleteDupl
     logError(ERROR_TYPES.FIRESTORE_ERROR, error, {
       context: 'categoriesService - loadAndSortCategories'
     });
-    console.error('❌ Error cargando categorías:', error);
+    logger.error('Error cargando categorías:', error);
     return [];
   }
 }

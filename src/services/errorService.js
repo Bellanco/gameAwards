@@ -5,9 +5,7 @@
  */
 
 import { trackError } from './analyticsService';
-
-// Logger de errores en desarrollo
-const isDev = import.meta.env.MODE === 'development';
+import logger from './loggerService';
 
 /**
  * Tipos de error
@@ -29,41 +27,41 @@ export const ERROR_TYPES = {
  * @param {object} context - Contexto adicional
  */
 export const logError = async (errorType, error, context = {}) => {
+  const isDev = import.meta.env.MODE === 'development';
   const errorMessage = error instanceof Error ? error.message : String(error);
   const stackTrace = error instanceof Error ? error.stack : undefined;
 
+  // En producción, no incluir stack traces ni contexto sensible
   const errorData = {
     type: errorType,
-    message: errorMessage,
-    stack: stackTrace,
+    message: isDev ? errorMessage : 'Error en aplicación',
+    stack: isDev ? stackTrace : undefined,
     timestamp: new Date().toISOString(),
-    ...context
+    ...(isDev ? context : {}) // Contexto solo en desarrollo
   };
 
   // Log en desarrollo
-  if (isDev) {
-    console.error(`[${errorType}]`, errorData);
-  }
+  logger.error(`[${errorType}]`, errorData);
 
   // Track en Analytics (sin await para no bloquear)
   try {
     const { trackError } = await import('./analyticsService');
-    trackError(errorType, errorMessage, context).catch(e => console.warn('Analytics tracking failed', e));
+    trackError(errorType, errorMessage, context).catch(e => logger.warn('Analytics tracking failed', e));
   } catch (e) {
-    console.warn('Could not import analytics service', e);
+    logger.warn('Could not import analytics service', e);
   }
 
-  // Persistir en localStorage para análisis posterior
+  // Persistir en localStorage para análisis posterior (sanitizado)
   try {
     const errorLog = JSON.parse(localStorage.getItem('appErrorLog') || '[]');
     errorLog.push(errorData);
-    // Mantener solo los últimos 50 errores
-    if (errorLog.length > 50) {
+    // Mantener solo los últimos 20 errores (no 50)
+    if (errorLog.length > 20) {
       errorLog.shift();
     }
     localStorage.setItem('appErrorLog', JSON.stringify(errorLog));
   } catch (e) {
-    console.warn('No se pudo guardar error log', e);
+    logger.warn('No se pudo guardar error log', e);
   }
 
   return errorData;

@@ -21,6 +21,7 @@ import { useTranslation } from '../data/literals';
 import { useFirestoreCategories, useFirestoreBallots } from '../hooks';
 import { Button, Card, LoadingSpinner, Alert, Table } from './ui';
 import { logError, ERROR_TYPES } from '../services/errorService';
+import { sortCategoriesByOrder } from '../services/categoriesService';
 
 export default function WinnersPanel({ 
   language = 'es',
@@ -141,7 +142,7 @@ export default function WinnersPanel({
           const category = categories.find(c => c.id === categoryId);
           
           if (!category || !category.options || category.options.length === 0) {
-            console.warn(`⚠️ Categoría ${categoryId} inválida, saltando...`);
+            console.warn(`Categoría ${categoryId} inválida, saltando...`);
             skippedCount++;
             continue;
           }
@@ -190,16 +191,19 @@ export default function WinnersPanel({
   };
 
   /**
-   * Obtener votos correctos de un usuario
+   * Obtener votos correctos de un usuario (ordenados por orderIndex)
    */
   const getUserCorrectVotes = (userId) => {
     const ballot = ballots.find(b => b.userId === userId);
     const correctVotes = [];
     
     if (ballot?.selections) {
-      Object.entries(ballot.selections).forEach(([categoryId, voteName]) => {
-        const category = categories.find(c => c.id === categoryId);
-        if (category && winners[categoryId]?.name === voteName) {
+      // Iterar sobre categorías ordenadas por orderIndex
+      const sortedCategories = sortCategoriesByOrder(categories);
+      
+      sortedCategories.forEach(category => {
+        const voteName = ballot.selections[category.id];
+        if (voteName && winners[category.id]?.name === voteName) {
           correctVotes.push({
             category: category.title,
             vote: voteName,
@@ -284,7 +288,7 @@ export default function WinnersPanel({
                     <Card.Header>
                       <h2 className="text-xl font-bold theme-text-primary">{category.title}</h2>
                       {winners[category.id] && (
-                        <p className="text-green-400 text-sm mt-2">
+                        <p className="text-success text-sm mt-2">
                           ✓ {t('selected')}: {winners[category.id].name}
                         </p>
                       )}
@@ -411,7 +415,7 @@ export default function WinnersPanel({
                     {getUserCorrectVotes(selectedUserId).map((vote, idx) => (
                       <div key={idx} className="grid grid-cols-3 gap-4 p-3 bg-slate-700/50 rounded items-center">
                         <span className="text-slate-300">{vote.category}</span>
-                        <span className="text-green-400 font-semibold text-center">{vote.vote}</span>
+                        <span className="text-success font-semibold text-center">{vote.vote}</span>
                         <span className="theme-accent font-bold text-right">+{vote.points} {t('pts')}</span>
                       </div>
                     ))}

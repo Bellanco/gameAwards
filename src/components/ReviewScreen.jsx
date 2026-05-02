@@ -43,11 +43,11 @@ export default function ReviewScreen({
   const t = useTranslation(language);
 
   // DEBUG - Verificar estado de votos
-  useEffect(() => {
-    console.log('📋 ReviewScreen - voteCount:', voteCount, 'totalCategories:', totalCategories, 'isComplete:', isComplete, 'userVotes:', userVotes);
-  }, [voteCount, totalCategories, isComplete, userVotes]);
+  // Silently verify vote state (uncomment for debugging)
+  // useEffect(() => {
+  //   console.log('📋 ReviewScreen - voteCount:', voteCount, 'totalCategories:', totalCategories, 'isComplete:', isComplete, 'userVotes:', userVotes);
+  // }, [voteCount, totalCategories, isComplete, userVotes]);
   
-  const [gameImages, setGameImages] = useState({});
   const [gameGradients, setGameGradients] = useState({});
   const [loadingImages, setLoadingImages] = useState(true);
 
@@ -114,16 +114,12 @@ export default function ReviewScreen({
 
         {/* 2. Warning if incomplete */}
         {!isComplete && (
-          <div className="p-4 border border-amber-600/30 bg-amber-900/20 rounded-lg mb-8">
-            <p className="text-sm font-semibold text-amber-700">
-              {language === 'es' 
-                ? `⚠️ Completa tu voto en ${missingVotes} categoría${missingVotes !== 1 ? 's' : ''} más`
-                : `⚠️ Complete your vote in ${missingVotes} more category${missingVotes !== 1 ? 'ies' : ''}`}
+          <div className="p-4 status-warning rounded-lg mb-8">
+            <p className="text-sm font-semibold">
+              {t('completeVoteInCategory')} {missingVotes} {missingVotes !== 1 ? t('moreCategories') : t('moreCategory')}
             </p>
-            <p className="text-xs text-amber-600/80 mt-1">
-              {language === 'es'
-                ? 'Debes votar en todas las categorías antes de enviar tu ballot'
-                : 'You must vote in all categories before submitting your ballot'}
+            <p className="text-xs mt-1 opacity-80">
+              {t('mustVoteAllBefore')}
             </p>
           </div>
         )}

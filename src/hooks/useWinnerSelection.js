@@ -11,6 +11,7 @@ import { useState, useCallback } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { logError, ERROR_TYPES } from '../services/errorService';
+import logger from '../services/loggerService';
 
 /**
  * @typedef {Object} Winner
@@ -109,7 +110,7 @@ export const useWinnerSelection = (categories = []) => {
           
           // Validar que la categoría sea válida
           if (!category || !category.options || category.options.length === 0) {
-            console.warn(`⚠️ Categoría ${categoryId} inválida, saltando...`);
+            logger.warn(`Categoría ${categoryId} inválida, saltando...`);
             skippedCount++;
             continue;
           }

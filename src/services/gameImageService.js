@@ -4,6 +4,7 @@
  * ℹ️ Nota: Carga de imagenes deshabilitada
  * Los componentes usan solo colores de fondo y gradientes
  */
+import logger from './loggerService';
 
 /**
  * Funcion dummy: no carga imagenes
@@ -28,7 +29,7 @@ export function getPlaceholderSVG(text) {
  * Limpia todo el cache
  */
 export function clearGameImageCache() {
-  console.log('Carga de imagenes deshabilitada');
+  logger.log('Carga de imagenes deshabilitada');
 }
 
 /**
@@ -60,7 +61,7 @@ export async function preloadGameImages(gameNames = []) {
  * Limpia el cache
  */
 export function clearImageCache() {
-  console.log('Carga de imagenes deshabilitada');
+  logger.log('Carga de imagenes deshabilitada');
 }
 
 /**

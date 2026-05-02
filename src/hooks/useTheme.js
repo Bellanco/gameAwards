@@ -3,15 +3,16 @@
  * Centraliza: estado, localStorage, aplicación de clase dark, y logs
  */
 import { useState, useEffect } from 'react';
+import logger from '../services/loggerService';
 
 export function useTheme() {
   const [theme, setTheme] = useState(() => {
     // Intentar cargar del localStorage
     const savedTheme = localStorage.getItem('appTheme');
-    console.log('🎨 [useTheme] Inicializando tema...', { savedTheme });
+    logger.log('🎨 [useTheme] Inicializando tema...', { savedTheme });
     
     if (savedTheme && ['light', 'dark'].includes(savedTheme)) {
-      console.log('🎨 [useTheme] Usando tema guardado:', savedTheme);
+      logger.log('🎨 [useTheme] Usando tema guardado:', savedTheme);
       return savedTheme;
     }
     
@@ -19,12 +20,12 @@ export function useTheme() {
     if (typeof window !== 'undefined' && window.matchMedia) {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const systemTheme = prefersDark ? 'dark' : 'light';
-      console.log('🎨 [useTheme] Detectado tema del sistema:', systemTheme);
+      logger.log('🎨 [useTheme] Detectado tema del sistema:', systemTheme);
       return systemTheme;
     }
     
     // Default a claro
-    console.log('🎨 [useTheme] Usando tema por defecto: light');
+    logger.log('🎨 [useTheme] Usando tema por defecto: light');
     return 'light';
   });
 
@@ -46,7 +47,7 @@ export function useTheme() {
    */
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
-    console.log('🎨 [useTheme] Cambiando tema de', theme, 'a', newTheme);
+    logger.log('🎨 [useTheme] Cambiando tema de', theme, 'a', newTheme);
     setTheme(newTheme);
   };
 

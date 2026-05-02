@@ -57,7 +57,7 @@ export const es = {
   completionStatus: "Estado de finalización",
   missingVotes: "Votos faltantes",
   readyToSubmit: "Listo para enviar",
-  completeAllCategories: "Debes votar en todas las categorías antes de enviar tu ballot",
+  completeAllCategories: "Debes votar en todas las categorías antes de enviar tus votos",
   remaining: "restante",
   cancel: "Cancelar",
   cancelVoting: "Cancelar votación y volver al inicio",
@@ -172,4 +172,25 @@ export const es = {
   theme: "Tema",
   lightTheme: "Tema claro",
   darkTheme: "Tema oscuro",
+  
+  // Mensajes de validación
+  invalidCategory: "Categoría inválida",
+  noOptions: "Sin opciones disponibles",
+  selectedWinner: "Ganador seleccionado:",
+  chooseWinnersCategory: "Elige los ganadores para cada categoría",
+  loadingApp: "Cargando aplicación...",
+  loadingCategories: "Cargando categorías...",
+  errorTryAgain: "Por favor, intenta de nuevo más tarde",
+  loadingResults: "Cargando resultados...",
+  loading: "Cargando...",
+  completeVoteInCategory: "Completa tu voto en",
+  moreCategories: "categorías más",
+  mustVoteAllBefore: "Debes votar en todas las categorías antes de enviar tus votos",
+  
+  // 404 No encontrada
+  pageNotFound: "Página no encontrada",
+  pageNotExist: "Esta página no existe",
+  pageNotFoundDescription: "La URL que buscas no está disponible en nuestro sitio",
+  goHome: "Ir al inicio",
+  changeLanguage: "Cambiar idioma",
 };

@@ -26,7 +26,6 @@ export default function VoteScreen({
   onToggleTheme
 }) {
   const t = useTranslation(language);
-  const [gameImages, setGameImages] = useState({});
   const [gameGradients, setGameGradients] = useState({});
   const [loadingImages, setLoadingImages] = useState(true);
   const [hasVerticalScroll, setHasVerticalScroll] = useState(false);
@@ -36,15 +35,14 @@ export default function VoteScreen({
   
   const isVoted = !!userVotes[category.id];
   const selectedOption = userVotes[category.id];
-  const categoryBg = 'https://media.rawg.io/media/games/56d/56d006318db933179cdee675e37e3f1a.jpg';
 
   // Validación defensiva
   if (!category || !category.options || category.options.length === 0) {
     return (
       <div className="h-screen theme-gradient-primary flex items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold theme-text-primary mb-2">Categoría inválida</h1>
-          <p className="theme-text-secondary">Sin opciones disponibles.</p>
+          <h1 className="text-2xl font-bold theme-text-primary mb-2">{t('invalidCategory')}</h1>
+          <p className="theme-text-secondary">{t('noOptions')}</p>
         </div>
       </div>
     );
@@ -56,6 +54,12 @@ export default function VoteScreen({
     setGameGradients(gradients);
     setLoadingImages(false);
     setIsTransitioning(false); // Reset transition state when category changes
+    
+    // Limpiar cualquier estado de focus de botones anteriores
+    const activeElement = document.activeElement;
+    if (activeElement && activeElement.tagName === 'BUTTON') {
+      activeElement.blur();
+    }
     
     // Verificar scroll cuando cambien las opciones
     setTimeout(() => {
@@ -128,12 +132,20 @@ export default function VoteScreen({
   // Manejadores de navegación con protección contra ghost clicks
   const handleNext = () => {
     setIsTransitioning(true);
-    onNext();
+    setTimeout(() => {
+      onNext();
+      // Pequeño delay adicional para garantizar que se limpie el estado
+      setTimeout(() => setIsTransitioning(false), 50);
+    }, 100);
   };
 
   const handlePrevious = () => {
     setIsTransitioning(true);
-    onPrevious();
+    setTimeout(() => {
+      onPrevious();
+      // Pequeño delay adicional para garantizar que se limpie el estado
+      setTimeout(() => setIsTransitioning(false), 50);
+    }, 100);
   };
 
   const handleSelectOption = (categoryId, option) => {
@@ -164,10 +176,10 @@ export default function VoteScreen({
         <button
           onClick={handlePrevious}
           disabled={currentStep === 0}
-          className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-semibold text-xs sm:text-sm transition ${
+          className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-semibold text-xs sm:text-sm transition transform ${
             currentStep === 0
-              ? 'theme-card theme-text-tertiary cursor-not-allowed opacity-50'
-              : 'theme-card theme-text-secondary hover:theme-border-secondary'
+              ? 'bg-slate-700/40 text-slate-500 cursor-not-allowed opacity-40 border border-slate-600/30'
+              : 'bg-gradient-to-r from-slate-600 to-slate-700 text-white hover:from-slate-500 hover:to-slate-600 hover:scale-105 border border-slate-500/50 shadow-md'
           }`}
         >
           {t('previous')}
@@ -189,7 +201,7 @@ export default function VoteScreen({
       {/* Fila 2: Finalizar */}
       <button
         onClick={onFinish}
-        className="w-full py-2 sm:py-2.5 px-3 rounded font-bold bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-500 hover:to-green-600 text-xs sm:text-sm transition transform hover:scale-105"
+        className="flex-1 py-2 sm:py-2.5 px-3 rounded font-bold bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-500 hover:to-green-600 text-xs sm:text-sm transition-colors"
       >
         {t('finish')}
       </button>
@@ -204,7 +216,7 @@ export default function VoteScreen({
       onToggleTheme={onToggleTheme}
       header={headerContent}
       footer={<Footer>{footerContent}</Footer>}
-      backgroundImage={categoryBg}
+      backgroundImage=""
       showControlBar={false}
       containerClass="h-screen theme-gradient-primary flex flex-col"
     >
@@ -263,7 +275,7 @@ export default function VoteScreen({
 
         {/* Status - Compact */}
         <div className="mt-2 sm:mt-3 px-2 sm:px-3 py-1 sm:py-1.5 theme-card theme-border-primary border rounded text-xs flex-shrink-0">
-          <span className={`font-bold ${isVoted ? 'text-green-400' : 'text-amber-400'}`}>
+          <span className={`font-bold ${isVoted ? 'text-success' : 'text-warning'}`}>
             {isVoted ? t('voted') : t('pending')}
           </span>
         </div>
@@ -282,7 +294,7 @@ export default function VoteScreen({
               title="Pulsa para ver más opciones"
             >
               <svg 
-                className="w-5 h-5 text-amber-400 drop-shadow-lg"
+                className="w-5 h-5 text-warning drop-shadow-lg"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"

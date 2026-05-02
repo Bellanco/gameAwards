@@ -37,11 +37,17 @@ export default function GameCard({
       <button
         onClick={() => !isTransitioning && onSelect && onSelect()}
         disabled={isTransitioning}
-        className={`relative rounded-lg overflow-hidden transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-600 border-2 ${heightClass} w-full ${
-          isSelected
+        className={`relative rounded-lg overflow-hidden border-2 ${heightClass} w-full select-none
+          ${isTransitioning 
+            ? 'pointer-events-none cursor-not-allowed' 
+            : 'transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-600 cursor-pointer'
+          }
+          ${isSelected
             ? 'border-amber-600 shadow-lg shadow-amber-600/50'
             : 'border-slate-700 hover:border-amber-600'
-        }`}
+          }
+          ${isTransitioning ? 'scale-100 border-slate-700' : ''}
+        `}
       >
         {/* Degradado de fondo */}
         <div className={`absolute inset-0 ${gradient}`} />
@@ -80,15 +86,9 @@ export default function GameCard({
           <div 
             className="w-full h-64 flex items-center justify-center"
             style={{
-              background: 'linear-gradient(135deg, #95A5A6 0%, #1a1a2e 100%)'
+              background: `linear-gradient(135deg, var(--color-secondary) 0%, var(--color-tertiary) 100%)`
             }}
-          />
-          
-          {/* Overlay con degradado de medalla */}
-          {medalGradient && (
-            <div className={`absolute inset-0 ${medalGradient}`} />
-          )}
-          
+          >
           {/* Overlay oscuro para contraste de texto */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
           
@@ -105,6 +105,7 @@ export default function GameCard({
               <MedalIcon className="w-6 h-6 md:w-8 md:h-8" style={{ color: medalColor }} />
             </div>
           )}
+          </div>
         </div>
       </div>
     );
@@ -124,7 +125,7 @@ export default function GameCard({
           <div 
             className="absolute inset-0 flex items-center justify-center transition-transform duration-300 group-hover:scale-110"
             style={{
-              background: 'linear-gradient(135deg, #2d3748 0%, #1a1a2e 100%)'
+              background: `linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%)`
             }}
           />
           

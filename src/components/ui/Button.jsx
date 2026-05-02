@@ -37,8 +37,8 @@ export default function Button({
   const variantClasses = {
     primary: 'bg-blue-600 hover:bg-blue-700 text-white',
     secondary: 'bg-slate-800 hover:bg-slate-700 text-slate-100',
-    success: 'bg-green-600 hover:bg-green-700 text-white',
-    danger: 'bg-red-600 hover:bg-red-700 text-white',
+    success: 'btn-success',
+    danger: 'btn-danger',
     outline: 'bg-transparent border border-slate-600 hover:bg-slate-800 text-slate-100'
   };
 
@@ -69,7 +69,7 @@ export default function Button({
       onClick={onClick}
       {...props}
     >
-      {loading ? '⏳ ' : ''}{children}
+      {children}
     </button>
   );
 }

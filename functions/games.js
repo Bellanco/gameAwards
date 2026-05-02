@@ -7,15 +7,47 @@
  * Por eso dependemos de localStorage del cliente
  */
 
+// ============ Rate Limiting (Simple en-memory) ============
+const rateLimitStore = {};
+const RATE_LIMIT_WINDOW = 60000; // 1 minuto
+const RATE_LIMIT_MAX = 10; // 10 solicitudes por minuto
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  
+  if (!rateLimitStore[ip]) {
+    rateLimitStore[ip] = { count: 0, resetTime: now + RATE_LIMIT_WINDOW };
+  }
+  
+  if (now > rateLimitStore[ip].resetTime) {
+    rateLimitStore[ip] = { count: 0, resetTime: now + RATE_LIMIT_WINDOW };
+  }
+  
+  rateLimitStore[ip].count++;
+  
+  return rateLimitStore[ip].count <= RATE_LIMIT_MAX;
+}
+
 export async function onRequest(context) {
   const { request, env } = context;
   const url = new URL(request.url);
+  
+  // ============ Security Headers ============
+  const securityHeaders = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Cache-Control': 'private, no-store, must-revalidate'
+  };
 
-  // ============ CORS Headers ============
+  // ============ CORS Headers (Restrictivos) ============
+  const appUrl = env.VITE_APP_URL || 'https://tga-ballot.com';
   const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': appUrl,
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
+    ...securityHeaders
   };
 
   // ============ Handle OPTIONS (preflight) ============
@@ -23,6 +55,19 @@ export async function onRequest(context) {
     return new Response(null, {
       status: 200,
       headers: corsHeaders,
+    });
+  }
+
+  // ============ Check Rate Limit ============
+  const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+  if (!checkRateLimit(clientIp)) {
+    return new Response(JSON.stringify({ error: 'Too many requests' }), {
+      status: 429,
+      headers: {
+        'Content-Type': 'application/json',
+        'Retry-After': '60',
+        ...corsHeaders,
+      },
     });
   }
 
@@ -56,7 +101,7 @@ export async function onRequest(context) {
     const apiKey = env.RAWG_API_KEY;
 
     if (!apiKey) {
-      console.error('RAWG_API_KEY not configured in env');
+      console.error('[ERROR] RAWG_API_KEY not configured in CloudFlare Environment Variables');
       return new Response(JSON.stringify({ error: 'API key not configured' }), {
         status: 500,
         headers: {
@@ -67,7 +112,8 @@ export async function onRequest(context) {
     }
 
     // ============ Call RAWG.io API ============
-    console.log(`🔍 Searching RAWG for: ${trimmedName}`);
+    // Log minimizado: solo registrar solicitud en desarrollo
+    if (env.DEBUG) console.log('[INFO] Searching RAWG API');
 
     const rawgUrl = `https://api.rawg.io/api/games?key=${apiKey}&search=${encodeURIComponent(trimmedName)}&page_size=1&ordering=-rating`;
 
@@ -78,8 +124,8 @@ export async function onRequest(context) {
     });
 
     if (!response.ok) {
-      console.error(`RAWG API error: ${response.status}`);
-      return new Response(JSON.stringify({ error: `RAWG API returned ${response.status}` }), {
+      console.error(`[ERROR] RAWG API returned status ${response.status}`);
+      return new Response(JSON.stringify({ error: 'External API error' }), {
         status: 500,
         headers: {
           'Content-Type': 'application/json',
@@ -91,7 +137,7 @@ export async function onRequest(context) {
     const data = await response.json();
 
     if (!data.results || data.results.length === 0) {
-      console.warn(`No results for: ${trimmedName}`);
+      // No es un error, solo que no hay resultados
       return new Response(JSON.stringify({ error: 'Game not found' }), {
         status: 404,
         headers: {
@@ -114,7 +160,8 @@ export async function onRequest(context) {
       description_raw: game.description_raw?.substring(0, 200) || null
     };
 
-    console.log(`✅ Found game: ${trimmedName}`);
+    // Log minimizado: solo en debug
+    if (env.DEBUG) console.log('[INFO] Game found successfully');
 
     // ============ Cache headers (1 hour) ============
     return new Response(JSON.stringify(result), {
@@ -127,9 +174,9 @@ export async function onRequest(context) {
     });
 
   } catch (error) {
-    console.error('Cloudflare Function error:', error);
+    console.error('[ERROR] CloudFlare Function exception:', error.message);
     
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: {
         'Content-Type': 'application/json',

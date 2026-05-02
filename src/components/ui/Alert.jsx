@@ -17,6 +17,7 @@
  */
 
 import React from 'react';
+import { ALERT_ICONS } from './iconComponents.jsx';
 
 export default function Alert({ 
   type = 'info', // 'success', 'error', 'warning', 'info'
@@ -36,17 +37,10 @@ export default function Alert({
   if (!visible) return null;
 
   const typeStyles = {
-    success: 'bg-green-900/20 border-green-500/30 text-green-400',
-    error: 'bg-red-900/20 border-red-500/30 text-red-400',
-    warning: 'bg-amber-900/20 border-amber-600/30 text-amber-700',
-    info: 'bg-blue-900/20 border-blue-500/30 text-blue-400'
-  };
-
-  const icons = {
-    success: '✅',
-    error: '❌',
-    warning: '⚠️',
-    info: 'ℹ️'
+    success: 'status-success',
+    error: 'status-error',
+    warning: 'status-warning',
+    info: 'status-info'
   };
 
   const handleClose = () => {
@@ -60,7 +54,7 @@ export default function Alert({
       ${typeStyles[type]}
     `}>
       <div className="flex items-start gap-2">
-        <span className="text-lg flex-shrink-0">{icons[type]}</span>
+        {ALERT_ICONS[type]}
         <span className="text-sm">{children}</span>
       </div>
       {onClose && (

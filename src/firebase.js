@@ -1,17 +1,29 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import logger from "./services/loggerService";
 
-// IMPORTANTE: Reemplaza estos valores con tus credenciales de la Consola de Firebase
+/**
+ * Firebase Configuration
+ * Los valores se cargan desde variables de entorno (.env.local en desarrollo)
+ * En producción, se configuran en CloudFlare Environment Variables
+ */
 const firebaseConfig = {
-  apiKey: "AIzaSyD46f7xoaS9Nf8pZ3_tOxo96IJTiaWo5y4",
-  authDomain: "game-awards-d7881.firebaseapp.com",
-  projectId: "game-awards-d7881",
-  storageBucket: "game-awards-d7881.firebasestorage.app",
-  messagingSenderId: "321669895248",
-  appId: "1:321669895248:web:2bdce94f9d0677b22cad55",
-  measurementId: "G-5ZZGWP5CGQ"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
+
+// Validación en desarrollo
+if (import.meta.env.MODE === 'development') {
+  if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+    logger.error('⚠️ Firebase environment variables not configured. Create .env.local from .env.example');
+  }
+}
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
@@ -30,7 +42,7 @@ export const getAnalyticsInstance = async () => {
     analyticsInstance = getAnalytics(app);
     analyticsLoaded = true;
   } catch (error) {
-    console.warn('Analytics not available:', error);
+    logger.warn('Analytics not available:', error);
     analyticsLoaded = true;
   }
   
@@ -50,6 +62,6 @@ export const trackEvent = async (eventName, parameters = {}) => {
       logEvent(analytics, eventName, parameters);
     }
   } catch (error) {
-    console.warn('Error tracking event:', error);
+    logger.warn('Error tracking event:', error);
   }
 };
