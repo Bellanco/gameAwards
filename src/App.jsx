@@ -126,6 +126,27 @@ function App() {
   }, []);
 
   /**
+   * useEffect: Sincroniza localStorage cuando userVotes o currentStep cambian
+   * Esto evita carreras de condición en selectOption
+   */
+  useEffect(() => {
+    // Calcular validCategories localmente para evitar referencia antes de declaración
+    const validCats = categories.filter(cat => 
+      !cat.isPlaceholder && cat.title && cat.title.trim()
+    );
+    
+    // Si estamos en pantalla de éxito, limpiar localStorage
+    if (currentStep === 99) {
+      localStorage.removeItem('votingProgress');
+    }
+    // Solo guardar cuando hay usuario autenticado y estamos en votación activa
+    else if (currentUser && currentStep >= -1 && currentStep < validCats.length + 1) {
+      const progress = { votes: userVotes, step: currentStep };
+      localStorage.setItem('votingProgress', JSON.stringify(progress));
+    }
+  }, [userVotes, currentStep, currentUser, categories]);
+
+  /**
    * Cambia el idioma de la aplicación
    */
   const toggleLanguage = () => {
@@ -185,7 +206,7 @@ function App() {
       setCurrentStep(-1);
       setUserVotes({});
       setUserNickname('');
-      localStorage.removeItem('votingProgress');
+      // localStorage se limpiará automáticamente vía useEffect
     } catch (error) {
       console.error('Logout Error:', error);
     }
@@ -201,28 +222,21 @@ function App() {
     setUserDisplayName(''); // Limpiar displayName
     setErrorMessage(''); // Limpiar errores
     setSuccessMessage(''); // Limpiar mensajes de éxito
-    localStorage.removeItem('votingProgress'); // Limpiar localStorage
+    // localStorage se limpiará automáticamente vía useEffect
     console.log('↩️ Volviendo al inicio, sesión mantenida');
   };
 
   /**
-   * Selecciona una opción de voto y avanza automáticamente
+   * Selecciona una opción de voto
+   * La sincronización con localStorage se maneja en useEffect (ver más abajo)
    */
   const selectOption = (categoryId, option) => {
     // option = { id: optionId, name: optionName }
     const updatedVotes = { ...userVotes, [categoryId]: option };
     setUserVotes(updatedVotes);
     
-    // Guardar en localStorage
-    const progress = { votes: updatedVotes, step: currentStep };
-    localStorage.setItem('votingProgress', JSON.stringify(progress));
-    
-    // Auto-avanzar a siguiente categoría (con delay para feedback visual)
-    setTimeout(() => {
-      if (currentStep < categories.length - 1) {
-        setCurrentStep(currentStep + 1);
-      }
-    }, 300);
+    // No avanzar automáticamente desde aquí - dejar que VoteScreen maneje la navegación
+    // El useEffect sincronizará automáticamente con localStorage
   };
 
   /**
@@ -250,26 +264,14 @@ function App() {
   };
 
   /**
-   * Finaliza la votación: selecciona el último elemento y va a ReviewScreen (sin auto-avances)
+   * Finaliza la votación: guarda el voto actual y va a ReviewScreen
    */
   const finishVoting = () => {
-    // Validar que estamos en una categoría válida
-    if (currentStep >= 0 && currentStep < validCategories.length) {
-      const category = validCategories[currentStep];
-      const lastIndex = category.options.length - 1;
-      const lastOption = category.options[lastIndex];
-      const lastOptionId = category.optionIds ? category.optionIds[lastIndex] : `${category.id}_option_${lastIndex}`;
-      
-      // Actualizar votos directamente (sin auto-avances)
-      const updatedVotes = { ...userVotes, [category.id]: { id: lastOptionId, name: lastOption } };
-      setUserVotes(updatedVotes);
-      
-      // Guardar en localStorage
-      const progress = { votes: updatedVotes, step: currentStep };
-      localStorage.setItem('votingProgress', JSON.stringify(progress));
-    }
+    // Guardar el progreso actual (incluyendo el voto de la categoría en la que estamos)
+    const progress = { votes: userVotes, step: currentStep };
+    localStorage.setItem('votingProgress', JSON.stringify(progress));
     
-    // Ir directamente a ReviewScreen (sin pasar por categorías intermedias)
+    // Ir directamente a ReviewScreen
     setCurrentStep(validCategories.length);
   };
 
@@ -333,8 +335,7 @@ function App() {
 
       // Simulación de éxito
       setSuccessMessage(`¡Voto registrado exitosamente, ${userNickname}!`);
-      setCurrentStep(99); // Pantalla de éxito
-      localStorage.removeItem('votingProgress');
+      setCurrentStep(99); // Pantalla de éxito - useEffect limpiará localStorage automáticamente
     } catch (error) {
       console.error('Ballot Submit Error:', error);
       setErrorMessage('Error al guardar tu voto. Intenta de nuevo.');
