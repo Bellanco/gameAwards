@@ -261,10 +261,8 @@ export default function VoteScreen({
                   onSelect={() => {
                     if (!isTransitioning) {
                       handleSelectOption(category.id, { id: optionId, name: option });
-                      // Si es la última opción, ir a revisar automáticamente
-                      if (isLastOption) {
-                        setTimeout(() => handleNext(), 100);
-                      }
+                      // Avanzar automáticamente a siguiente categoría o a ReviewScreen
+                      setTimeout(() => handleNext(), 100);
                     }
                   }}
                 />
@@ -275,7 +273,7 @@ export default function VoteScreen({
 
         {/* Status - Compact */}
         <div className="mt-2 sm:mt-3 px-2 sm:px-3 py-1 sm:py-1.5 theme-card theme-border-primary border rounded text-xs flex-shrink-0">
-          <span className={`font-bold ${isVoted ? 'text-success' : 'text-warning'}`}>
+          <span className={`font-bold ${isVoted ? 'text-status-success' : 'text-status-warning'}`}>
             {isVoted ? t('voted') : t('pending')}
           </span>
         </div>
@@ -294,7 +292,7 @@ export default function VoteScreen({
               title="Pulsa para ver más opciones"
             >
               <svg 
-                className="w-5 h-5 text-warning drop-shadow-lg"
+                className="w-5 h-5 text-status-warning drop-shadow-lg"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"

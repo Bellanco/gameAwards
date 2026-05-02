@@ -7,6 +7,18 @@
     <title>TGA Ballot - The Game Awards Voting</title>
     <meta name="description" content="Participa en la porra de The Game Awards. Vota una única vez y comparte tus predicciones." />
     <meta name="theme-color" content="#1e293b" />
+    
+    <!-- Script bloqueante para prevenir Layout Thrashing -->
+    <!-- Establece el tema ANTES de que React renderice, evitando FOUC (Flash of Unstyled Content) -->
+    <script>
+      (function() {
+        const savedTheme = localStorage.getItem('appTheme');
+        const theme = savedTheme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

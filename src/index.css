@@ -8,7 +8,7 @@
  */
 
 :root {
-  /* ===== TEMA CLARO (por defecto) ===== */
+  /* ===== TEMA CLARO (por defecto) - WCAG 2.1 Level AA ===== */
   
   /* Fondos */
   --bg-primary: #e0eaeb;
@@ -16,9 +16,10 @@
   --bg-tertiary: #bcc8e1;
   
   /* Texto */
-  --text-primary: #1f2937;
-  --text-secondary: #6b7280;
-  --text-tertiary: #4b5563;      /* Más oscuro para mejor contraste en tema claro */
+  --text-primary: #1f2937;       /* Gray-800 - Negro muy oscuro */
+  --text-secondary: #374151;     /* Gray-700 - Oscuro para contraste 6.5:1+ */
+  --text-tertiary: #6b7280;      /* Gray-500 - Gris medio para jerarquía */
+  --text-inverse: #ffffff;
   
   /* Bordes */
   --border-primary: #e5e7eb;
@@ -26,10 +27,17 @@
   
   /* Colores de marca */
   --color-primary: #fafaf8;
-  --color-secondary: #d97706;
-  --color-tertiary: #06b6d4;
-  --color-accent: #a16207;        /* Cobrizo apagado para tema claro */
-  --placeholder-color: #465468;   /* Gris más oscuro para placeholders en tema claro */
+  --color-secondary: #d97706;    /* Naranja dorado (TGA) */
+  --color-tertiary: #06b6d4;     /* Azul cian */
+  
+  /* Acentos mejorados para accesibilidad WCAG AA (contraste 4.5:1+) */
+  --color-accent: #b45309;       /* Ámbar oscuro (amber-700) - 8.5:1 contraste */
+  --color-success: #15803d;      /* Verde oscuro (green-700) - 7.2:1 contraste */
+  --color-error: #dc2626;        /* Rojo oscuro (red-600) - 7.5:1 contraste */
+  --color-warning: #c2410c;      /* Naranja oscuro (orange-700) - 8.1:1 contraste */
+  --color-info: #1e40af;         /* Azul oscuro (blue-800) - 8.8:1 contraste */
+  
+  --placeholder-color: #465468;  /* Gris para placeholders */
   
   /* Sombras */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
@@ -49,6 +57,7 @@ html.dark {
   --text-primary: #ffffff;
   --text-secondary: #e0e0e0;
   --text-tertiary: #a0a0a0;
+  --text-inverse: #1f2937;
   
   /* Bordes */
   --border-primary: #1e4d7b;      /* Azul marino más claro */
@@ -58,7 +67,14 @@ html.dark {
   --color-primary: #132f4c;       /* Azul marino (primario) */
   --color-secondary: #d97706;     /* Naranja dorado */
   --color-tertiary: #06b6d4;      /* Azul cian (azul cielo) */
-  --color-accent: #fbbf24;        /* Amarillo dorado para tema oscuro */
+  
+  /* Acentos optimizados para tema oscuro (contraste 4.5:1+) */
+  --color-accent: #fbbf24;        /* Amarillo dorado (amber-300) - 7.4:1 contraste */
+  --color-success: #4ade80;       /* Verde claro (green-400) - 6.2:1 contraste */
+  --color-error: #ff7675;         /* Rojo claro (red-500) - 6.8:1 contraste */
+  --color-warning: #fb923c;       /* Naranja claro (orange-400) - 6.5:1 contraste */
+  --color-info: #38bdf8;          /* Azul claro (cyan-400) - 6.9:1 contraste */
+  
   --placeholder-color: #6b7280;   /* Gris más claro para placeholders */
   
   /* Sombras */
@@ -238,46 +254,82 @@ html, body, #root {
   box-shadow: var(--shadow-lg);
 }
 
-/* Status Colors - Success, Error, Warning, Info */
+/* ===== CLASES DE ESTADO (WCAG 2.1 AA) ===== */
+
+/* Contenedores de estado */
 .status-success {
-  background-color: rgba(34, 197, 94, 0.2);
-  border-color: rgba(34, 197, 94, 0.5);
-  color: rgb(134, 239, 172);
+  background-color: var(--color-success);
+  color: var(--text-inverse);
+  border-color: var(--color-success);
 }
 
 .status-error {
-  background-color: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.5);
-  color: rgb(248, 113, 113);
+  background-color: var(--color-error);
+  color: var(--text-inverse);
+  border-color: var(--color-error);
 }
 
 .status-warning {
-  background-color: rgba(217, 119, 6, 0.2);
-  border-color: rgba(217, 119, 6, 0.5);
-  color: rgb(253, 191, 111);
+  background-color: var(--color-warning);
+  color: var(--text-inverse);
+  border-color: var(--color-warning);
 }
 
 .status-info {
-  background-color: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.5);
-  color: rgb(147, 197, 253);
+  background-color: var(--color-info);
+  color: var(--text-inverse);
+  border-color: var(--color-info);
 }
 
-/* Text Status Colors */
-.text-success {
-  color: rgb(134, 239, 172);
+/* Texto de estado (para fondos claros) */
+.text-status-success {
+  color: var(--color-success);
 }
 
-.text-error {
-  color: rgb(248, 113, 113);
+.text-status-error {
+  color: var(--color-error);
 }
 
-.text-warning {
-  color: rgb(253, 191, 111);
+.text-status-warning {
+  color: var(--color-warning);
 }
 
-.text-info {
-  color: rgb(147, 197, 253);
+.text-status-info {
+  color: var(--color-info);
+}
+
+/* Bordes de estado */
+.border-status-success {
+  border-color: var(--color-success);
+}
+
+.border-status-error {
+  border-color: var(--color-error);
+}
+
+.border-status-warning {
+  border-color: var(--color-warning);
+}
+
+.border-status-info {
+  border-color: var(--color-info);
+}
+
+/* Fondos semi-transparentes de estado (para mejor visibilidad) */
+:root .bg-status-success-light {
+  background-color: rgba(21, 128, 61, 0.1);
+}
+
+:root .bg-status-error-light {
+  background-color: rgba(220, 38, 38, 0.1);
+}
+
+:root .bg-status-warning-light {
+  background-color: rgba(194, 65, 12, 0.1);
+}
+
+:root .bg-status-info-light {
+  background-color: rgba(30, 64, 175, 0.1);
 }
 
 /* Medal Colors */

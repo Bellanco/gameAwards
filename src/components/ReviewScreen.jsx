@@ -96,7 +96,7 @@ export default function ReviewScreen({
       <div className="w-full max-w-7xl mx-auto px-4 md:px-6 py-8 flex flex-col">
         {/* 1. Display Name Input */}
         <div className="theme-card theme-border-primary border rounded-lg p-6 mb-6">
-          <label className="block text-sm font-bold theme-text-secondary mb-3">
+          <label className="block text-sm font-bold theme-text-primary mb-3">
             {t('displayName')}
           </label>
           <input
@@ -105,7 +105,7 @@ export default function ReviewScreen({
             value={userDisplayName}
             onChange={(e) => onDisplayNameChange(e.target.value)}
             placeholder={t('enterNickname')}
-            className="w-full px-4 py-3 theme-container-secondary theme-border-primary border rounded-lg theme-text-primary theme-placeholder focus:border-amber-600 focus:outline-none transition-colors"
+            className="w-full px-4 py-3 bg-white theme-text-primary border-2 border-gray-300 dark:theme-container-secondary dark:theme-border-primary dark:border rounded-lg theme-placeholder focus:border-status-warning focus:outline-none focus:ring-1 focus:ring-status-warning transition-colors"
           />
           <p className="text-xs theme-text-tertiary mt-2">
             {userDisplayName.length}/50
@@ -114,11 +114,11 @@ export default function ReviewScreen({
 
         {/* 2. Warning if incomplete */}
         {!isComplete && (
-          <div className="p-4 status-warning rounded-lg mb-8">
-            <p className="text-sm font-semibold">
+          <div className="p-4 status-warning rounded-lg mb-8 border border-status-warning">
+            <p className="text-sm font-semibold text-white">
               {t('completeVoteInCategory')} {missingVotes} {missingVotes !== 1 ? t('moreCategories') : t('moreCategory')}
             </p>
-            <p className="text-xs mt-1 opacity-80">
+            <p className="text-xs mt-1 opacity-90 text-white">
               {t('mustVoteAllBefore')}
             </p>
           </div>
@@ -128,7 +128,7 @@ export default function ReviewScreen({
         <div className="flex gap-3 md:gap-4 w-full mb-8">
           <button
             onClick={onPrevious}
-            className="flex-1 py-3 px-4 rounded-lg font-semibold theme-card theme-border-primary border theme-text-secondary transition-all hover:border-amber-600"
+            className="flex-1 py-3 px-4 rounded-lg font-semibold theme-card theme-border-primary border theme-text-primary transition-all hover:border-status-warning hover:bg-status-warning/10"
           >
             {t('editVotes')}
           </button>
@@ -137,7 +137,7 @@ export default function ReviewScreen({
             disabled={!isComplete || isLoading}
             className={`flex-1 py-3 px-4 rounded-lg font-bold transition-all ${
               isComplete && !isLoading
-                ? 'bg-gradient-to-r from-amber-600 to-amber-700 text-white hover:from-amber-500 hover:to-amber-600 hover:shadow-lg hover:shadow-amber-600/30 transform hover:scale-105'
+                ? 'bg-gradient-to-r from-amber-700 to-amber-800 text-white hover:from-amber-600 hover:to-amber-700 hover:shadow-lg hover:shadow-amber-700/30 transform hover:scale-105'
                 : 'theme-card theme-text-tertiary cursor-not-allowed opacity-50'
             }`}
             title={!isComplete ? t('completeAllCategories') : ''}
@@ -185,7 +185,7 @@ export default function ReviewScreen({
         {onReturnHome && (
           <button
             onClick={onReturnHome}
-            className="w-full py-3 px-4 rounded-lg font-semibold theme-card theme-border-primary border theme-text-secondary transition-all hover:border-red-500"
+            className="w-full py-3 px-4 rounded-lg font-semibold theme-card theme-border-primary border theme-text-primary transition-all hover:border-status-error hover:bg-status-error/10"
             title={t('cancelVoting')}
           >
             {t('cancel')}
