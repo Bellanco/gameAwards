@@ -102,7 +102,7 @@ allow write: if request.auth != null && request.auth.uid == userId;
     gameOfTheYear: "Elden Ring",
     bestArtDirection: "Astro Bot"
   },
-  submittedAt: "2024-10-15T14:30:00Z", // ISO format
+  submittedAt: "2026-10-15T14:30:00Z", // ISO format
   isActive: true                       // boolean for soft-delete
 }
 
@@ -238,5 +238,5 @@ docs(setup): add Firebase configuration steps
 ---
 
 **Version**: 1.0  
-**Last Updated**: 2024-10-15  
+**Last Updated**: 2026-04-02  
 **Applies To**: All TGA Ballot development
