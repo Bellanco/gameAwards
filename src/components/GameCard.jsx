@@ -40,11 +40,11 @@ export default function GameCard({
         className={`relative rounded-lg overflow-hidden border-2 ${heightClass} w-full select-none
           ${isTransitioning 
             ? 'pointer-events-none cursor-not-allowed' 
-            : 'transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-600 cursor-pointer'
+            : 'focus:outline-none focus:ring-2 focus:ring-amber-600 cursor-pointer'
           }
           ${isSelected
             ? 'border-amber-600 shadow-lg shadow-amber-600/50'
-            : 'border-slate-700 hover:border-amber-600'
+            : 'border-slate-700'
           }
           ${isTransitioning ? 'scale-100 border-slate-700' : ''}
         `}
@@ -56,7 +56,7 @@ export default function GameCard({
         <div className={`absolute inset-0 transition-all ${
           isSelected
             ? 'bg-black/20'
-            : 'bg-black/40 hover:bg-black/30'
+            : 'bg-black/40'
         }`} />
 
         {/* Checkmark - Visible en todos los tamaños */}
