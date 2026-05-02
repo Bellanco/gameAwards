@@ -24,6 +24,7 @@
   /* Bordes */
   --border-primary: #e5e7eb;
   --border-secondary: #d1d5db;
+  --border-empty: #45608f;       /* Gris para elementos vacíos (no seleccionados) */
   
   /* Colores de marca */
   --color-primary: #fafaf8;
@@ -52,6 +53,7 @@ html.dark {
   --bg-primary: #031224;
   --bg-secondary: #132f4c;
   --bg-tertiary: #1e4d7b;
+  --bg-unvoted: #0a1929;         /* Azul marino muy oscuro para tarjetas sin votar */
   
   /* Texto */
   --text-primary: #ffffff;
@@ -62,14 +64,15 @@ html.dark {
   /* Bordes */
   --border-primary: #1e4d7b;      /* Azul marino más claro */
   --border-secondary: #2a6aa5;    /* Azul marino para hover */
+  --border-empty: #374151;        /* Gris oscuro para elementos vacíos (no seleccionados) */
   
   /* Colores de marca */
   --color-primary: #132f4c;       /* Azul marino (primario) */
-  --color-secondary: #d97706;     /* Naranja dorado */
+  --color-secondary: #d4a422;     /* Naranja dorado */
   --color-tertiary: #06b6d4;      /* Azul cian (azul cielo) */
   
   /* Acentos optimizados para tema oscuro (contraste 4.5:1+) */
-  --color-accent: #fbbf24;        /* Amarillo dorado (amber-300) - 7.4:1 contraste */
+  --color-accent: #f6b91f;        /* Amarillo dorado (amber-300) - 7.4:1 contraste */
   --color-success: #4ade80;       /* Verde claro (green-400) - 6.2:1 contraste */
   --color-error: #ff7675;         /* Rojo claro (red-500) - 6.8:1 contraste */
   --color-warning: #fb923c;       /* Naranja claro (orange-400) - 6.5:1 contraste */

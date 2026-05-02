@@ -64,7 +64,7 @@ export default function DeadlineScreen({ language, onToggleLanguage, theme, onTo
                 <p className="text-2xl font-bold text-red-400">{t('closed')}</p>
               </div>
               <div className="border-t border-red-500/20 pt-4">
-                <p className="text-sm theme-text-secondary leading-relaxed">
+                <p className="text-sm theme-text-primary leading-relaxed">
                   {t('noNewVotesAccepted')}
                 </p>
               </div>
@@ -98,7 +98,7 @@ export default function DeadlineScreen({ language, onToggleLanguage, theme, onTo
 
           {/* Mensaje motivacional */}
           <div className="theme-card theme-border-primary border rounded-xl p-6 mb-8">
-            <p className="theme-text-secondary leading-relaxed">
+            <p className="theme-text-primary leading-relaxed">
               {t('thankYouForInterest')}
             </p>
           </div>
