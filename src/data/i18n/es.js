@@ -133,6 +133,8 @@ export const es = {
   selectWinners: "Seleccionar Ganadores",
   chooseWinnersPerCategory: "Elige los ganadores para cada categoría",
   back: "Volver",
+  clearWinners: "Limpiar",
+  clearWinnersConfirm: "¿Estás seguro que deseas limpiar todas las selecciones?",
   saveWinners: "Guardar Ganadores",
   winnersUnsaved: "Tienes cambios sin guardar",
   noCategories: "No hay categorías. Crea categorías primero.",
@@ -184,6 +186,7 @@ export const es = {
   loadingResults: "Cargando resultados...",
   loading: "Cargando...",
   completeVoteInCategory: "Completa tu voto en",
+  moreCategory: "categoría más",
   moreCategories: "categorías más",
   mustVoteAllBefore: "Debes votar en todas las categorías antes de enviar tus votos",
   
