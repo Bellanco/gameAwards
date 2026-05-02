@@ -106,6 +106,16 @@ export default function WinnersPanel({
   };
 
   /**
+   * Limpiar todas las selecciones de ganadores
+   */
+  const handleClearWinners = () => {
+    if (window.confirm(t('clearWinnersConfirm'))) {
+      setWinners({});
+      setHasChanges(true);
+    }
+  };
+
+  /**
    * Seleccionar/deseleccionar ganador
    */
   const handleSelectWinner = (categoryId, optionName) => {
@@ -130,6 +140,7 @@ export default function WinnersPanel({
 
   /**
    * Guardar ganadores en Firestore
+   * Guarda todas las categorías, incluyendo las limpias (null)
    */
   const handleSaveWinners = async () => {
     try {
@@ -137,28 +148,26 @@ export default function WinnersPanel({
       let savedCount = 0;
       let skippedCount = 0;
 
-      for (const [categoryId, winner] of Object.entries(winners)) {
-        if (winner) {
-          const category = categories.find(c => c.id === categoryId);
-          
-          if (!category || !category.options || category.options.length === 0) {
-            console.warn(`Categoría ${categoryId} inválida, saltando...`);
-            skippedCount++;
-            continue;
-          }
-
-          const categoryRef = doc(db, 'categories', categoryId);
-          await updateDoc(categoryRef, {
-            winner: winner.name,
-            winnerSelectedAt: new Date().toISOString()
-          });
-          savedCount++;
+      // Iterar sobre TODAS las categorías (no solo las con ganador)
+      for (const category of categories) {
+        if (!category || !category.options || category.options.length === 0) {
+          console.warn(`Categoría ${category?.id} inválida, saltando...`);
+          skippedCount++;
+          continue;
         }
+
+        const categoryRef = doc(db, 'categories', category.id);
+        const winner = winners[category.id];
+        
+        // Guardar: si hay ganador, guardar su nombre; si no, guardar null
+        await updateDoc(categoryRef, {
+          winner: winner ? winner.name : null,
+          winnerSelectedAt: new Date().toISOString()
+        });
+        savedCount++;
       }
 
-      const message = skippedCount > 0 
-        ? `${t('savePartialSuccess')} (${savedCount} ${t('selected')}, ${skippedCount} ${t('skippedEmpty')})`
-        : `${t('saveSuccessful')} (${savedCount} ${t('selected')})`;
+      const message = `${t('saveSuccessful')} (${savedCount} ${t('selected')})`;
       
       setAlertMessage({ type: 'success', text: message });
       setHasChanges(false);
@@ -234,8 +243,8 @@ export default function WinnersPanel({
                 </h1>
                 <p className="theme-text-secondary text-sm">{t('chooseWinnersPerCategory')}</p>
               </div>
-              <Button variant="secondary" size="md" onClick={onClose}>
-                {t('back')}
+              <Button variant="danger" size="md" onClick={handleClearWinners}>
+                {t('clearWinners')}
               </Button>
             </div>
 

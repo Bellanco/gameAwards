@@ -133,6 +133,8 @@ export const en = {
   selectWinners: "Select Winners",
   chooseWinnersPerCategory: "Choose the winners for each category",
   back: "Back",
+  clearWinners: "Clear",
+  clearWinnersConfirm: "Are you sure you want to clear all selections?",
   saveWinners: "Save Winners",
   winnersUnsaved: "You have unsaved changes",
   noCategories: "No categories. Create categories first.",
@@ -184,6 +186,7 @@ export const en = {
   loadingResults: "Loading results...",
   loading: "Loading...",
   completeVoteInCategory: "Complete your vote in",
+  moreCategory: "more category",
   moreCategories: "more categories",
   mustVoteAllBefore: "You must vote in all categories before submitting your ballot",
   
