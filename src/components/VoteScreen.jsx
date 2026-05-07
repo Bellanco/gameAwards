@@ -31,6 +31,7 @@ export default function VoteScreen({
   const [hasVerticalScroll, setHasVerticalScroll] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [cardScale, setCardScale] = useState(1);
   const scrollContainerRef = useRef(null);
   
   const isVoted = !!userVotes[category.id];
@@ -66,6 +67,10 @@ export default function VoteScreen({
       if (scrollContainerRef.current) {
         const hasScroll = scrollContainerRef.current.scrollHeight > scrollContainerRef.current.clientHeight;
         setHasVerticalScroll(hasScroll);
+        // Si no hay scroll, resetear isAtBottom
+        if (!hasScroll) {
+          setIsAtBottom(false);
+        }
       }
     }, 50);
   }, [category.id, category.options]);
@@ -86,6 +91,9 @@ export default function VoteScreen({
         // Considerar que estamos al final si estamos a menos de 10px del final
         const atBottom = scrollHeight - scrollTop - clientHeight < 10;
         setIsAtBottom(atBottom);
+        // Recalcular si hay scroll disponible
+        const hasScroll = scrollHeight > clientHeight;
+        setHasVerticalScroll(hasScroll);
       }
     };
 
@@ -119,7 +127,99 @@ export default function VoteScreen({
     };
   }, [category.id, category.options]);
 
-  // Scroll al final
+  // Calcular columnas dinámicamente según tamaño y orientación
+  const getGridCols = () => {
+    const count = category.options.length;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const isLandscape = height < width;
+    
+    // En landscape (tablets): máximo 1 fila
+    if (isLandscape && width < 1024) {
+      // Tablets landscape: intentar 1 fila, máximo 4 columnas
+      if (count <= 4) return count;
+      if (count <= 6) return 3;
+      return 2;
+    }
+    
+    // Desktop: máximo 2 filas
+    if (count <= 2) return count; // 1-2: mostrar todos en 1 fila
+    if (count <= 3) return 3;     // 3: 1 fila de 3
+    if (count <= 4) return 2;     // 4: 2 filas de 2
+    if (count <= 6) return 3;     // 5-6: 2 filas de 3
+    if (count <= 8) return 4;     // 7-8: 2 filas de 4
+    return Math.ceil(count / 2);  // 9+: dividir en 2 filas
+  };
+
+  // Calcular tamaño de fuente dinámicamente según viewport (ancho Y altura)
+  const calculateCardFontSize = () => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const isLandscape = height < width;
+    
+    // Móvil vertical (< 768px): considerar ancho y altura
+    if (width < 768) {
+      const basedOnWidth = width / 22;
+      const basedOnHeight = height / 35; // 600px → ~17px, 900px → ~25px
+      // Usar el promedio para balance entre ambas dimensiones
+      return Math.min(Math.max((basedOnWidth + basedOnHeight) / 2, 8), 20);
+    }
+    
+    // Tablet landscape (768px - 1024px de ancho, altura < ancho): considerar ambas
+    if (isLandscape && width < 1024) {
+      const basedOnWidth = width / 100;
+      const basedOnHeight = height / 80;
+      return Math.max(Math.min(basedOnWidth, basedOnHeight), 6); // Mínimo 6px
+    }
+    
+    // Desktop (>= 1024px): considerar ambas dimensiones
+    if (width >= 1024) {
+      const basedOnWidth = width / 200;
+      const basedOnHeight = height / 150;
+      return (basedOnWidth + basedOnHeight) / 2 * cardScale;
+    }
+    
+    return 16; // Fallback
+  };
+
+  // Calcular gap dinámicamente según viewport
+  const calculateGap = () => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const isLandscape = height < width;
+    
+    if (width < 768) return '0.25rem'; // Móvil
+    if (isLandscape && width < 1024) {
+      return height < 900 ? '0.5rem' : '0.75rem'; // Tablet landscape
+    }
+    return '2rem'; // Desktop
+  };
+
+  // Calcular escala de cards basada en el tamaño de la pantalla (solo desktop)
+  useEffect(() => {
+    const calculateCardScale = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      
+      // Solo aplicar escala en desktop (lg breakpoint ≈ 1024px)
+      if (width >= 1024) {
+        // Escalar según ancho: pantalla 1920px ≈ 1.1x, 2560px ≈ 1.3x
+        const widthScale = Math.min(width / 1800, 1.5);
+        // Pequeño factor por altura para pantallas muy altas
+        const heightScale = Math.min(height / 1200, 1.2);
+        const scale = Math.min((widthScale + heightScale) / 2, 1.4);
+        setCardScale(scale);
+      } else {
+        setCardScale(1); // Mobile: sin escala
+      }
+    };
+
+    calculateCardScale();
+    window.addEventListener('resize', calculateCardScale);
+    
+    return () => window.removeEventListener('resize', calculateCardScale);
+  }, [])
+
   const scrollToBottom = () => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTo({
@@ -231,18 +331,29 @@ export default function VoteScreen({
       <main className="flex-1 overflow-hidden flex flex-col px-2 sm:px-3 lg:px-4 py-2 sm:py-3 relative">
         <div 
           ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto min-h-0 w-full flex flex-col items-center justify-start"
+          className="flex-1 w-full flex flex-col items-center justify-start lg:justify-center px-2 md:px-3 lg:px-0"
+          style={{ 
+            overflow: window.innerWidth >= 1024 || (window.innerHeight < window.innerWidth && window.innerWidth < 1024) 
+              ? 'hidden' 
+              : 'auto',
+            justifyContent: window.innerHeight < window.innerWidth && window.innerWidth < 1024 ? 'center' : 'flex-start'
+          }}
         >
-          <div className={`grid gap-1 md:gap-6 lg:gap-8 h-fit w-full auto-rows-max px-2 md:px-3 ${
-            isTransitioning ? 'pointer-events-none' : ''
-          }
-            ${category.options.length <= 2 ? 'grid-cols-1 md:grid-cols-2' :
-              category.options.length === 3 ? 'grid-cols-1 md:grid-cols-3' :
-              category.options.length === 4 ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' :
-              category.options.length === 5 ? 'grid-cols-1 md:grid-cols-3 lg:grid-cols-5' :
-              category.options.length === 6 ? 'grid-cols-1 md:grid-cols-3 lg:grid-cols-6' :
-              'grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6'
+          <div 
+            className={`gap-1 md:gap-6 lg:gap-8 h-fit w-full auto-rows-max px-2 md:px-3 ${
+              isTransitioning ? 'pointer-events-none' : ''
             }`}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: window.innerWidth < 768 
+                ? '1fr' 
+                : window.innerWidth < 1024
+                  ? `repeat(${getGridCols()}, 1fr)`
+                  : `repeat(${getGridCols()}, 1fr)`,
+              gap: calculateGap(),
+              fontSize: `${calculateCardFontSize()}px`,
+              transition: 'grid-template-columns 0.3s ease-out, font-size 0.3s ease-out, gap 0.3s ease-out'
+            }}
           >
             {category.options.map((option, index) => {
               const optionId = category.optionIds ? category.optionIds[index] : `${category.id}_option_${index}`;
@@ -278,8 +389,8 @@ export default function VoteScreen({
           </span>
         </div>
 
-        {/* Indicador de Scroll - Sombra + Flecha (Clickeable) */}
-        {hasVerticalScroll && !isAtBottom && (
+        {/* Indicador de Scroll - Sombra + Flecha (Clickeable) - Solo móvil vertical */}
+        {hasVerticalScroll && !isAtBottom && window.innerWidth < 768 && (
           <div className="absolute bottom-0 left-0 right-0 h-16 flex flex-col items-center justify-end">
             {/* Sombra degradada */}
             <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
