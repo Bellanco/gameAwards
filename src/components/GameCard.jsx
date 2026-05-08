@@ -24,23 +24,30 @@ export default function GameCard({
   translationLabel = null,
   statusBadge = null,
   compact = false,
+  isMobilePortrait = false,
   isTransitioning = false
 }) {
   // Variante: VOTE (selección de juegos)
   if (variant === 'vote') {
-    const heightClass = compact ? 'h-12 sm:h-20 md:h-48 lg:h-64' : 'h-20 sm:h-24 md:h-48 lg:h-64';
-    const autoSizeMinSize = compact ? 8 : 10;
-    const autoSizeMaxSize = compact ? 18 : 28;
-    const paddingClass = compact ? 'p-1 sm:p-2' : 'p-2 sm:p-3';
+    const sizeClass = isMobilePortrait
+      ? (compact
+        ? 'aspect-[4/3] min-h-[5rem] sm:min-h-[5.5rem] md:min-h-[6rem]'
+        : 'aspect-[5/4] min-h-[5.25rem] sm:min-h-[5.75rem] md:min-h-[6.5rem]')
+      : (compact
+        ? 'aspect-[16/7] min-h-[3.75rem] sm:min-h-[4.5rem] md:min-h-[6rem] lg:min-h-[7rem]'
+        : 'aspect-[16/8] min-h-[4.5rem] sm:min-h-[5.25rem] md:min-h-[7rem] lg:min-h-[8.5rem]');
+    const autoSizeMinSize = compact ? 9 : 10;
+    const autoSizeMaxSize = compact ? 22 : 30;
+    const paddingClass = compact ? 'p-1 sm:p-2 md:p-3' : 'p-2 sm:p-3 md:p-4';
 
     return (
       <button
         onClick={() => !isTransitioning && onSelect && onSelect()}
         disabled={isTransitioning}
-        className={`relative rounded-lg overflow-hidden border-2 ${heightClass} w-full select-none
+        className={`relative rounded-lg overflow-hidden border-2 ${sizeClass} w-full select-none transition-transform duration-200
           ${isTransitioning 
             ? 'pointer-events-none cursor-not-allowed' 
-            : 'focus:outline-none focus:ring-2 focus:ring-amber-600 cursor-pointer'
+            : 'focus:outline-none focus:ring-2 focus:ring-amber-600 cursor-pointer hover:scale-[1.01]'
           }
           ${isSelected
             ? 'border-amber-600 shadow-lg shadow-amber-600/50'
