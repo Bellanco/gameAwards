@@ -31,11 +31,13 @@ export default function VoteScreen({
   const [hasVerticalScroll, setHasVerticalScroll] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [cardScale, setCardScale] = useState(1);
+  const [viewportInfo, setViewportInfo] = useState({ isMobile: false, isLandscape: false, width: 0 });
   const scrollContainerRef = useRef(null);
   
   const isVoted = !!userVotes[category.id];
   const selectedOption = userVotes[category.id];
+  const optionCount = category.options.length;
+  const isMobilePortrait = viewportInfo.isMobile && !viewportInfo.isLandscape;
 
   // Validación defensiva
   if (!category || !category.options || category.options.length === 0) {
@@ -127,98 +129,82 @@ export default function VoteScreen({
     };
   }, [category.id, category.options]);
 
-  // Calcular columnas dinámicamente según tamaño y orientación
-  const getGridCols = () => {
-    const count = category.options.length;
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const isLandscape = height < width;
-    
-    // En landscape (tablets): máximo 1 fila
-    if (isLandscape && width < 1024) {
-      // Tablets landscape: intentar 1 fila, máximo 4 columnas
-      if (count <= 4) return count;
-      if (count <= 6) return 3;
-      return 2;
-    }
-    
-    // Desktop: máximo 2 filas
-    if (count <= 2) return count; // 1-2: mostrar todos en 1 fila
-    if (count <= 3) return 3;     // 3: 1 fila de 3
-    if (count <= 4) return 2;     // 4: 2 filas de 2
-    if (count <= 6) return 3;     // 5-6: 2 filas de 3
-    if (count <= 8) return 4;     // 7-8: 2 filas de 4
-    return Math.ceil(count / 2);  // 9+: dividir en 2 filas
-  };
-
-  // Calcular tamaño de fuente dinámicamente según viewport (ancho Y altura)
-  const calculateCardFontSize = () => {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const isLandscape = height < width;
-    
-    // Móvil vertical (< 768px): considerar ancho y altura
-    if (width < 768) {
-      const basedOnWidth = width / 22;
-      const basedOnHeight = height / 35; // 600px → ~17px, 900px → ~25px
-      // Usar el promedio para balance entre ambas dimensiones
-      return Math.min(Math.max((basedOnWidth + basedOnHeight) / 2, 8), 20);
-    }
-    
-    // Tablet landscape (768px - 1024px de ancho, altura < ancho): considerar ambas
-    if (isLandscape && width < 1024) {
-      const basedOnWidth = width / 100;
-      const basedOnHeight = height / 80;
-      return Math.max(Math.min(basedOnWidth, basedOnHeight), 6); // Mínimo 6px
-    }
-    
-    // Desktop (>= 1024px): considerar ambas dimensiones
-    if (width >= 1024) {
-      const basedOnWidth = width / 200;
-      const basedOnHeight = height / 150;
-      return (basedOnWidth + basedOnHeight) / 2 * cardScale;
-    }
-    
-    return 16; // Fallback
-  };
-
-  // Calcular gap dinámicamente según viewport
-  const calculateGap = () => {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    const isLandscape = height < width;
-    
-    if (width < 768) return '0.25rem'; // Móvil
-    if (isLandscape && width < 1024) {
-      return height < 900 ? '0.5rem' : '0.75rem'; // Tablet landscape
-    }
-    return '2rem'; // Desktop
-  };
-
-  // Calcular escala de cards basada en el tamaño de la pantalla (solo desktop)
+  // Mantener metadata de viewport para responder a orientación y ancho real
   useEffect(() => {
-    const calculateCardScale = () => {
+    const updateViewportInfo = () => {
       const width = window.innerWidth;
       const height = window.innerHeight;
-      
-      // Solo aplicar escala en desktop (lg breakpoint ≈ 1024px)
-      if (width >= 1024) {
-        // Escalar según ancho: pantalla 1920px ≈ 1.1x, 2560px ≈ 1.3x
-        const widthScale = Math.min(width / 1800, 1.5);
-        // Pequeño factor por altura para pantallas muy altas
-        const heightScale = Math.min(height / 1200, 1.2);
-        const scale = Math.min((widthScale + heightScale) / 2, 1.4);
-        setCardScale(scale);
-      } else {
-        setCardScale(1); // Mobile: sin escala
-      }
+      setViewportInfo({
+        isMobile: width < 768,
+        isLandscape: width > height,
+        width
+      });
     };
 
-    calculateCardScale();
-    window.addEventListener('resize', calculateCardScale);
-    
-    return () => window.removeEventListener('resize', calculateCardScale);
-  }, [])
+    updateViewportInfo();
+    window.addEventListener('resize', updateViewportInfo);
+    window.addEventListener('orientationchange', updateViewportInfo);
+
+    return () => {
+      window.removeEventListener('resize', updateViewportInfo);
+      window.removeEventListener('orientationchange', updateViewportInfo);
+    };
+  }, []);
+
+  // Calibración fina de densidad visual por rango de viewport + cantidad de opciones.
+  const gridDensityConfig = (() => {
+    const width = viewportInfo.width || 320;
+
+    if (isMobilePortrait) {
+      // Evitar saltos bruscos (5 opciones en 2 cols y 6 en 3 cols) en móviles tipo Pixel.
+      // En anchos <= 430px mantenemos densidad estable con máximo 2 columnas hasta 8 opciones.
+      if (width <= 430) {
+        if (optionCount <= 3) return { minCardWidthPx: 180, maxColumns: 2 };
+        return { minCardWidthPx: 150, maxColumns: 2 };
+      }
+
+      if (optionCount <= 3) return { minCardWidthPx: 190, maxColumns: 2 };
+      if (optionCount <= 6) return { minCardWidthPx: 160, maxColumns: 2 };
+      return { minCardWidthPx: 145, maxColumns: 3 };
+    }
+
+    if (viewportInfo.isMobile && viewportInfo.isLandscape) {
+      if (optionCount <= 4) return { minCardWidthPx: 170, maxColumns: 4 };
+      if (optionCount <= 8) return { minCardWidthPx: 190, maxColumns: 3 };
+      return { minCardWidthPx: 170, maxColumns: 4 };
+    }
+
+    if (width < 900) {
+      return { minCardWidthPx: viewportInfo.isMobile ? 200 : 220, maxColumns: 2 };
+    }
+
+    if (width < 1280) {
+      if (optionCount <= 4) return { minCardWidthPx: 260, maxColumns: 2 };
+      if (optionCount <= 8) return { minCardWidthPx: 240, maxColumns: 3 };
+      return { minCardWidthPx: 220, maxColumns: 4 };
+    }
+
+    if (width < 1600) {
+      if (optionCount <= 4) return { minCardWidthPx: 280, maxColumns: 4 };
+      if (optionCount <= 8) return { minCardWidthPx: 260, maxColumns: 4 };
+      return { minCardWidthPx: 240, maxColumns: 5 };
+    }
+
+    if (optionCount <= 4) return { minCardWidthPx: 320, maxColumns: 4 };
+    if (optionCount <= 8) return { minCardWidthPx: 290, maxColumns: 5 };
+    return { minCardWidthPx: 260, maxColumns: 6 };
+  })();
+
+  const safeViewportWidth = Math.max(320, (viewportInfo.width || 320) - 24);
+  const columnsByWidth = Math.max(1, Math.floor(safeViewportWidth / gridDensityConfig.minCardWidthPx));
+  const gridColumns = Math.max(
+    1,
+    Math.min(optionCount, gridDensityConfig.maxColumns, columnsByWidth)
+  );
+
+  const denseLandscapeClass = viewportInfo.isMobile && viewportInfo.isLandscape && optionCount >= 6
+    ? 'gap-1.5 sm:gap-2 md:gap-3'
+    : 'gap-2 sm:gap-3 md:gap-4 lg:gap-6';
 
   const scrollToBottom = () => {
     if (scrollContainerRef.current) {
@@ -331,34 +317,22 @@ export default function VoteScreen({
       <main className="flex-1 overflow-hidden flex flex-col px-2 sm:px-3 lg:px-4 py-2 sm:py-3 relative">
         <div 
           ref={scrollContainerRef}
-          className="flex-1 w-full flex flex-col items-center justify-start lg:justify-center px-2 md:px-3 lg:px-0"
-          style={{ 
-            overflow: window.innerWidth >= 1024 || (window.innerHeight < window.innerWidth && window.innerWidth < 1024) 
-              ? 'hidden' 
-              : 'auto',
-            justifyContent: window.innerHeight < window.innerWidth && window.innerWidth < 1024 ? 'center' : 'flex-start'
-          }}
+          className="flex-1 w-full overflow-y-auto px-2 md:px-3 lg:px-0"
         >
           <div 
-            className={`gap-1 md:gap-6 lg:gap-8 h-fit w-full auto-rows-max px-2 md:px-3 ${
+            className={`grid w-full auto-rows-fr content-start px-1 sm:px-2 md:px-3 pb-3 sm:pb-4 ${denseLandscapeClass} ${
+              viewportInfo.isLandscape && !hasVerticalScroll ? 'my-auto' : ''
+            } ${
               isTransitioning ? 'pointer-events-none' : ''
             }`}
             style={{
-              display: 'grid',
-              gridTemplateColumns: window.innerWidth < 768 
-                ? '1fr' 
-                : window.innerWidth < 1024
-                  ? `repeat(${getGridCols()}, 1fr)`
-                  : `repeat(${getGridCols()}, 1fr)`,
-              gap: calculateGap(),
-              fontSize: `${calculateCardFontSize()}px`,
-              transition: 'grid-template-columns 0.3s ease-out, font-size 0.3s ease-out, gap 0.3s ease-out'
+              gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
+              transition: 'grid-template-columns 0.25s ease-out'
             }}
           >
             {category.options.map((option, index) => {
               const optionId = category.optionIds ? category.optionIds[index] : `${category.id}_option_${index}`;
               const isSelected = selectedOption?.id === optionId;
-              const isLastOption = index === category.options.length - 1;
 
               return (
                 <GameCard
@@ -367,7 +341,8 @@ export default function VoteScreen({
                   gameName={option}
                   gradient={gameGradients[option] || 'bg-gradient-to-br from-slate-900/60 to-slate-900/80'}
                   isSelected={isSelected}
-                  compact={category.options.length > 4}
+                  isMobilePortrait={isMobilePortrait}
+                  compact={optionCount > 4 || viewportInfo.isLandscape || gridColumns >= 4}
                   isTransitioning={isTransitioning}
                   onSelect={() => {
                     if (!isTransitioning) {
@@ -390,7 +365,7 @@ export default function VoteScreen({
         </div>
 
         {/* Indicador de Scroll - Sombra + Flecha (Clickeable) - Solo móvil vertical */}
-        {hasVerticalScroll && !isAtBottom && window.innerWidth < 768 && (
+        {hasVerticalScroll && !isAtBottom && viewportInfo.isMobile && !viewportInfo.isLandscape && (
           <div className="absolute bottom-0 left-0 right-0 h-16 flex flex-col items-center justify-end">
             {/* Sombra degradada */}
             <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
