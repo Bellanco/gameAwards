@@ -83,6 +83,11 @@ export const es = {
   thankYouForVoting: "Gracias por votar en The Game Awards",
   officialsVotingPlatform: "La plataforma oficial de votación de The Game Awards",
   
+  // Ya votó (bloqueo de re-voto)
+  alreadyVotedTitle: "Ya has votado",
+  alreadyVotedMessage: "Solo se permite un voto por persona en esta edición.",
+  alreadyVotedNote: "Tu voto ya quedó registrado y no se puede modificar. Vuelve cuando se anuncien los resultados.",
+
   // Deadline
   votingClosed: "La votación ha cerrado",
   votingDeadlineMessage: "El plazo de votación para The Game Awards ha terminado",

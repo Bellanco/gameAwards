@@ -44,8 +44,12 @@ service cloud.firestore {
       // podía leer email + voto de todos -> fuga de privacidad.)
       allow read: if isOwner(userId) || isAdmin();
 
-      // Escritura: solo el propietario y solo con esquema válido.
-      allow create, update: if isOwner(userId) && isValidBallot(userId);
+      // Creación: solo el propietario y solo con esquema válido.
+      allow create: if isOwner(userId) && isValidBallot(userId);
+
+      // Actualización: DENEGADA -> un voto por persona, no se puede sobrescribir.
+      // (El reinicio anual borra los ballots, permitiendo crear uno nuevo.)
+      allow update: if false;
 
       // Borrado: solo admin (necesario para el reinicio anual de la edición).
       allow delete: if isAdmin();

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { auth, googleProvider, db } from './firebase';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useTranslation } from './data/literals';
 import { loadAndSortCategories } from './services/categoriesService';
 import { cleanPlaceholderCaches } from './services/gameImageService';
@@ -14,6 +14,7 @@ import ReviewScreen from './components/ReviewScreen';
 import LoginScreen from './components/LoginScreen';
 import SuccessScreen from './components/SuccessScreen';
 import DeadlineScreen from './components/DeadlineScreen';
+import AlreadyVotedScreen from './components/AlreadyVotedScreen';
 
 // AdminPanel solo se usa en la ruta /admin -> carga diferida (code-splitting)
 const AdminPanel = lazy(() => import('./components/AdminPanel'));
@@ -38,7 +39,13 @@ function App() {
   // ============ Estado de Autenticación ============
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  
+
+  // ============ Bloqueo de re-voto ============
+  // hasVoted: el usuario ya tiene un ballot en Firestore (un voto por persona).
+  // voteChecked: ya hemos comprobado Firestore para el usuario actual.
+  const [hasVoted, setHasVoted] = useState(false);
+  const [voteChecked, setVoteChecked] = useState(false);
+
   // ============ Flujo de Pantallas ============
   // -1: Login
   // 0-n: Votación (categoría n)
@@ -115,6 +122,32 @@ function App() {
     // Cleanup
     return () => unsubscribe();
   }, []);
+
+  /**
+   * useEffect: comprueba si el usuario actual ya tiene un voto registrado.
+   * Bloqueo de re-voto (un voto por persona). Si hay error de lectura, no bloquea.
+   */
+  useEffect(() => {
+    if (!currentUser) {
+      setHasVoted(false);
+      setVoteChecked(false);
+      return;
+    }
+    let cancelled = false;
+    setVoteChecked(false);
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'ballots', currentUser.uid));
+        if (!cancelled) setHasVoted(snap.exists());
+      } catch (error) {
+        if (!cancelled) setHasVoted(false); // ante error de lectura, no bloquear
+        console.error('Error comprobando voto existente:', error);
+      } finally {
+        if (!cancelled) setVoteChecked(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentUser]);
 
   /**
    * useEffect: Sincroniza localStorage cuando userVotes o currentStep cambian
@@ -327,6 +360,9 @@ function App() {
       // Guardado en Firebase
       await setDoc(doc(db, "ballots", currentUser.uid), ballotData);
 
+      // Marcar como votado (bloquea el re-voto si vuelve a entrar)
+      setHasVoted(true);
+
       // Simulación de éxito
       setSuccessMessage(`¡Voto registrado exitosamente, ${userNickname}!`);
       setCurrentStep(99); // Pantalla de éxito - useEffect limpiará localStorage automáticamente
@@ -416,6 +452,30 @@ function App() {
   // Deadline alcanzado
   if (isDeadlineReached) {
     return <DeadlineScreen language={language} onToggleLanguage={toggleLanguage} theme={theme} onToggleTheme={toggleTheme} />;
+  }
+
+  // Comprobando en Firestore si el usuario ya votó (evita parpadeo)
+  if (currentUser && !voteChecked && currentStep !== 99) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Bloqueo de re-voto: si ya votó, mostrar pantalla de "ya has votado"
+  // (salvo en la pantalla de éxito recién enviada, currentStep === 99)
+  if (currentUser && hasVoted && currentStep !== 99) {
+    return (
+      <AlreadyVotedScreen
+        userNickname={userDisplayName || userNickname}
+        onLogout={handleLogout}
+        language={language}
+        onToggleLanguage={toggleLanguage}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+      />
+    );
   }
 
   // Pantalla de login
