@@ -13,11 +13,11 @@
      (bg-secondary) resaltan por encima. En claro las tarjetas son blancas y la
      página un gris frío muy suave, con bordes/sombra para separar. */
 
-  /* Fondos */
-  --bg-primary: #eef2f7;         /* Página (gris frío muy claro) */
-  --bg-secondary: #ffffff;       /* Tarjetas, cabeceras, inputs (blanco) */
-  --bg-tertiary: #e2e8f0;        /* Slate-200 - hover / superficies elevadas */
-  --bg-unvoted: #f1f5f9;         /* Slate-100 - tarjetas sin votar (review) */
+  /* Fondos (blanco roto cálido: marfil, algo amarillento y menos brillante) */
+  --bg-primary: #ebe5d8;         /* Página (marfil cálido, un punto más oscuro que las tarjetas) */
+  --bg-secondary: #f6f2e8;       /* Tarjetas, cabeceras, inputs (marfil, no blanco puro) */
+  --bg-tertiary: #e3dcca;        /* Hover / superficies elevadas */
+  --bg-unvoted: #f0ebdf;         /* Tarjetas sin votar (review) */
 
   /* Texto (contraste verificado sobre blanco y sobre la página clara) */
   --text-primary: #1f2937;       /* Gray-800 - ~12:1 sobre blanco */
@@ -25,24 +25,25 @@
   --text-tertiary: #4b5563;      /* Gray-600 - ~6.9:1 (AA también sobre #eef2f7) */
   --text-inverse: #ffffff;
 
-  /* Bordes (visibles sobre tarjetas blancas) */
-  --border-primary: #cbd5e1;     /* Slate-300 */
-  --border-secondary: #94a3b8;   /* Slate-400 - hover */
-  --border-empty: #94a3b8;       /* Slate-400 - opción no seleccionada */
+  /* Bordes (gris cálido, visibles sobre el marfil) */
+  --border-primary: #d8d0bf;     /* Gris cálido suave */
+  --border-secondary: #bcb29b;   /* Gris cálido - hover */
+  --border-empty: #bcb29b;       /* Gris cálido - opción no seleccionada */
 
   /* Colores de marca */
   --color-primary: #ffffff;
   --color-secondary: #b45309;    /* Ámbar-700 (botón primario: blanco encima ~4.7:1) */
   --color-tertiary: #0891b2;     /* Cian-600 */
 
-  /* Acentos accesibles WCAG AA (texto sobre fondo claro, 4.5:1+) */
-  --color-accent: #b45309;       /* Amber-700  - 6.4:1 sobre blanco */
-  --color-success: #15803d;      /* Green-700  - 5.0:1 */
-  --color-error: #dc2626;        /* Red-600    - 4.8:1 */
-  --color-warning: #c2410c;      /* Orange-700 - 5.3:1 */
-  --color-info: #1e40af;         /* Blue-800   - 8.8:1 */
+  /* Acentos accesibles WCAG AA (texto sobre el marfil, 4.5:1+).
+     Algo más oscuros que sobre blanco puro porque la tarjeta es marfil. */
+  --color-accent: #92400e;       /* Amber-800  - ~5.8:1 sobre marfil */
+  --color-success: #166534;      /* Green-800  - ~5.8:1 */
+  --color-error: #b91c1c;        /* Red-700    - ~5.3:1 */
+  --color-warning: #c2410c;      /* Orange-700 - ~4.6:1 */
+  --color-info: #1e40af;         /* Blue-800   - ~7.8:1 */
 
-  --placeholder-color: #64748b;  /* Slate-500 - placeholders sobre blanco */
+  --placeholder-color: #6b6453;  /* Gris cálido - placeholders sobre marfil */
 
   /* Sombras */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.06);

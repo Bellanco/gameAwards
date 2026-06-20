@@ -124,6 +124,9 @@ export default function CategoryManager({ language = 'es', onClose }) {
         orderIndex = (indices.length > 0 ? Math.max(...indices) : -1) + 1;
       }
 
+      // merge:true SIEMPRE. Al editar, NO incluimos orderIndex/createdAt/isActive,
+      // así se preservan (antes con merge:false se borraban y la categoría se
+      // reordenaba al perder su orderIndex).
       await setDoc(doc(db, 'categories', docId), {
         title,
         options,
@@ -135,7 +138,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
           updatedAt: new Date().toISOString(),
           isActive: true
         })
-      }, { merge: !editingId });
+      }, { merge: true });
 
       setSuccessMessage(editingId ? t('updated') : t('created'));
       setFormData(emptyForm());
