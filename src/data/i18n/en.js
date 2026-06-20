@@ -182,7 +182,7 @@ export const en = {
   preparingPanel: "Preparing panel...",
   updated: "Updated",
   created: "Created",
-  reordered: "✓ Reordered",
+  reordered: "Reordered",
   catNameRequired: "Name required",
   catMinOptions: "At least 2 options are required",
   catInvalidWeight: "Invalid weight",
