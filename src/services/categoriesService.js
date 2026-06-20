@@ -7,18 +7,24 @@ import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { logError, ERROR_TYPES } from './errorService';
 import logger from './loggerService';
+import { tField, hasTitle } from '../utils/localize';
 
 /**
- * Carga todas las categorías desde Firestore
+ * Carga todas las categorías desde Firestore.
+ *
+ * Los duplicados (mismo título) se descartan SIEMPRE del resultado en memoria,
+ * pero solo se BORRAN de Firestore si `autoCleanDuplicates` es true (acción de
+ * admin). Así la ruta de lectura pública nunca escribe en la base de datos.
+ *
  * @param {boolean} includeInvalid - Si incluir placeholders e inválidas
- * @param {Function} onDeleteDuplicate - Callback cuando se elimina un duplicado (opcional)
- * @returns {Promise<Array>} Array de categorías ordenadas por orderIndex (0 a mayor)
+ * @param {boolean} autoCleanDuplicates - Si borrar duplicados en Firestore (admin)
+ * @returns {Promise<Array>} Categorías ordenadas por orderIndex (0 a mayor)
  */
-export async function loadAndSortCategories(includeInvalid = false, onDeleteDuplicate = null) {
+export async function loadAndSortCategories(includeInvalid = false, autoCleanDuplicates = false) {
   try {
     const categoriesCollection = collection(db, 'categories');
     const snapshot = await getDocs(categoriesCollection);
-    
+
     const allDocs = snapshot.docs.map(doc => ({
       id: doc.id,
       docId: doc.id,
@@ -27,48 +33,41 @@ export async function loadAndSortCategories(includeInvalid = false, onDeleteDupl
 
     logger.log(`📊 Documentos encontrados: ${allDocs.length}`);
 
-    // Detectar y eliminar automáticamente duplicados por TÍTULO
-    // Mantener solo la versión más reciente de cada título
+    // Detectar duplicados por TÍTULO (clave localizada), conservando la versión
+    // más reciente. El título puede ser { es, en } o string (legacy).
     const titleGroups = {};
     const toDelete = [];
 
     allDocs.forEach(cat => {
-      // Excluir solo si no tiene título válido (no contar placeholders vacíos como duplicados)
-      if (!cat.title || !cat.title.trim()) return;
-      
-      if (!titleGroups[cat.title]) {
-        titleGroups[cat.title] = [];
-      }
-      titleGroups[cat.title].push(cat);
+      if (!hasTitle(cat)) return; // los placeholders vacíos no cuentan como duplicados
+      const key = (tField(cat.title, 'es') || tField(cat.title, 'en')).trim().toLowerCase();
+      if (!titleGroups[key]) titleGroups[key] = [];
+      titleGroups[key].push(cat);
     });
 
-    // Para cada título con múltiples instancias, mantener solo la más reciente
-    for (const [title, docs] of Object.entries(titleGroups)) {
+    for (const [key, docs] of Object.entries(titleGroups)) {
       if (docs.length > 1) {
-        logger.warn(`Duplicados encontrados para: "${title}"`);
+        logger.warn(`Duplicados encontrados para: "${key}"`);
         docs.sort((a, b) => {
           const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
           const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
           return bTime - aTime;
         });
-
-        // Marcar para eliminar todos excepto el primero (más reciente)
         for (let i = 1; i < docs.length; i++) {
           toDelete.push(docs[i].id);
         }
       }
     }
 
-    // Eliminar duplicados automáticamente
-    for (const docId of toDelete) {
-      try {
-        logger.log(`🗑️ Eliminando duplicado automáticamente: ${docId}`);
-        await deleteDoc(doc(db, 'categories', docId));
-        if (onDeleteDuplicate) {
-          onDeleteDuplicate(docId);
+    // Borrado en Firestore SOLO si lo pide un admin (evita escrituras en lecturas).
+    if (autoCleanDuplicates) {
+      for (const docId of toDelete) {
+        try {
+          logger.log(`🗑️ Eliminando duplicado: ${docId}`);
+          await deleteDoc(doc(db, 'categories', docId));
+        } catch (error) {
+          logger.error(`Error eliminando duplicado ${docId}:`, error);
         }
-      } catch (error) {
-        logger.error(`Error eliminando duplicado ${docId}:`, error);
       }
     }
 
@@ -80,8 +79,7 @@ export async function loadAndSortCategories(includeInvalid = false, onDeleteDupl
       ? filtered
       : filtered.filter(cat =>
           !cat.isPlaceholder &&
-          cat.title &&
-          cat.title.trim() &&
+          hasTitle(cat) &&
           cat.options &&
           cat.options.length > 0
         );

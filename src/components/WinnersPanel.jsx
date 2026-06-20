@@ -22,6 +22,8 @@ import { useFirestoreCategories, useFirestoreBallots } from '../hooks';
 import { Button, Card, LoadingSpinner, Alert, Table } from './ui';
 import { logError, ERROR_TYPES } from '../services/errorService';
 import { sortCategoriesByOrder } from '../services/categoriesService';
+import { tField, getCategoryTitle, getOptionId, getOptionLabel, resolveOptionId } from '../utils/localize';
+import { computeLeaderboard } from '../utils/scoring';
 
 export default function WinnersPanel({ 
   language = 'es',
@@ -54,17 +56,16 @@ export default function WinnersPanel({
   }, [mode, categories, ballots, winners]);
 
   /**
-   * Cargar ganadores existentes desde Firestore
+   * Cargar ganadores existentes desde Firestore.
+   * `category.winner` es el optionId ganador (o null).
    */
   const loadWinners = () => {
     try {
       const winnersData = {};
       categories.forEach(category => {
         if (category.winner) {
-          winnersData[category.id] = {
-            name: category.winner,
-            optionId: category.winnerOptionId
-          };
+          // Normaliza por si el dato antiguo guardó el ganador por nombre.
+          winnersData[category.id] = resolveOptionId(category, category.winner);
         }
       });
       setWinners(winnersData);
@@ -74,31 +75,17 @@ export default function WinnersPanel({
   };
 
   /**
-   * Calcular puntuación de usuarios basada en votos correctos
+   * Calcular puntuación de usuarios (acierto = optionId votado == optionId ganador).
+   * Usa los ganadores en edición (state `winners`), no los persistidos.
    */
   const calculateScores = () => {
     try {
+      // Proyectar el winner en edición sobre las categorías para el cálculo.
+      const categoriesWithWinners = categories.map(c => ({ ...c, winner: winners[c.id] || null }));
       const scoresData = {};
-      const validCatIds = new Set(categories.map(c => c.id));
-
-      ballots.forEach(ballot => {
-        const hasValidVote = ballot.selections && 
-          Object.keys(ballot.selections).some(catId => validCatIds.has(catId));
-        
-        if (hasValidVote) {
-          let userScore = 0;
-          if (ballot.selections) {
-            Object.entries(ballot.selections).forEach(([categoryId, voteName]) => {
-              const category = categories.find(c => c.id === categoryId);
-              if (category && winners[categoryId] && winners[categoryId].name === voteName) {
-                userScore += category.weight || 1;
-              }
-            });
-          }
-          scoresData[ballot.userId] = userScore;
-        }
+      computeLeaderboard(ballots, categoriesWithWinners).forEach(entry => {
+        scoresData[entry.userId] = entry.points;
       });
-
       setUserScores(scoresData);
     } catch (err) {
       logError(ERROR_TYPES.VALIDATION_ERROR, err, { context: 'calculateScores' });
@@ -116,24 +103,14 @@ export default function WinnersPanel({
   };
 
   /**
-   * Seleccionar/deseleccionar ganador
+   * Seleccionar/deseleccionar ganador (por optionId).
    */
-  const handleSelectWinner = (categoryId, optionName) => {
+  const handleSelectWinner = (categoryId, optionId) => {
     setWinners(prev => {
-      const current = prev[categoryId];
-      if (current?.name === optionName) {
-        // Deseleccionar
-        return {
-          ...prev,
-          [categoryId]: null
-        };
-      } else {
-        // Seleccionar
-        return {
-          ...prev,
-          [categoryId]: { name: optionName, optionId: optionName }
-        };
+      if (prev[categoryId] === optionId) {
+        return { ...prev, [categoryId]: null }; // toggle off
       }
+      return { ...prev, [categoryId]: optionId };
     });
     setHasChanges(true);
   };
@@ -157,11 +134,11 @@ export default function WinnersPanel({
         }
 
         const categoryRef = doc(db, 'categories', category.id);
-        const winner = winners[category.id];
-        
-        // Guardar: si hay ganador, guardar su nombre; si no, guardar null
+        const winnerId = winners[category.id] || null;
+
+        // Guardar el optionId ganador (independiente del idioma) o null.
         await updateDoc(categoryRef, {
-          winner: winner ? winner.name : null,
+          winner: winnerId,
           winnerSelectedAt: new Date().toISOString()
         });
         savedCount++;
@@ -209,13 +186,13 @@ export default function WinnersPanel({
     if (ballot?.selections) {
       // Iterar sobre categorías ordenadas por orderIndex
       const sortedCategories = sortCategoriesByOrder(categories);
-      
+
       sortedCategories.forEach(category => {
-        const voteName = ballot.selections[category.id];
-        if (voteName && winners[category.id]?.name === voteName) {
+        const votedOptionId = ballot.selections[category.id];
+        if (votedOptionId && winners[category.id] === votedOptionId) {
           correctVotes.push({
-            category: category.title,
-            vote: voteName,
+            category: getCategoryTitle(category, language),
+            vote: getOptionLabel(category, votedOptionId, language),
             points: category.weight || 1
           });
         }
@@ -295,30 +272,35 @@ export default function WinnersPanel({
                 return (
                   <Card key={category.id}>
                     <Card.Header>
-                      <h2 className="text-xl font-bold theme-text-primary">{category.title}</h2>
+                      <h2 className="text-xl font-bold theme-text-primary">{getCategoryTitle(category, language)}</h2>
                       {winners[category.id] && (
                         <p className="text-success text-sm mt-2">
-                          ✓ {t('selected')}: {winners[category.id].name}
+                          ✓ {t('selected')}: {getOptionLabel(category, winners[category.id], language)}
                         </p>
                       )}
                     </Card.Header>
                     <Card.Body>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {category.options.map((option, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => handleSelectWinner(category.id, option)}
-                            className={`
-                              p-4 rounded-lg font-semibold transition-all text-center
-                              ${winners[category.id]?.name === option
-                                ? 'bg-yellow-600 text-white border-2 border-yellow-400'
-                                : 'bg-slate-700 hover:bg-slate-600 text-slate-200 border-2 border-transparent'
-                              }
-                            `}
-                          >
-                            {winners[category.id]?.name === option && '✓ '}{option}
-                          </button>
-                        ))}
+                        {category.options.map((option, idx) => {
+                          const optionId = getOptionId(option, category.id, idx);
+                          const optionName = tField(option, language);
+                          const isWinner = winners[category.id] === optionId;
+                          return (
+                            <button
+                              key={optionId}
+                              onClick={() => handleSelectWinner(category.id, optionId)}
+                              className={`
+                                p-4 rounded-lg font-semibold transition-all text-center
+                                ${isWinner
+                                  ? 'bg-yellow-600 text-white border-2 border-yellow-400'
+                                  : 'bg-slate-700 hover:bg-slate-600 text-slate-200 border-2 border-transparent'
+                                }
+                              `}
+                            >
+                              {isWinner && '✓ '}{optionName}
+                            </button>
+                          );
+                        })}
                       </div>
                     </Card.Body>
                   </Card>

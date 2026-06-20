@@ -8,3 +8,5 @@ export { useFirestoreBallots } from './useFirestoreBallots';
 export { useAdminCheck } from './useAdminCheck';
 export { useWinnerSelection } from './useWinnerSelection';
 export { useTheme } from './useTheme';
+export { useVotingConfig } from './useVotingConfig';
+export { useSeasonResults } from './useSeasonResults';

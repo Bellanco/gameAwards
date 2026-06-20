@@ -1,35 +1,39 @@
 /**
  * Unit Tests para Custom Hooks
- * Ejecutar con: npm test
- * 
- * Nota: Estos son tests básicos usando React Testing Library
- * Instalar con: npm install --save-dev @testing-library/react @testing-library/hooks jest
+ * Ejecutar con: npm test  (o `npm run test:watch` para modo watch)
+ *
+ * Tests básicos con Vitest + React Testing Library.
+ * Las APIs (describe/it/expect/vi) son globales (vite.config.js → test.globals).
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react';
-import { useFirestoreCategories } from '../useFirestoreCategories';
-import { useFirestoreBallots } from '../useFirestoreBallots';
-import { useAdminCheck } from '../useAdminCheck';
-import { useWinnerSelection } from '../useWinnerSelection';
+import { renderHook, act } from '@testing-library/react';
+import { useFirestoreCategories } from './useFirestoreCategories';
+import { useFirestoreBallots } from './useFirestoreBallots';
+import { useAdminCheck } from './useAdminCheck';
+import { useWinnerSelection } from './useWinnerSelection';
 
-// Mock de Firestore
-jest.mock('../../firebase', () => ({
+// Mock de Firebase (db + auth). useAdminCheck usa auth.onAuthStateChanged,
+// por eso el mock debe exponer auth con ese método.
+vi.mock('../firebase', () => ({
   db: {},
+  auth: {
+    onAuthStateChanged: vi.fn(() => vi.fn()), // devuelve una función unsubscribe
+  },
 }));
 
-jest.mock('firebase/firestore', () => ({
-  collection: jest.fn(),
-  getDocs: jest.fn(),
-  doc: jest.fn(),
-  updateDoc: jest.fn(),
+vi.mock('firebase/firestore', () => ({
+  collection: vi.fn(),
+  getDocs: vi.fn(),
+  doc: vi.fn(),
+  updateDoc: vi.fn(),
 }));
 
-jest.mock('firebase/auth', () => ({
-  onAuthStateChanged: jest.fn(),
+vi.mock('firebase/auth', () => ({
+  onAuthStateChanged: vi.fn(),
 }));
 
-jest.mock('../../services/errorService', () => ({
-  logError: jest.fn(),
+vi.mock('../services/errorService', () => ({
+  logError: vi.fn(),
   ERROR_TYPES: {
     FIRESTORE_ERROR: 'FIRESTORE_ERROR',
     AUTH_ERROR: 'AUTH_ERROR',
@@ -48,17 +52,14 @@ describe('Custom Hooks', () => {
       expect(result.current.isSaving).toBe(false);
     });
 
-    it('debe seleccionar un ganador', () => {
+    it('debe seleccionar un ganador (por optionId)', () => {
       const { result } = renderHook(() => useWinnerSelection([]));
-      
+
       act(() => {
-        result.current.selectWinner('category1', 'Option A');
+        result.current.selectWinner('category1', 'opt_a');
       });
 
-      expect(result.current.winners['category1']).toEqual({
-        name: 'Option A',
-        optionId: 'Option A'
-      });
+      expect(result.current.winners['category1']).toBe('opt_a');
       expect(result.current.hasChanges).toBe(true);
     });
 
@@ -97,10 +98,7 @@ describe('Custom Hooks', () => {
       });
 
       const winner = result.current.getWinner('category1');
-      expect(winner).toEqual({
-        name: 'Option A',
-        optionId: 'Option A'
-      });
+      expect(winner).toBe('Option A');
     });
 
     it('debe retornar null si no hay ganador', () => {
@@ -126,10 +124,10 @@ describe('Custom Hooks', () => {
       expect(result.current.winners['category1']).toBeUndefined();
     });
 
-    it('debe cargar ganadores existentes', () => {
+    it('debe cargar ganadores existentes (optionId)', () => {
       const categories = [
-        { id: 'cat1', winner: 'Option A' },
-        { id: 'cat2', winner: 'Option B' },
+        { id: 'cat1', winner: 'opt_a' },
+        { id: 'cat2', winner: 'opt_b' },
       ];
 
       const { result } = renderHook(() => useWinnerSelection(categories));
@@ -138,14 +136,8 @@ describe('Custom Hooks', () => {
         result.current.loadExistingWinners(categories);
       });
 
-      expect(result.current.winners['cat1']).toEqual({
-        name: 'Option A',
-        optionId: undefined
-      });
-      expect(result.current.winners['cat2']).toEqual({
-        name: 'Option B',
-        optionId: undefined
-      });
+      expect(result.current.winners['cat1']).toBe('opt_a');
+      expect(result.current.winners['cat2']).toBe('opt_b');
     });
 
     it('debe marcar hasChanges cuando se selecciona', () => {

@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { auth, googleProvider, db } from './firebase';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { useTranslation } from './data/literals';
 import { loadAndSortCategories } from './services/categoriesService';
 import { cleanPlaceholderCaches } from './services/gameImageService';
-import { useTheme } from './hooks';
+import { useTheme, useVotingConfig } from './hooks';
+import { hasTitle, getCategoryTitle } from './utils/localize';
 
 // Componentes modulares
 import VoteScreen from './components/VoteScreen';
@@ -13,7 +14,9 @@ import ReviewScreen from './components/ReviewScreen';
 import LoginScreen from './components/LoginScreen';
 import SuccessScreen from './components/SuccessScreen';
 import DeadlineScreen from './components/DeadlineScreen';
-import AdminPanel from './components/AdminPanel';
+
+// AdminPanel solo se usa en la ruta /admin -> carga diferida (code-splitting)
+const AdminPanel = lazy(() => import('./components/AdminPanel'));
 
 function App() {
   // ============ Estado de Idioma ============
@@ -24,6 +27,9 @@ function App() {
 
   // ============ Estado de Tema (Centralizado en Hook) ============
   const { theme, toggleTheme } = useTheme();
+
+  // ============ Estado de Votación (controlado por admin en config/voting) ============
+  const { isOpen: isVotingOpen, season, closesAt, isLoading: configLoading } = useVotingConfig();
 
   // ============ Estado de Categorías (desde Firestore) ============
   const [categories, setCategories] = useState([]);
@@ -47,9 +53,13 @@ function App() {
   const [canEditNickname, setCanEditNickname] = useState(true);
   
   // ============ Control de Deadline ============
-  const [isDeadlineReached, setIsDeadlineReached] = useState(false);
-  const [daysRemaining, setDaysRemaining] = useState(null);
-  
+  // La votación está cerrada cuando el admin pone isOpen=false en config/voting.
+  const isDeadlineReached = !configLoading && !isVotingOpen;
+  // Días restantes informativos, derivados de closesAt si el admin lo configuró.
+  const daysRemaining = closesAt
+    ? Math.max(0, Math.ceil((new Date(closesAt).getTime() - Date.now()) / (1000 * 3600 * 24)))
+    : null;
+
   // ============ Estado de UI ============
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -79,25 +89,6 @@ function App() {
    * useEffect: Verifica deadline, configura autenticación, e inicializa progreso
    */
   useEffect(() => {
-    // Calcular deadline y días restantes
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const deadline = new Date(currentYear, 11, 1); // 1 de diciembre
-    
-    // Si ya pasó el 1 de diciembre este año, el deadline del próximo año es target
-    if (now > deadline) {
-      deadline.setFullYear(currentYear + 1);
-    }
-    
-    const timeDiff = deadline.getTime() - now.getTime();
-    const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    
-    if (daysLeft <= 0 && now.getMonth() === 11 && now.getDate() >= 1) {
-      setIsDeadlineReached(true);
-    } else {
-      setDaysRemaining(daysLeft);
-    }
-    
     // Listener de autenticación de Firebase
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -131,9 +122,7 @@ function App() {
    */
   useEffect(() => {
     // Calcular validCategories localmente para evitar referencia antes de declaración
-    const validCats = categories.filter(cat => 
-      !cat.isPlaceholder && cat.title && cat.title.trim()
-    );
+    const validCats = categories.filter(cat => !cat.isPlaceholder && hasTitle(cat));
     
     // Si estamos en pantalla de éxito, limpiar localStorage
     if (currentStep === 99) {
@@ -294,7 +283,7 @@ function App() {
     // Verificar que todas las categorías válidas tengan voto
     const missingVotes = validCategories.filter(cat => !userVotes[cat.id]);
     if (missingVotes.length > 0) {
-      const categoryNames = missingVotes.map(cat => cat.title).join(', ');
+      const categoryNames = missingVotes.map(cat => getCategoryTitle(cat, language)).join(', ');
       const message = language === 'es' 
         ? `Te faltan ${missingVotes.length} categoría(s) por votar: ${categoryNames}`
         : `You are missing votes in ${missingVotes.length} category(ies): ${categoryNames}`;
@@ -311,19 +300,24 @@ function App() {
       setIsLoading(true);
       setErrorMessage('');
 
-      // Convertir votos de {id, name} a solo nombres para guardar en Firestore
+      // Guardar el optionId estable (NO el nombre): independiente del idioma y
+      // robusto frente a cambios de texto. El nombre se resuelve al mostrar.
       const selections = {};
       Object.entries(userVotes).forEach(([categoryId, vote]) => {
-        selections[categoryId] = vote.name || vote; // Por si viene en formato antiguo
+        selections[categoryId] = vote.id;
       });
 
-      // Preparar datos (estructura lista para Firebase)
+      // Sanitizado básico de texto introducido por el usuario.
+      const sanitize = (value) => (value || '').trim().replace(/[<>]/g, '').slice(0, 50);
+
+      // Preparar datos (estructura validada por firestore.rules)
       const ballotData = {
         userId: currentUser?.uid || 'demo-user',
         userEmail: currentUser?.email || 'demo@example.com',
-        userNickname: userNickname,
-        userDisplayName: userDisplayName, // Nuevo campo editable
-        selections: selections, // Solo nombres
+        userNickname: sanitize(userNickname),
+        userDisplayName: sanitize(userDisplayName),
+        selections: selections, // { categoryId: optionId }
+        season: season,
         submittedAt: new Date().toISOString(),
         isActive: true
       };
@@ -386,13 +380,19 @@ function App() {
   // Filtrar solo categorías válidas (no placeholders vacíos)
   // - Si tiene isPlaceholder, es solo para mantener la tabla en Firestore
   // - Si tiene title vacío, también es un placeholder
-  const validCategories = categories.filter(cat => 
-    !cat.isPlaceholder && cat.title && cat.title.trim()
-  );
-  
+  const validCategories = categories.filter(cat => !cat.isPlaceholder && hasTitle(cat));
+
   // Panel de Admin - Ruta secreta /admin (SIEMPRE accesible, incluso sin categorías)
   if (window.location.pathname === '/admin') {
-    return <AdminPanel language={language} onToggleLanguage={toggleLanguage} theme={theme} onToggleTheme={toggleTheme} />;
+    return (
+      <Suspense fallback={
+        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+          <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin" />
+        </div>
+      }>
+        <AdminPanel language={language} onToggleLanguage={toggleLanguage} theme={theme} onToggleTheme={toggleTheme} />
+      </Suspense>
+    );
   }
 
   // Sin categorías válidas - mostrar mensaje solo para público

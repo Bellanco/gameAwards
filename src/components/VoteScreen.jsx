@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../data/literals';
 import { getRandomGradients } from '../utils/gradients';
+import { tField, getCategoryTitle, getOptionId, getOptionLabel } from '../utils/localize';
 import GameCard from './GameCard';
 import { ScreenLayout } from './layouts';
 import { Header, Footer } from './ui';
@@ -51,9 +52,10 @@ export default function VoteScreen({
     );
   }
 
-  // Cargar gradientes cuando cambia la categoría
+  // Cargar gradientes cuando cambia la categoría (clave = optionId estable)
   useEffect(() => {
-    const gradients = getRandomGradients(category.options);
+    const optionIds = (category.options || []).map((opt, idx) => getOptionId(opt, category.id, idx));
+    const gradients = getRandomGradients(optionIds);
     setGameGradients(gradients);
     setLoadingImages(false);
     setIsTransitioning(false); // Reset transition state when category changes
@@ -241,11 +243,11 @@ export default function VoteScreen({
   // Header con progreso y controles
   const headerContent = (
     <Header
-      title={category.title}
+      title={getCategoryTitle(category, language)}
       progress={`${currentStep + 1} / ${totalSteps}`}
       progressPercentage={progressPercentage}
-      subtitle={isVoted 
-        ? `${t('yourSelection')}: ${selectedOption?.name}` 
+      subtitle={isVoted
+        ? `${t('yourSelection')}: ${getOptionLabel(category, selectedOption?.id, language)}`
         : t('chooseYourFavorite')}
       language={language}
       onToggleLanguage={onToggleLanguage}
@@ -331,22 +333,23 @@ export default function VoteScreen({
             }}
           >
             {category.options.map((option, index) => {
-              const optionId = category.optionIds ? category.optionIds[index] : `${category.id}_option_${index}`;
+              const optionId = getOptionId(option, category.id, index);
+              const optionName = tField(option, language);
               const isSelected = selectedOption?.id === optionId;
 
               return (
                 <GameCard
                   key={`${category.id}_${optionId}`}
                   variant="vote"
-                  gameName={option}
-                  gradient={gameGradients[option] || 'bg-gradient-to-br from-slate-900/60 to-slate-900/80'}
+                  gameName={optionName}
+                  gradient={gameGradients[optionId] || 'bg-gradient-to-br from-slate-900/60 to-slate-900/80'}
                   isSelected={isSelected}
                   isMobilePortrait={isMobilePortrait}
                   compact={optionCount > 4 || viewportInfo.isLandscape || gridColumns >= 4}
                   isTransitioning={isTransitioning}
                   onSelect={() => {
                     if (!isTransitioning) {
-                      handleSelectOption(category.id, { id: optionId, name: option });
+                      handleSelectOption(category.id, { id: optionId, name: optionName });
                       // Avanzar automáticamente a siguiente categoría o a ReviewScreen
                       setTimeout(() => handleNext(), 100);
                     }

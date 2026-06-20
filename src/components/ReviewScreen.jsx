@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from '../data/literals';
 import { getRandomGradients } from '../utils/gradients';
+import { hasTitle, getCategoryTitle, getOptionLabel } from '../utils/localize';
 import GameCard from './GameCard';
 import { ScreenLayout } from './layouts';
 import { Header } from './ui';
@@ -28,10 +29,8 @@ export default function ReviewScreen({
   onToggleTheme
 }) {
   // Filtrar solo categorías válidas (no placeholders, no vacías)
-  const validCategories = useMemo(() => 
-    categories.filter(cat => 
-      !cat.isPlaceholder && cat.title && cat.title.trim()
-    ),
+  const validCategories = useMemo(() =>
+    categories.filter(cat => !cat.isPlaceholder && hasTitle(cat)),
     [categories]
   );
   
@@ -63,17 +62,16 @@ export default function ReviewScreen({
     }
   };
 
-  // ============ Carga de gradientes (sin imágenes) ============
+  // ============ Carga de gradientes (sin imágenes, clave = optionId) ============
   useEffect(() => {
-    // Generar gradientes aleatorios para juegos votados
-    const votedGameNames = Object.values(userVotes)
+    const votedOptionIds = Object.values(userVotes)
       .filter(Boolean)
-      .map(voteData => typeof voteData === 'object' ? voteData.name : voteData)
+      .map(voteData => (typeof voteData === 'object' ? voteData.id : voteData))
       .filter(Boolean);
-    
-    const gradients = getRandomGradients(votedGameNames);
+
+    const gradients = getRandomGradients(votedOptionIds);
     setGameGradients(gradients);
-    
+
     setLoadingImages(false);
   }, [userVotes]);
 
@@ -175,16 +173,17 @@ export default function ReviewScreen({
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
             {validCategories.map((category, categoryIndex) => {
               const votedGame = userVotes[category.id];
+              const votedName = votedGame ? getOptionLabel(category, votedGame.id, language) : null;
 
               return (
                 <GameCard
                   key={category.id}
                   variant="review"
-                  gameName={votedGame?.name}
-                  gradient={votedGame ? gameGradients[votedGame?.name] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80' : 'bg-slate-900/80'}
+                  gameName={votedName}
+                  gradient={votedGame ? gameGradients[votedGame?.id] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80' : 'bg-slate-900/80'}
                   isVoted={!!votedGame}
                   onSelect={() => onPrevious(categoryIndex)}
-                  categoryTitle={category.title}
+                  categoryTitle={getCategoryTitle(category, language)}
                   translationLabel={t('notVoted')}
                   statusBadge={t('voted')}
                 />

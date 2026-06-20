@@ -20,30 +20,34 @@ import { useState, useEffect } from 'react';
 import { auth } from '../firebase';
 import { logError, ERROR_TYPES } from '../services/errorService';
 
-// Configurar email de admin en variable de entorno o constante
-const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || 'bellanco3@gmail.com').split(',');
-
+/**
+ * El acceso de administrador se determina por un custom claim de Firebase
+ * (`admin: true`), verificado por el servidor e imposible de falsificar desde
+ * el cliente. Para asignarlo (una sola vez, con el Admin SDK / CLI):
+ *   admin.auth().setCustomUserClaims(uid, { admin: true })
+ * El usuario debe refrescar su token (re-login) para recibir el claim.
+ */
 export const useAdminCheck = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
       try {
         setCurrentUser(user);
-        
-        if (user && user.email) {
-          const adminStatus = ADMIN_EMAILS.some(
-            adminEmail => adminEmail.trim().toLowerCase() === user.email.toLowerCase()
-          );
-          setIsAdmin(adminStatus);
+
+        if (user) {
+          // Leer el custom claim del token (forzar refresco para datos al día).
+          const tokenResult = await user.getIdTokenResult(true);
+          setIsAdmin(tokenResult.claims.admin === true);
         } else {
           setIsAdmin(false);
         }
       } catch (err) {
-        logError(ERROR_TYPES.AUTH_ERROR, err, { 
-          context: 'useAdminCheck - onAuthStateChanged' 
+        setIsAdmin(false);
+        logError(ERROR_TYPES.AUTH_ERROR, err, {
+          context: 'useAdminCheck - onAuthStateChanged',
         });
       } finally {
         setIsLoading(false);

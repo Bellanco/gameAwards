@@ -1,86 +1,85 @@
 /**
- * Archivo de Reglas de Firestore - Seguro para Producción
+ * Reglas de Firestore - Seguro para Producción
  * Copia este contenido en Firebase Console > Firestore Database > Rules
- * Luego haz clic en "Publish" para aplicar
- * 
- * Para usar estas reglas, asigna custom claims a los admins:
- * Firebase Console → Authentication → Users → Elegir usuario → Custom Claims
- * Agregar: { "admin": true }
+ * y pulsa "Publish".
+ *
+ * Acceso de administrador (custom claims, verificado por el servidor):
+ *   Firebase Admin SDK / CLI:
+ *     admin.auth().setCustomUserClaims(uid, { admin: true })
+ *   El usuario debe re-loguearse (o refrescar token) para recibir el claim.
  */
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    /**
-     * Función auxiliar: Verificar si el usuario es admin
-     * Busca custom claim 'admin: true' en el token de autenticación
-     * SEGURIDAD: Verificado por Firebase, imposible falsificar desde cliente
-     */
+
+    // ===== Funciones auxiliares =====
     function isAdmin() {
-      return request.auth != null && 
+      return request.auth != null &&
              request.auth.token.get('admin', false) == true;
     }
-    
-    /**
-     * Función auxiliar: Verificar si es el propietario del documento
-     */
+
     function isOwner(userId) {
-      return request.auth != null && 
-             request.auth.uid == userId;
+      return request.auth != null && request.auth.uid == userId;
     }
-    
-    // ========== COLECCIÓN: ballots (votos de usuarios) ==========
+
+    // Validación de esquema de un voto entrante.
+    function isValidBallot(userId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly([
+               'userId', 'userEmail', 'userNickname', 'userDisplayName',
+               'selections', 'season', 'submittedAt', 'isActive'
+             ]) &&
+             d.userId == userId &&
+             d.userEmail is string &&
+             d.userNickname is string &&
+             d.selections is map &&
+             d.submittedAt is string &&
+             d.isActive is bool;
+    }
+
+    // ===== ballots (votos de usuarios) =====
     match /ballots/{userId} {
-      // Lectura: Solo usuarios autenticados pueden leer
-      allow read: if request.auth != null;
-      
-      // Escritura: SOLO el propietario del UID puede escribir/editar su voto
-      // SEGURIDAD: Imposible votar como otro usuario
-      allow write: if isOwner(userId) && 
-                      request.auth.uid != null;
-      
-      // Eliminación: No permitida (soft-delete solo)
-      allow delete: if false;
+      // Lectura: SOLO el propietario o un admin. (Antes: cualquier autenticado
+      // podía leer email + voto de todos -> fuga de privacidad.)
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Escritura: solo el propietario y solo con esquema válido.
+      allow create, update: if isOwner(userId) && isValidBallot(userId);
+
+      // Borrado: solo admin (necesario para el reinicio anual de la edición).
+      allow delete: if isAdmin();
     }
-    
-    // ========== COLECCIÓN: categories (categorías - PÚBLICAS) ==========
+
+    // ===== categories (categorías - lectura pública) =====
     match /categories/{categoryId} {
-      // Lectura: PÚBLICA - Cualquiera puede leer
       allow read: if true;
-      
-      // Escritura: Solo admins autenticados
-      allow write: if isAdmin();
-      
-      // Eliminación: Solo admins
-      allow delete: if isAdmin();
+      allow write, delete: if isAdmin();
     }
-    
-    // ========== COLECCIÓN: winners (ganadores seleccionados por admin) ==========
+
+    // ===== config (estado de la votación - lectura pública) =====
+    match /config/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ===== results (archivo de resultados por temporada - lectura pública) =====
+    match /results/{season} {
+      allow read: if true;
+      allow write, delete: if isAdmin();
+    }
+
+    // ===== winners / surveyWinners (compatibilidad - lectura pública) =====
     match /winners/{categoryId} {
-      // Lectura: PÚBLICA
       allow read: if true;
-      
-      // Escritura: Solo admins
-      allow write: if isAdmin();
-      
-      // Eliminación: Solo admins
-      allow delete: if isAdmin();
+      allow write, delete: if isAdmin();
     }
-    
-    // ========== COLECCIÓN: surveyWinners (ganadores por votación) ==========
     match /surveyWinners/{categoryId} {
-      // Lectura: PÚBLICA
       allow read: if true;
-      
-      // Escritura: Solo admins
-      allow write: if isAdmin();
-      
-      // Eliminación: Solo admins
-      allow delete: if isAdmin();
+      allow write, delete: if isAdmin();
     }
-    
-    // ========== COLECCIÓN: admin (configuración sensible) ==========
+
+    // ===== admin (configuración sensible) =====
     match /admin/{document=**} {
       allow read, write, delete: if isAdmin();
     }
