@@ -189,6 +189,10 @@ export const es = {
   catDeleteConfirm: "¿Eliminar categoría?",
   catDeletedKept: "Eliminada - tabla mantenida",
   catReorderError: "Error al reordenar",
+  order: "Orden",
+  moveUp: "Subir",
+  moveDown: "Bajar",
+  reorderSearchHint: "Quita la búsqueda para reordenar",
 
   // Temporada / Control de votación (Admin)
   season: "Temporada",

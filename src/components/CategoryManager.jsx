@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { setDoc, deleteDoc, doc } from 'firebase/firestore';
+import { setDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useTranslation } from '../data/literals';
 import { useFirestoreCategories } from '../hooks';
 import { Button, Card, Alert } from './ui';
 import { logError, ERROR_TYPES } from '../services/errorService';
 import { tField, getCategoryTitle, hasTitle } from '../utils/localize';
+import { sortCategoriesByOrder } from '../services/categoriesService';
 
 /**
  * Generar UUID v4
@@ -51,10 +52,13 @@ export default function CategoryManager({ language = 'es', onClose }) {
   const [successMessage, setSuccessMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Filtrar categorías válidas y buscar (por título en el idioma actual)
+  // Orden global por orderIndex (de menor a mayor) -> es el nº de orden visible
+  // y el que consume el resto de la app.
   const validCategories = categories.filter(c => !c.isPlaceholder && hasTitle(c));
+  const orderedCategories = sortCategoriesByOrder(validCategories);
 
-  const filteredCategories = validCategories.filter(c =>
+  const searching = searchTerm.trim().length > 0;
+  const filteredCategories = orderedCategories.filter(c =>
     getCategoryTitle(c, language).toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -213,48 +217,65 @@ export default function CategoryManager({ language = 'es', onClose }) {
   };
 
   /**
-   * Reordenar categorías por drag & drop.
+   * Persiste un nuevo orden: reasigna orderIndex contiguo 0..n-1 a TODAS las
+   * categorías válidas en un único batch (garantiza una secuencia limpia, sin
+   * huecos ni duplicados) y refresca.
    */
-  const handleDropCategory = async (e, targetCategory, targetIndex) => {
-    e.preventDefault();
-    setHoveredIndex(null);
-
-    if (!draggedCategory || draggedCategory.docId === targetCategory.docId) {
-      setDraggedCategory(null);
-      return;
-    }
-
+  const persistOrder = async (ordered) => {
     try {
       setIsSaving(true);
-      const draggedIndex = filteredCategories.findIndex(c => c.docId === draggedCategory.docId);
-
-      if (draggedIndex === -1 || draggedIndex === targetIndex) {
-        setDraggedCategory(null);
-        return;
-      }
-
-      const newOrder = [...filteredCategories];
-      const [movedItem] = newOrder.splice(draggedIndex, 1);
-      newOrder.splice(targetIndex, 0, movedItem);
-
-      for (let i = 0; i < newOrder.length; i++) {
-        await setDoc(doc(db, 'categories', newOrder[i].docId), {
-          ...newOrder[i],
+      const batch = writeBatch(db);
+      ordered.forEach((cat, i) => {
+        batch.update(doc(db, 'categories', cat.docId), {
           orderIndex: i,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      }
-
+          updatedAt: new Date().toISOString(),
+        });
+      });
+      await batch.commit();
       await refetch();
       setSuccessMessage(t('reordered'));
       setTimeout(() => setSuccessMessage(''), 1200);
     } catch (err) {
-      logError(ERROR_TYPES.FIRESTORE_ERROR, err, { context: 'CategoryManager - handleDropCategory' });
+      logError(ERROR_TYPES.FIRESTORE_ERROR, err, { context: 'CategoryManager - persistOrder' });
       setErrorMessage(t('catReorderError'));
     } finally {
       setIsSaving(false);
-      setDraggedCategory(null);
     }
+  };
+
+  /**
+   * Subir/bajar una categoría una posición en el orden global.
+   * @param {string} docId
+   * @param {'up'|'down'} direction
+   */
+  const moveCategory = (docId, direction) => {
+    if (isSaving || searching) return;
+    const idx = orderedCategories.findIndex(c => c.docId === docId);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (idx < 0 || swapIdx < 0 || swapIdx >= orderedCategories.length) return;
+    const arr = [...orderedCategories];
+    [arr[idx], arr[swapIdx]] = [arr[swapIdx], arr[idx]];
+    persistOrder(arr);
+  };
+
+  /**
+   * Reordenar por drag & drop (deshabilitado mientras hay búsqueda activa,
+   * porque el orden es global y la lista estaría filtrada).
+   */
+  const handleDropCategory = async (e, targetCategory) => {
+    e.preventDefault();
+    setHoveredIndex(null);
+    const dragged = draggedCategory;
+    setDraggedCategory(null);
+    if (searching || !dragged || dragged.docId === targetCategory.docId) return;
+
+    const arr = [...orderedCategories];
+    const from = arr.findIndex(c => c.docId === dragged.docId);
+    const to = arr.findIndex(c => c.docId === targetCategory.docId);
+    if (from < 0 || to < 0) return;
+    const [moved] = arr.splice(from, 1);
+    arr.splice(to, 0, moved);
+    await persistOrder(arr);
   };
 
   if (isLoading) {
@@ -316,17 +337,19 @@ export default function CategoryManager({ language = 'es', onClose }) {
                 {searchTerm ? t('notFound') : t('noCategories')}
               </p>
             ) : (
-              filteredCategories.map((category, index) => (
+              filteredCategories.map((category, index) => {
+                const orderNum = orderedCategories.findIndex(c => c.docId === category.docId) + 1;
+                return (
                 <div
                   key={category.docId}
-                  draggable={!isSaving}
-                  onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDraggedCategory(category); }}
+                  draggable={!isSaving && !searching}
+                  onDragStart={(e) => { if (searching) return; e.dataTransfer.effectAllowed = 'move'; setDraggedCategory(category); }}
                   onDragEnd={() => setDraggedCategory(null)}
                   onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
                   onDragEnter={(e) => { e.preventDefault(); setHoveredIndex(index); }}
                   onDragLeave={(e) => { if (e.currentTarget === e.target) setHoveredIndex(null); }}
-                  onDrop={(e) => handleDropCategory(e, category, index)}
-                  className={`p-3 rounded border transition-all flex items-center gap-2 group cursor-grab ${
+                  onDrop={(e) => handleDropCategory(e, category)}
+                  className={`p-3 rounded border transition-all flex items-center gap-2 group ${searching ? '' : 'cursor-grab'} ${
                     draggedCategory?.docId === category.docId && isSaving
                       ? 'bg-yellow-200/60 border-yellow-300 ring-2 ring-yellow-300 dark:bg-yellow-500/40 dark:border-yellow-400 dark:ring-yellow-400'
                       : draggedCategory?.docId === category.docId
@@ -338,6 +361,14 @@ export default function CategoryManager({ language = 'es', onClose }) {
                       : 'bg-slate-700/30 border-slate-600/30 hover:border-slate-500/50'
                   }`}
                 >
+                  {/* Nº de orden (orderIndex + 1) */}
+                  <div
+                    className="flex-shrink-0 w-7 h-7 rounded-full theme-accent-bg text-white text-xs font-bold flex items-center justify-center"
+                    title={t('order')}
+                  >
+                    {orderNum}
+                  </div>
+
                   <div className="flex-1 min-w-0">
                     <button
                       onClick={() => handleEditCategory(category)}
@@ -362,16 +393,38 @@ export default function CategoryManager({ language = 'es', onClose }) {
                     </Button>
                   </div>
 
-                  <div className="flex-shrink-0 text-slate-400 opacity-50 group-hover:opacity-100 transition-opacity">
-                    {draggedCategory?.docId === category.docId && isSaving ? '⟳' : '⋮⋮'}
+                  {/* Subir / bajar (reasigna el nº de orden) */}
+                  <div className="flex-shrink-0 flex flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => moveCategory(category.docId, 'up')}
+                      disabled={isSaving || searching || orderNum === 1}
+                      title={t('moveUp')}
+                      aria-label={t('moveUp')}
+                      className="w-7 h-6 rounded theme-container-secondary theme-border-primary border text-xs theme-text-secondary hover:theme-border-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveCategory(category.docId, 'down')}
+                      disabled={isSaving || searching || orderNum === orderedCategories.length}
+                      title={t('moveDown')}
+                      aria-label={t('moveDown')}
+                      className="w-7 h-6 rounded theme-container-secondary theme-border-primary border text-xs theme-text-secondary hover:theme-border-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      ▼
+                    </button>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
 
           <div className="p-3 border-t theme-border-primary theme-text-tertiary flex-shrink-0 text-center text-xs">
             {filteredCategories.length} / {validCategories.length}
+            {searching && <div className="mt-1 theme-accent">{t('reorderSearchHint')}</div>}
           </div>
         </Card>
 
