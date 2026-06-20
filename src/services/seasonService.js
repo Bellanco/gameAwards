@@ -56,6 +56,22 @@ export async function setSeason(season) {
 }
 
 /**
+ * Fija (o limpia) la fecha de cierre de la votación.
+ * Recibe el día elegido en formato 'YYYY-MM-DD' y lo guarda como el instante
+ * de ese día a las 23:59:59 (hora local). Pasa null para quitar la fecha.
+ * @param {string|null} day - 'YYYY-MM-DD' o null
+ */
+export async function setClosingDate(day) {
+  const closesAt = day ? new Date(`${day}T23:59:59`).toISOString() : null;
+  await setDoc(
+    VOTING_DOC,
+    { closesAt, updatedAt: new Date().toISOString() },
+    { merge: true }
+  );
+  return closesAt;
+}
+
+/**
  * Archiva los resultados de la temporada actual y reinicia la edición.
  *
  * 1. Calcula ganadores (category.winner = optionId) y clasificación con puntos.

@@ -5,7 +5,7 @@ import { useTranslation } from '../data/literals';
 import { LanguageIcon, ThemeIcon, MedalGoldIcon, MedalSilverIcon, MedalBronzeIcon } from './Icons';
 import { useAdminCheck, useFirestoreCategories, useFirestoreBallots, useVotingConfig, useSeasonResults } from '../hooks';
 import { sortCategoriesByOrder } from '../services/categoriesService';
-import { setVotingOpen, setSeason, archiveAndResetSeason } from '../services/seasonService';
+import { setVotingOpen, setSeason, setClosingDate, archiveAndResetSeason } from '../services/seasonService';
 import { getCategoryTitle as localizeCategoryTitle, getOptionLabel, hasTitle } from '../utils/localize';
 import { LoadingSpinner } from './ui';
 
@@ -24,7 +24,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
   const { isAdmin, currentUser, isLoading: authLoading } = useAdminCheck();
   const { categories, isLoading: categoriesLoading } = useFirestoreCategories();
   const { ballots, isLoading: ballotsLoading } = useFirestoreBallots();
-  const { isOpen: isVotingOpen, season } = useVotingConfig();
+  const { isOpen: isVotingOpen, season, closesAt } = useVotingConfig();
   const { results: seasonResults, isLoading: resultsLoading } = useSeasonResults();
 
   const [statsData, setStatsData] = useState(null);
@@ -32,6 +32,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
   const [errorMessage, setErrorMessage] = useState('');
   const [seasonBusy, setSeasonBusy] = useState(false);
   const [seasonMessage, setSeasonMessage] = useState('');
+  const [closeDate, setCloseDate] = useState(''); // 'YYYY-MM-DD' para el input
 
   // Calcular estadísticas cuando cambian categorías o votos
   useEffect(() => {
@@ -39,6 +40,17 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
       calculateStats(ballots, categories);
     }
   }, [categories, ballots]);
+
+  // Sincronizar el input de fecha de cierre con config/voting.closesAt
+  useEffect(() => {
+    if (closesAt) {
+      const d = new Date(closesAt);
+      const pad = (n) => String(n).padStart(2, '0');
+      setCloseDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+    } else {
+      setCloseDate('');
+    }
+  }, [closesAt]);
 
   /**
    * Calcula estadísticas de los votos
@@ -155,6 +167,23 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
   };
 
   /**
+   * Guardar (o limpiar) la fecha de cierre de la votación.
+   */
+  const handleSaveClosingDate = async () => {
+    try {
+      setSeasonBusy(true);
+      setSeasonMessage('');
+      await setClosingDate(closeDate || null);
+      setSeasonMessage(t('saved'));
+      setTimeout(() => setSeasonMessage(''), 2500);
+    } catch (err) {
+      setSeasonMessage(err.message);
+    } finally {
+      setSeasonBusy(false);
+    }
+  };
+
+  /**
    * Archivar resultados de la temporada y reiniciar la edición (borra votos).
    */
   const handleArchiveReset = async () => {
@@ -163,8 +192,9 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
       setSeasonBusy(true);
       setSeasonMessage('');
       const result = await archiveAndResetSeason({ season, categories, ballots });
-      // Avanzar a la siguiente temporada con la votación cerrada.
-      await setVotingOpen(false, { season: season + 1 });
+      // Avanzar a la siguiente temporada: cerrada y sin fecha de cierre (se
+      // elegirá de nuevo al abrir la nueva edición).
+      await setVotingOpen(false, { season: season + 1, closesAt: null });
       setSeasonMessage(`${t('archived')}: ${result.deleted} ${t('votes')} · ${season} → ${season + 1}`);
     } catch (err) {
       setSeasonMessage(err.message);
@@ -472,6 +502,34 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                   {isVotingOpen ? t('closeVoting') : t('openVoting')}
                 </button>
               </div>
+            </div>
+
+            {/* Fecha de cierre (dinámica) */}
+            <div className="theme-card theme-border-primary border rounded-lg p-6">
+              <h3 className="text-lg font-bold theme-text-primary mb-2">{t('closingDate')}</h3>
+              <p className="theme-text-secondary text-sm mb-4">{t('closingDateHelp')}</p>
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <input
+                  type="date"
+                  value={closeDate}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setCloseDate(e.target.value)}
+                  disabled={seasonBusy}
+                  className="px-4 py-2.5 theme-container-secondary theme-border-primary border rounded theme-text-primary focus:outline-none focus:border-amber-600"
+                />
+                <button
+                  onClick={handleSaveClosingDate}
+                  disabled={seasonBusy}
+                  className="py-2.5 px-5 rounded-lg font-bold text-sm theme-accent-bg text-white transition-all disabled:opacity-50"
+                >
+                  {t('save')}
+                </button>
+              </div>
+              <p className="text-sm theme-text-tertiary mt-3">
+                {closesAt
+                  ? `${t('closesOn')}: ${new Date(closesAt).toLocaleString()}`
+                  : t('noClosingDate')}
+              </p>
             </div>
 
             {/* Archivar y reiniciar */}

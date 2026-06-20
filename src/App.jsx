@@ -60,8 +60,10 @@ function App() {
   const [canEditNickname, setCanEditNickname] = useState(true);
   
   // ============ Control de Deadline ============
-  // La votación está cerrada cuando el admin pone isOpen=false en config/voting.
-  const isDeadlineReached = !configLoading && !isVotingOpen;
+  // La votación está cerrada si el admin la cierra (isOpen=false) O si ya pasó
+  // la fecha de cierre elegida (closesAt, ese día a las 23:59).
+  const closingPassed = closesAt ? Date.now() > new Date(closesAt).getTime() : false;
+  const isDeadlineReached = !configLoading && (!isVotingOpen || closingPassed);
   // Días restantes informativos, derivados de closesAt si el admin lo configuró.
   const daysRemaining = closesAt
     ? Math.max(0, Math.ceil((new Date(closesAt).getTime() - Date.now()) / (1000 * 3600 * 24)))

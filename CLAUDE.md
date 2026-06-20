@@ -134,8 +134,10 @@ src/
 ### Control de votación y reset anual
 
 - `config/voting = { isOpen, season, closesAt, updatedAt }`. La app lee esto con
-  `useVotingConfig()`; si `isOpen` es false se muestra `DeadlineScreen`. Reemplaza el viejo
-  cálculo client-side del 1 de diciembre.
+  `useVotingConfig()`. La votación está cerrada si `isOpen=false` **o** si ya pasó `closesAt`
+  → `DeadlineScreen`. `closesAt` es la **fecha de cierre editable** desde la pestaña Temporada
+  (se guarda como ese día a las 23:59:59 local vía `seasonService.setClosingDate('YYYY-MM-DD')`);
+  el reinicio anual la limpia. Reemplaza el viejo cálculo client-side del 1 de diciembre.
 - El admin abre/cierra y reinicia desde la pestaña **Temporada** del AdminPanel. El reinicio
   (`seasonService.archiveAndResetSeason`) archiva ganadores + clasificación en `results/{año}`
   y luego **borra** todos los `ballots`; después avanza la temporada y deja la votación cerrada.
