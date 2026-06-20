@@ -4,8 +4,8 @@ import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useTranslation } from './data/literals';
 import { loadAndSortCategories } from './services/categoriesService';
-import { cleanPlaceholderCaches } from './services/gameImageService';
 import { useTheme, useVotingConfig } from './hooks';
+import logger from './services/loggerService';
 import { hasTitle, getCategoryTitle } from './utils/localize';
 
 // Componentes modulares
@@ -84,7 +84,7 @@ function App() {
         const loadedCategories = await loadAndSortCategories(false); // false = no incluir inválidas
         setCategories(loadedCategories);
       } catch (error) {
-        console.error('Error cargando categorias:', error);
+        logger.error('Error cargando categorías:', error);
         setCategories([]);
       } finally {
         setCategoriesLoading(false);
@@ -105,11 +105,7 @@ function App() {
         setUserNickname(user.displayName || '');
         setUserDisplayName(user.displayName || ''); // Inicializar con displayName del usuario
         setCanEditNickname(false); // No editable después del login
-        
-        // Limpiar placeholders del cache (para regenerar con URLs reales de RAWG)
-        const cleaned = cleanPlaceholderCaches();
-        // Silently clean cache
-        
+
         // Recuperar progreso previo de localStorage
         const savedProgress = localStorage.getItem('votingProgress');
         if (savedProgress) {
@@ -143,7 +139,7 @@ function App() {
         if (!cancelled) setHasVoted(snap.exists());
       } catch (error) {
         if (!cancelled) setHasVoted(false); // ante error de lectura, no bloquear
-        console.error('Error comprobando voto existente:', error);
+        logger.error('Error comprobando voto existente:', error);
       } finally {
         if (!cancelled) setVoteChecked(true);
       }
@@ -191,7 +187,7 @@ function App() {
       // Validar que Firebase está configurado
       if (!auth || auth.currentUser === undefined) {
         setErrorMessage('Firebase no está configurado. Verifica src/firebase.js');
-        console.error('Firebase Auth not initialized');
+        logger.error('Firebase Auth not initialized');
         setIsLoading(false);
         return;
       }
@@ -200,7 +196,7 @@ function App() {
       setCurrentUser(result.user);
       setCurrentStep(0); // Pasar a la primera categoría
     } catch (error) {
-      console.error('Auth Error:', error.code, error.message);
+      logger.error('Auth Error:', error.code, error.message);
       
       // Mapear códigos de error a mensajes claros
       const errorMessages = {
@@ -232,7 +228,7 @@ function App() {
       setUserNickname('');
       // localStorage se limpiará automáticamente vía useEffect
     } catch (error) {
-      console.error('Logout Error:', error);
+      logger.error('Logout Error:', error);
     }
   };
 
@@ -247,7 +243,6 @@ function App() {
     setErrorMessage(''); // Limpiar errores
     setSuccessMessage(''); // Limpiar mensajes de éxito
     // localStorage se limpiará automáticamente vía useEffect
-    console.log('↩️ Volviendo al inicio, sesión mantenida');
   };
 
   /**
@@ -357,8 +352,6 @@ function App() {
         isActive: true
       };
 
-      console.log('Ballot data prepared:', ballotData);
-
       // Guardado en Firebase
       await setDoc(doc(db, "ballots", currentUser.uid), ballotData);
 
@@ -369,7 +362,7 @@ function App() {
       setSuccessMessage(`¡Voto registrado exitosamente, ${userNickname}!`);
       setCurrentStep(99); // Pantalla de éxito - useEffect limpiará localStorage automáticamente
     } catch (error) {
-      console.error('Ballot Submit Error:', error);
+      logger.error('Ballot Submit Error:', error);
       setErrorMessage('Error al guardar tu voto. Intenta de nuevo.');
     } finally {
       setIsLoading(false);

@@ -89,9 +89,6 @@ export default function ReviewScreen({
     />
   );
 
-  // Footer vacío - Los botones estarán en el contenido principal
-  const footerContent = null;
-
   return (
     <ScreenLayout
       language={language}
@@ -99,17 +96,18 @@ export default function ReviewScreen({
       theme={theme}
       onToggleTheme={onToggleTheme}
       header={headerContent}
-      footer={footerContent ? <Footer>{footerContent}</Footer> : null}
+      footer={null}
       showControlBar={false}
     >
       {/* Contenido principal */}
       <div className="w-full max-w-7xl mx-auto px-4 md:px-6 py-8 flex flex-col">
         {/* 1. Display Name Input */}
         <div className="theme-card theme-border-primary border rounded-lg p-6 mb-6">
-          <label className="block text-sm font-bold theme-text-primary mb-3">
+          <label htmlFor="reviewDisplayName" className="block text-sm font-bold theme-text-primary mb-3">
             {t('displayName')}
           </label>
           <input
+            id="reviewDisplayName"
             type="text"
             maxLength="50"
             value={userDisplayName}

@@ -18,11 +18,12 @@
 
 import React from 'react';
 
-export default function Table({ 
-  columns = [], 
-  rows = [], 
+export default function Table({
+  columns = [],
+  rows = [],
   onRowClick,
-  className = ''
+  className = '',
+  emptyText = '—'
 }) {
   return (
     <div className={`bg-slate-800/30 border border-slate-700 rounded-lg overflow-hidden ${className}`}>
@@ -38,7 +39,7 @@ export default function Table({
       <div className="divide-y divide-slate-700">
         {rows.length === 0 ? (
           <div className="p-4 text-center text-slate-400 text-sm">
-            No hay datos
+            {emptyText}
           </div>
         ) : (
           rows.map((row, rowIdx) => (

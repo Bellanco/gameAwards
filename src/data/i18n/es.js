@@ -167,11 +167,9 @@ export const es = {
   // Category Manager
   weight: "Ponderación",
   options: "Opciones",
-  categoryTitle: "Nombre",
   categoryName: "Nombre",
   option: "Opción",
   delete: "Eliminar",
-  cancel: "Cancelar",
   save: "Guardar",
   create: "Crear",
   edit: "Editar",
@@ -216,6 +214,13 @@ export const es = {
   // Generic
   close: "Cerrar",
   logout: "Cerrar sesión",
+  anonymous: "Anónimo",
+  changeTheme: "Cambiar tema",
+
+  // Error Boundary
+  unexpectedError: "Algo salió mal",
+  unexpectedErrorMessage: "Ha ocurrido un error inesperado. Intenta recargar la página.",
+  reloadPage: "Recargar página",
   
   // Tema
   theme: "Tema",

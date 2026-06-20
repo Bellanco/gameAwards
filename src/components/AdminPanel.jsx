@@ -8,6 +8,7 @@ import { sortCategoriesByOrder } from '../services/categoriesService';
 import { setVotingOpen, setSeason, setClosingDate, archiveAndResetSeason } from '../services/seasonService';
 import { getCategoryTitle as localizeCategoryTitle, getOptionLabel, hasTitle } from '../utils/localize';
 import { LoadingSpinner } from './ui';
+import logger from '../services/loggerService';
 
 // Importar pantallas de administración
 import CategoryManager from './CategoryManager';
@@ -137,7 +138,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
       setErrorMessage('');
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
-      console.error('Error al iniciar sesión:', error);
+      logger.error('Error al iniciar sesión:', error);
       setErrorMessage(error.message || 'Error al iniciar sesión');
     }
   };

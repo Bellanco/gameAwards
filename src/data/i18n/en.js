@@ -167,11 +167,9 @@ export const en = {
   // Category Manager
   weight: "Weight",
   options: "Options",
-  categoryTitle: "Name",
   categoryName: "Name",
   option: "Option",
   delete: "Delete",
-  cancel: "Cancel",
   save: "Save",
   create: "Create",
   edit: "Edit",
@@ -216,6 +214,13 @@ export const en = {
   // Generic
   close: "Close",
   logout: "Log Out",
+  anonymous: "Anonymous",
+  changeTheme: "Change theme",
+
+  // Error Boundary
+  unexpectedError: "Something went wrong",
+  unexpectedErrorMessage: "An unexpected error occurred. Try reloading the page.",
+  reloadPage: "Reload page",
   
   // Theme
   theme: "Theme",

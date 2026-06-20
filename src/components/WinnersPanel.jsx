@@ -19,11 +19,12 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useTranslation } from '../data/literals';
 import { useFirestoreCategories, useFirestoreBallots } from '../hooks';
-import { Button, Card, LoadingSpinner, Alert, Table } from './ui';
+import { Button, Card, LoadingSpinner, Alert } from './ui';
 import { logError, ERROR_TYPES } from '../services/errorService';
 import { sortCategoriesByOrder } from '../services/categoriesService';
 import { tField, getCategoryTitle, getOptionId, getOptionLabel, resolveOptionId } from '../utils/localize';
 import { computeLeaderboard } from '../utils/scoring';
+import logger from '../services/loggerService';
 
 export default function WinnersPanel({ 
   language = 'es',
@@ -128,7 +129,7 @@ export default function WinnersPanel({
       // Iterar sobre TODAS las categorías (no solo las con ganador)
       for (const category of categories) {
         if (!category || !category.options || category.options.length === 0) {
-          console.warn(`Categoría ${category?.id} inválida, saltando...`);
+          logger.warn(`Categoría ${category?.id} inválida, saltando...`);
           skippedCount++;
           continue;
         }
@@ -170,7 +171,7 @@ export default function WinnersPanel({
         return {
           rank: index + 1,
           userId,
-          nickname: ballot?.userDisplayName || ballot?.userNickname || 'Anónimo',
+          nickname: ballot?.userDisplayName || ballot?.userNickname || t('anonymous'),
           score
         };
       });

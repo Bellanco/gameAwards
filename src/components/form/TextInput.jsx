@@ -16,15 +16,17 @@ export default function TextInput({
   required = false,
   className = ''
 }) {
+  const describedBy = error ? `${name}-error` : (help ? `${name}-help` : undefined);
   return (
     <div className="w-full">
       {label && (
-        <label className="block text-sm font-bold theme-text-secondary mb-2">
+        <label htmlFor={name} className="block text-sm font-bold theme-text-secondary mb-2">
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}
       <input
+        id={name}
         type={type}
         name={name}
         value={value}
@@ -32,6 +34,8 @@ export default function TextInput({
         placeholder={placeholder}
         maxLength={maxLength}
         disabled={disabled}
+        aria-invalid={!!error}
+        aria-describedby={describedBy}
         className={`
           w-full px-4 py-3 
           theme-container-secondary theme-border-primary border rounded-lg 
@@ -49,12 +53,12 @@ export default function TextInput({
         </p>
       )}
       {error && (
-        <p className="text-xs text-red-400 mt-1">
+        <p id={`${name}-error`} className="text-xs text-red-400 mt-1">
           {error}
         </p>
       )}
       {help && !error && (
-        <p className="text-xs theme-text-tertiary mt-1">
+        <p id={`${name}-help`} className="text-xs theme-text-tertiary mt-1">
           {help}
         </p>
       )}

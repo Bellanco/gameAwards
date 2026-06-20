@@ -3,6 +3,7 @@
  * Muestra progreso, título, controles de idioma/tema y contenido personalizado
  */
 import { LanguageIcon, ThemeIcon } from '../Icons';
+import { useTranslation } from '../../data/literals';
 
 export default function Header({
   title,
@@ -15,6 +16,7 @@ export default function Header({
   theme = null,
   onToggleTheme = null
 }) {
+  const t = useTranslation(language || 'es');
   return (
     <div className="px-4 sm:px-6 lg:px-8 landscape:px-2 py-3 sm:py-4 relative">
       {/* Controles de idioma y tema - Esquina superior derecha */}
@@ -24,8 +26,8 @@ export default function Header({
             <button
               onClick={onToggleTheme}
               className="flex items-center gap-2 px-3 landscape:px-2 py-2 landscape:py-1 theme-card theme-border-primary border rounded-lg text-sm landscape:text-xs font-semibold transition-all hover:border-yellow-500"
-              title={theme === 'light' ? 'Tema Oscuro' : 'Tema Claro'}
-              aria-label="Toggle theme"
+              title={theme === 'light' ? t('darkTheme') : t('lightTheme')}
+              aria-label={t('changeTheme')}
             >
               <ThemeIcon className="w-4 h-4 landscape:w-3 landscape:h-3" isDark={theme === 'dark'} />
             </button>
@@ -34,8 +36,8 @@ export default function Header({
             <button
               onClick={onToggleLanguage}
               className="flex items-center gap-2 px-3 landscape:px-2 py-2 landscape:py-1 theme-card theme-border-primary border rounded-lg text-sm landscape:text-xs font-semibold transition-all hover:border-yellow-500"
-              title="Toggle Language"
-              aria-label="Toggle language"
+              title={t('changeLanguage')}
+              aria-label={t('changeLanguage')}
             >
               <LanguageIcon className="w-4 h-4 landscape:w-3 landscape:h-3" />
               <span className="hidden sm:inline landscape:hidden">{language.toUpperCase()}</span>
