@@ -83,10 +83,11 @@ diseño o cambios amplios:
 - **[baja] `src/styles/themes.css`** parece redundante con clases de `index.css`.
 - **[baja] Participación fija al `100%`** en el Overview del AdminPanel
   (`AdminPanel.jsx`, tarjeta de participación). Calcular el valor real o quitarlo.
-- **[baja] Mensajes de error de `App.submitBallot` hardcodeados en español**
-  (apodo, votos faltantes, plazo, fallo al guardar). Ya se muestran en
-  `ReviewScreen`, pero conviene pasarlos por i18n (`t(...)`) en vez de strings
-  fijos en `App.jsx`.
+- **[baja] `App.handleLogin`** aún tiene mensajes de error de auth hardcodeados
+  en español (mapa `errorMessages` + "Firebase no está configurado"). Pasarlos
+  por i18n si se quiere coherencia total (son diagnósticos poco frecuentes).
+- **[baja] `successMessage` en `App.submitBallot`** está hardcodeado y además no
+  se muestra (SuccessScreen no usa la prop). Eliminar o mostrar vía i18n.
 
 ---
 

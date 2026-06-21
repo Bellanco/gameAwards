@@ -306,7 +306,7 @@ function App() {
    */
   const submitBallot = async () => {
     if (!userNickname.trim()) {
-      setErrorMessage('Por favor, ingresa un apodo.');
+      setErrorMessage(t('errorEnterNickname'));
       return;
     }
 
@@ -314,15 +314,16 @@ function App() {
     const missingVotes = validCategories.filter(cat => !userVotes[cat.id]);
     if (missingVotes.length > 0) {
       const categoryNames = missingVotes.map(cat => getCategoryTitle(cat, language)).join(', ');
-      const message = language === 'es' 
-        ? `Te faltan ${missingVotes.length} categoría(s) por votar: ${categoryNames}`
-        : `You are missing votes in ${missingVotes.length} category(ies): ${categoryNames}`;
-      setErrorMessage(message);
+      setErrorMessage(
+        t('errorMissingVotes')
+          .replace('{count}', missingVotes.length)
+          .replace('{names}', categoryNames)
+      );
       return;
     }
 
     if (isDeadlineReached) {
-      setErrorMessage('El plazo de votación ha terminado.');
+      setErrorMessage(t('errorVotingEnded'));
       return;
     }
 
@@ -363,7 +364,7 @@ function App() {
       setCurrentStep(99); // Pantalla de éxito - useEffect limpiará localStorage automáticamente
     } catch (error) {
       logger.error('Ballot Submit Error:', error);
-      setErrorMessage('Error al guardar tu voto. Intenta de nuevo.');
+      setErrorMessage(t('errorSavingVote'));
     } finally {
       setIsLoading(false);
     }

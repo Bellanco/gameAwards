@@ -241,6 +241,10 @@ export const es = {
   moreCategory: "categoría más",
   moreCategories: "categorías más",
   mustVoteAllBefore: "Debes votar en todas las categorías antes de enviar tus votos",
+  errorEnterNickname: "Por favor, ingresa un apodo.",
+  errorMissingVotes: "Te faltan {count} categoría(s) por votar: {names}",
+  errorVotingEnded: "El plazo de votación ha terminado.",
+  errorSavingVote: "Error al guardar tu voto. Intenta de nuevo.",
   
   // 404 No encontrada
   pageNotFound: "Página no encontrada",

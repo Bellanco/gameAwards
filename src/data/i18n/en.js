@@ -241,6 +241,10 @@ export const en = {
   moreCategory: "more category",
   moreCategories: "more categories",
   mustVoteAllBefore: "You must vote in all categories before submitting your ballot",
+  errorEnterNickname: "Please enter a nickname.",
+  errorMissingVotes: "You are missing votes in {count} category(ies): {names}",
+  errorVotingEnded: "The voting deadline has ended.",
+  errorSavingVote: "Error saving your vote. Please try again.",
   
   // 404 Not Found
   pageNotFound: "Page Not Found",
