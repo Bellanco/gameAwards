@@ -83,11 +83,10 @@ diseño o cambios amplios:
 - **[baja] `src/styles/themes.css`** parece redundante con clases de `index.css`.
 - **[baja] Participación fija al `100%`** en el Overview del AdminPanel
   (`AdminPanel.jsx`, tarjeta de participación). Calcular el valor real o quitarlo.
-- **[media] `ReviewScreen` no muestra `errorMessage`.** `App.submitBallot` fija
-  `errorMessage` (p. ej. "Error al guardar tu voto"), pero `ReviewScreen` nunca
-  lo renderiza → si el guardado falla, el usuario no ve nada. La prop se eliminó
-  en la limpieza de lint; volver a pasarla y mostrarla con `aria-live` al cablear
-  el feedback de error de envío.
+- **[baja] Mensajes de error de `App.submitBallot` hardcodeados en español**
+  (apodo, votos faltantes, plazo, fallo al guardar). Ya se muestran en
+  `ReviewScreen`, pero conviene pasarlos por i18n (`t(...)`) en vez de strings
+  fijos en `App.jsx`.
 
 ---
 

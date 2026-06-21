@@ -19,6 +19,7 @@ export default function ReviewScreen({
   onPrevious,
   onReturnHome,
   isLoading,
+  errorMessage,
   language,
   onToggleLanguage,
   theme,
@@ -125,6 +126,17 @@ export default function ReviewScreen({
             <p className="text-xs mt-1 opacity-90 text-white">
               {t('mustVoteAllBefore')}
             </p>
+          </div>
+        )}
+
+        {/* Error de envío (apodo, votos faltantes, plazo, fallo al guardar) */}
+        {errorMessage && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="p-4 status-error rounded-lg mb-6 border border-status-error"
+          >
+            <p className="text-sm font-semibold text-white">{errorMessage}</p>
           </div>
         )}
 
