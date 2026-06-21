@@ -35,26 +35,14 @@ export default function VoteScreen({
   const [viewportInfo, setViewportInfo] = useState({ isMobile: false, isLandscape: false, width: 0 });
   const scrollContainerRef = useRef(null);
   
-  const isVoted = !!userVotes[category.id];
-  const selectedOption = userVotes[category.id];
-  const optionCount = category.options.length;
+  const isVoted = !!userVotes[category?.id];
+  const selectedOption = userVotes[category?.id];
+  const optionCount = category?.options?.length || 0;
   const isMobilePortrait = viewportInfo.isMobile && !viewportInfo.isLandscape;
-
-  // Validación defensiva
-  if (!category || !category.options || category.options.length === 0) {
-    return (
-      <div className="h-screen theme-gradient-primary flex items-center justify-center p-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold theme-text-primary mb-2">{t('invalidCategory')}</h1>
-          <p className="theme-text-secondary">{t('noOptions')}</p>
-        </div>
-      </div>
-    );
-  }
 
   // Cargar gradientes cuando cambia la categoría (clave = optionId estable)
   useEffect(() => {
-    const optionIds = (category.options || []).map((opt, idx) => getOptionId(opt, category.id, idx));
+    const optionIds = (category?.options || []).map((opt, idx) => getOptionId(opt, category.id, idx));
     const gradients = getRandomGradients(optionIds);
     setGameGradients(gradients);
     setLoadingImages(false);
@@ -77,7 +65,7 @@ export default function VoteScreen({
         }
       }
     }, 50);
-  }, [category.id, category.options]);
+  }, [category?.id, category?.options]);
 
   // Detectar si hay scroll vertical y escuchar scroll
   useEffect(() => {
@@ -129,7 +117,7 @@ export default function VoteScreen({
       window.removeEventListener('resize', handleWindowResize);
       clearTimeout(timeoutId);
     };
-  }, [category.id, category.options]);
+  }, [category?.id, category?.options]);
 
   // Mantener metadata de viewport para responder a orientación y ancho real
   useEffect(() => {
@@ -152,6 +140,18 @@ export default function VoteScreen({
       window.removeEventListener('orientationchange', updateViewportInfo);
     };
   }, []);
+
+  // Validación defensiva (tras los hooks, para no alterar su orden entre renders).
+  if (!category || !category.options || category.options.length === 0) {
+    return (
+      <div className="h-screen theme-gradient-primary flex items-center justify-center p-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold theme-text-primary mb-2">{t('invalidCategory')}</h1>
+          <p className="theme-text-secondary">{t('noOptions')}</p>
+        </div>
+      </div>
+    );
+  }
 
   // Calibración fina de densidad visual por rango de viewport + cantidad de opciones.
   const gridDensityConfig = (() => {

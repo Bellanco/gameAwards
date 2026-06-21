@@ -45,9 +45,21 @@ export default function Table({
           rows.map((row, rowIdx) => (
             <div
               key={rowIdx}
-              className="grid gap-4 p-4 items-center hover:bg-slate-800/50 transition-colors cursor-pointer"
+              role={onRowClick ? 'button' : undefined}
+              tabIndex={onRowClick ? 0 : undefined}
+              className={`grid gap-4 p-4 items-center hover:bg-slate-800/50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
               style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr)` }}
-              onClick={() => onRowClick?.(rowIdx, row)}
+              onClick={onRowClick ? () => onRowClick(rowIdx, row) : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onRowClick(rowIdx, row);
+                      }
+                    }
+                  : undefined
+              }
             >
               {row.map((cell, cellIdx) => (
                 <div key={cellIdx} className="text-slate-300 text-sm">

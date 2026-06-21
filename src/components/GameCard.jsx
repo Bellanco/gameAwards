@@ -122,10 +122,19 @@ export default function GameCard({
   if (variant === 'review') {
     return (
       <div
-        className={`group cursor-pointer overflow-hidden rounded-lg transition-all transform hover:scale-105 ${
+        role="button"
+        tabIndex={0}
+        aria-label={categoryTitle || gameName || translationLabel || undefined}
+        className={`group cursor-pointer overflow-hidden rounded-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-600 ${
           isVoted ? 'border-2 border-amber-600/50' : 'border-2 border-red-500/60 shadow-lg shadow-red-500/20'
         }`}
         onClick={onSelect}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSelect?.();
+          }
+        }}
       >
         <div className="relative w-full h-20 md:h-48 lg:h-64 flex md:block items-center">
           {/* Degradado de fondo */}

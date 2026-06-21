@@ -47,9 +47,11 @@ export default function Modal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Overlay - Si está habilitado */}
+      {/* Overlay - Si está habilitado. Es decorativo (aria-hidden) y solo un
+          atajo de ratón: el cierre por teclado ya lo cubre la tecla Escape. */}
       {overlay && (
         <div
+          aria-hidden="true"
           className="absolute inset-0 bg-black/50 backdrop-blur-sm"
           onClick={onClose}
         />

@@ -86,23 +86,26 @@ diseño o cambios amplios:
 
 ---
 
-## 5. Baseline de ESLint a triar
+## 5. Baseline de ESLint
 
-`npm run lint` se ejecuta ya (ESLint 9 flat config). Hoy reporta ~25 problemas.
-Ninguno bloquea el build, pero conviene resolverlos:
+`npm run lint` (ESLint 9 flat config) ya no reporta **errores** (eran 9; todos
+resueltos). Quedan **16 warnings** no bloqueantes:
 
-- **[alta] `react-hooks/rules-of-hooks` (3 errores) en `VoteScreen.jsx`.**
-  Hooks (`useEffect`) llamados tras un posible `return` temprano → riesgo de bug
-  real de orden de hooks. **Revisar con cuidado** (mover los hooks arriba del
-  componente, antes de cualquier return).
-- **[media] `react-hooks/exhaustive-deps` (3).** Dependencias omitidas en
-  `WinnersPanel` y `useFirestoreCategories` (decidir si incluirlas o memoizar las
-  funciones con `useCallback`).
-- **[media] `jsx-a11y` (6): `click-events-have-key-events` /
-  `no-static-element-interactions`** en el overlay de `Modal` y las filas de
-  `Table`. Añadir handlers de teclado/rol o convertir en `<button>`.
 - **[baja] `no-unused-vars` (13).** Props recibidas y no usadas en varias
-  pantallas (p. ej. `VoteScreen`, `SuccessScreen`, `ReviewScreen`). Limpiar.
+  pantallas (p. ej. `VoteScreen.onSkip`, `SuccessScreen.onLogout`,
+  `ReviewScreen.userNickname`), `setSeason` en `AdminPanel`, `skippedCount` en
+  `WinnersPanel`. Limpiar (o prefijar con `_` si se mantienen por la API).
+- **[media] `react-hooks/exhaustive-deps` (3).** Dependencias omitidas en
+  `WinnersPanel` (`loadWinners`, `calculateScores`) y `useFirestoreCategories`
+  (`loadCategories`). Decidir si incluirlas o envolver las funciones en
+  `useCallback`.
+
+**Errores ya corregidos (referencia):**
+- `react-hooks/rules-of-hooks` (3) en `VoteScreen`: la validación defensiva se
+  movió debajo de todos los hooks y los `useEffect` son null-safe.
+- `jsx-a11y` (6): `GameCard` (variante review) y filas de `Table` clicables ahora
+  son accesibles por teclado (`role="button"` + `tabIndex` + `onKeyDown`); el
+  overlay de `Modal` es `aria-hidden` (cierre por teclado vía Escape).
 
 > Atajo: `npm run lint:fix` y `npm run format` resuelven una parte. **No** se ha
 > ejecutado `prettier --write .` sobre todo el repo para no generar un diff
