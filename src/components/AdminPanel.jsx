@@ -5,7 +5,7 @@ import { useTranslation } from '../data/literals';
 import { LanguageIcon, ThemeIcon, MedalGoldIcon, MedalSilverIcon, MedalBronzeIcon } from './Icons';
 import { useAdminCheck, useFirestoreCategories, useFirestoreBallots, useVotingConfig, useSeasonResults } from '../hooks';
 import { sortCategoriesByOrder } from '../services/categoriesService';
-import { setVotingOpen, setSeason, setClosingDate, archiveAndResetSeason } from '../services/seasonService';
+import { setVotingOpen, setClosingDate, archiveAndResetSeason } from '../services/seasonService';
 import { getCategoryTitle as localizeCategoryTitle, getOptionLabel, hasTitle } from '../utils/localize';
 import { LoadingSpinner } from './ui';
 import logger from '../services/loggerService';
@@ -324,7 +324,6 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                 <h2 className="text-2xl font-black theme-text-primary mb-6">{t('resultsByCategory')}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {Object.entries(statsData).map(([category, votes]) => {
-                    const winner = Object.entries(votes).sort(([, a], [, b]) => b - a)[0];
                     return (
                       <div key={category} className="theme-card theme-border-primary border rounded-lg p-6">
                         <h3 className="text-lg font-bold theme-accent mb-4">{getCategoryTitle(category)}</h3>

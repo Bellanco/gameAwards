@@ -23,7 +23,7 @@
  * @returns {UseFirestoreCategoriesReturn} Estado y funciones
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { loadAndSortCategories } from '../services/categoriesService';
 import { logError, ERROR_TYPES } from '../services/errorService';
 
@@ -32,7 +32,7 @@ export const useFirestoreCategories = (includeInvalid = false) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -41,17 +41,17 @@ export const useFirestoreCategories = (includeInvalid = false) => {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setError(errorMsg);
-      logError(ERROR_TYPES.FIRESTORE_ERROR, err, { 
-        context: 'useFirestoreCategories - loadCategories' 
+      logError(ERROR_TYPES.FIRESTORE_ERROR, err, {
+        context: 'useFirestoreCategories - loadCategories'
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [includeInvalid]);
 
   useEffect(() => {
     loadCategories();
-  }, []);
+  }, [loadCategories]);
 
   return { categories, isLoading, error, refetch: loadCategories };
 };

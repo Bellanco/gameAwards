@@ -14,7 +14,7 @@
  * - Mejor manejo de errores
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useTranslation } from '../data/literals';
@@ -26,10 +26,9 @@ import { tField, getCategoryTitle, getOptionId, getOptionLabel, resolveOptionId 
 import { computeLeaderboard } from '../utils/scoring';
 import logger from '../services/loggerService';
 
-export default function WinnersPanel({ 
+export default function WinnersPanel({
   language = 'es',
   mode = 'select', // 'select' | 'ranking'
-  onClose 
 }) {
   const t = useTranslation(language);
   const { categories, isLoading: categoriesLoading, refetch: refetchCategories } = useFirestoreCategories();
@@ -42,25 +41,11 @@ export default function WinnersPanel({
   const [alertMessage, setAlertMessage] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
 
-  // Cargar ganadores existentes al montar componente
-  useEffect(() => {
-    if (categories.length > 0) {
-      loadWinners();
-    }
-  }, [categories]);
-
-  // Calcular puntuaciones si modo es 'ranking'
-  useEffect(() => {
-    if (mode === 'ranking' && categories.length > 0 && ballots.length > 0 && Object.keys(winners).length > 0) {
-      calculateScores();
-    }
-  }, [mode, categories, ballots, winners]);
-
   /**
    * Cargar ganadores existentes desde Firestore.
    * `category.winner` es el optionId ganador (o null).
    */
-  const loadWinners = () => {
+  const loadWinners = useCallback(() => {
     try {
       const winnersData = {};
       categories.forEach(category => {
@@ -73,13 +58,13 @@ export default function WinnersPanel({
     } catch (err) {
       logError(ERROR_TYPES.FIRESTORE_ERROR, err, { context: 'loadWinners' });
     }
-  };
+  }, [categories]);
 
   /**
    * Calcular puntuación de usuarios (acierto = optionId votado == optionId ganador).
    * Usa los ganadores en edición (state `winners`), no los persistidos.
    */
-  const calculateScores = () => {
+  const calculateScores = useCallback(() => {
     try {
       // Proyectar el winner en edición sobre las categorías para el cálculo.
       const categoriesWithWinners = categories.map(c => ({ ...c, winner: winners[c.id] || null }));
@@ -91,7 +76,21 @@ export default function WinnersPanel({
     } catch (err) {
       logError(ERROR_TYPES.VALIDATION_ERROR, err, { context: 'calculateScores' });
     }
-  };
+  }, [categories, ballots, winners]);
+
+  // Cargar ganadores existentes al montar componente / cuando cambian las categorías
+  useEffect(() => {
+    if (categories.length > 0) {
+      loadWinners();
+    }
+  }, [categories.length, loadWinners]);
+
+  // Calcular puntuaciones si modo es 'ranking'
+  useEffect(() => {
+    if (mode === 'ranking' && categories.length > 0 && ballots.length > 0 && Object.keys(winners).length > 0) {
+      calculateScores();
+    }
+  }, [mode, categories.length, ballots.length, winners, calculateScores]);
 
   /**
    * Limpiar todas las selecciones de ganadores
@@ -124,13 +123,11 @@ export default function WinnersPanel({
     try {
       setIsSaving(true);
       let savedCount = 0;
-      let skippedCount = 0;
 
       // Iterar sobre TODAS las categorías (no solo las con ganador)
       for (const category of categories) {
         if (!category || !category.options || category.options.length === 0) {
           logger.warn(`Categoría ${category?.id} inválida, saltando...`);
-          skippedCount++;
           continue;
         }
 

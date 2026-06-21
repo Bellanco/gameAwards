@@ -83,33 +83,34 @@ diseño o cambios amplios:
 - **[baja] `src/styles/themes.css`** parece redundante con clases de `index.css`.
 - **[baja] Participación fija al `100%`** en el Overview del AdminPanel
   (`AdminPanel.jsx`, tarjeta de participación). Calcular el valor real o quitarlo.
+- **[media] `ReviewScreen` no muestra `errorMessage`.** `App.submitBallot` fija
+  `errorMessage` (p. ej. "Error al guardar tu voto"), pero `ReviewScreen` nunca
+  lo renderiza → si el guardado falla, el usuario no ve nada. La prop se eliminó
+  en la limpieza de lint; volver a pasarla y mostrarla con `aria-live` al cablear
+  el feedback de error de envío.
 
 ---
 
-## 5. Baseline de ESLint
+## 5. Baseline de ESLint — LIMPIO ✅
 
-`npm run lint` (ESLint 9 flat config) ya no reporta **errores** (eran 9; todos
-resueltos). Quedan **16 warnings** no bloqueantes:
+`npm run lint` (ESLint 9 flat config) reporta **0 problemas** (0 errores,
+0 warnings). Histórico de lo corregido:
 
-- **[baja] `no-unused-vars` (13).** Props recibidas y no usadas en varias
-  pantallas (p. ej. `VoteScreen.onSkip`, `SuccessScreen.onLogout`,
-  `ReviewScreen.userNickname`), `setSeason` en `AdminPanel`, `skippedCount` en
-  `WinnersPanel`. Limpiar (o prefijar con `_` si se mantienen por la API).
-- **[media] `react-hooks/exhaustive-deps` (3).** Dependencias omitidas en
-  `WinnersPanel` (`loadWinners`, `calculateScores`) y `useFirestoreCategories`
-  (`loadCategories`). Decidir si incluirlas o envolver las funciones en
-  `useCallback`.
-
-**Errores ya corregidos (referencia):**
-- `react-hooks/rules-of-hooks` (3) en `VoteScreen`: la validación defensiva se
-  movió debajo de todos los hooks y los `useEffect` son null-safe.
-- `jsx-a11y` (6): `GameCard` (variante review) y filas de `Table` clicables ahora
+- **`react-hooks/rules-of-hooks` (3) en `VoteScreen`**: la validación defensiva
+  se movió debajo de todos los hooks y los `useEffect` son null-safe.
+- **`jsx-a11y` (6)**: `GameCard` (variante review) y filas de `Table` clicables
   son accesibles por teclado (`role="button"` + `tabIndex` + `onKeyDown`); el
   overlay de `Modal` es `aria-hidden` (cierre por teclado vía Escape).
+- **`react-hooks/exhaustive-deps` (3)**: `loadWinners`/`calculateScores`
+  (`WinnersPanel`) y `loadCategories` (`useFirestoreCategories`) envueltos en
+  `useCallback` con sus dependencias. De paso, `useFirestoreCategories` ahora
+  recarga al cambiar `includeInvalid` (antes lo ignoraba).
+- **`no-unused-vars` (13)**: props/variables muertas eliminadas en
+  `AdminPanel`, `GameCard`, `ReviewScreen`, `SuccessScreen`, `VoteScreen`,
+  `WinnersPanel`.
 
-> Atajo: `npm run lint:fix` y `npm run format` resuelven una parte. **No** se ha
-> ejecutado `prettier --write .` sobre todo el repo para no generar un diff
-> gigante; hazlo en un commit aparte de solo formato cuando convenga.
+> **No** se ha ejecutado `prettier --write .` sobre todo el repo para no generar
+> un diff gigante; hazlo en un commit aparte de solo formato cuando convenga.
 
 ---
 

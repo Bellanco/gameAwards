@@ -18,7 +18,6 @@ export default function VoteScreen({
   onSelectOption,
   onPrevious,
   onNext,
-  onSkip,
   onFinish,
   progressPercentage,
   language,
