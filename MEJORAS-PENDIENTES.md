@@ -69,8 +69,10 @@ diseño o cambios amplios:
 
 - **[media] Contraste WCAG AA.** Auditar pares texto/fondo con WebAIM
   (`text-slate-300` sobre `bg-slate-800/50`, bordes `border-slate-700`, etc.).
-- **[media] Focus trap completo en `Modal`.** Ya tiene ESC + `role=dialog` +
-  foco inicial; falta atrapar el Tab dentro del diálogo.
+- ~~**[media] Focus trap completo en `Modal`.**~~ Eliminado: el primitivo `Modal`
+  (junto con `Tabs` y `Select`) era código muerto sin consumidores y se borró. Si en
+  el futuro hace falta un diálogo, créalo accesible desde el principio (foco inicial,
+  ESC, focus trap del Tab) o valora una librería headless en su momento.
 - **[media] Touch targets < 44px** en botones de tema/idioma y cierres.
 - **[baja] `prefers-reduced-motion`** para desactivar animaciones
   (`animate-bounce`, `animate-pulse`, scroll smooth).
