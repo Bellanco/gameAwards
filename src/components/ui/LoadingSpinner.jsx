@@ -22,13 +22,13 @@ export default function LoadingSpinner({
   const content = (
     <div className="flex flex-col items-center justify-center gap-4" role="status" aria-live="polite">
       <div className="animate-spin text-4xl">●</div>
-      {text && <p className="text-slate-400 text-sm">{text}</p>}
+      {text && <p className="theme-text-tertiary text-sm">{text}</p>}
     </div>
   );
 
   if (fullScreen) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-950 to-black flex items-center justify-center">
+      <div className="min-h-screen theme-gradient-primary flex items-center justify-center">
         {content}
       </div>
     );

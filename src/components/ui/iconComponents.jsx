@@ -34,6 +34,6 @@ export const ALERT_ICONS = {
 
 export const LOADING_ICONS = {
   spinner: (borderColor = 'border-blue-500') => (
-    <div className={`w-12 h-12 border-4 border-slate-700 ${borderColor} rounded-full animate-spin`}></div>
+    <div className={`w-12 h-12 border-4 theme-border-primary ${borderColor} rounded-full animate-spin`}></div>
   )
 };

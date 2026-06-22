@@ -45,10 +45,11 @@
 
   --placeholder-color: #6b6453;  /* Gris cálido - placeholders sobre marfil */
 
-  /* Sombras */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.12);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.16);
+  /* Sombras (tinte cálido para acompañar el marfil; algo más marcadas para
+     que las tarjetas tengan relieve sobre la página clara) */
+  --shadow-sm: 0 1px 2px 0 rgba(87, 70, 40, 0.10);
+  --shadow-md: 0 4px 8px -1px rgba(87, 70, 40, 0.14);
+  --shadow-lg: 0 12px 22px -4px rgba(87, 70, 40, 0.18);
 }
 
 html.dark {
@@ -235,6 +236,17 @@ html, body, #root {
 .theme-card-hover:hover {
   background-color: var(--bg-tertiary);
   box-shadow: var(--shadow-md);
+}
+
+/* Relieve sutil de las tarjetas SOLO en tema claro: sobre el marfil necesitan
+   una sombra para separarse de la página; en oscuro el contraste de color ya
+   basta y una sombra por defecto recargaría la UI. */
+html:not(.dark) .theme-card {
+  box-shadow: var(--shadow-sm);
+}
+
+html:not(.dark) .theme-card-hover:hover {
+  box-shadow: var(--shadow-lg);
 }
 
 /* Header/Navigation */

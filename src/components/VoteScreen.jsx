@@ -265,8 +265,8 @@ export default function VoteScreen({
           disabled={currentStep === 0}
           className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-semibold text-xs sm:text-sm transition transform ${
             currentStep === 0
-              ? 'bg-slate-700/40 text-slate-500 cursor-not-allowed opacity-40 border border-slate-600/30'
-              : 'bg-gradient-to-r from-slate-600 to-slate-700 text-white hover:from-slate-500 hover:to-slate-600 hover:scale-105 border border-slate-500/50 shadow-md'
+              ? 'theme-btn-secondary border cursor-not-allowed opacity-40'
+              : 'theme-btn-secondary border hover:scale-105 shadow-md'
           }`}
         >
           {t('previous')}
