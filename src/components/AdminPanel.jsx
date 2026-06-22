@@ -196,7 +196,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
       // Avanzar a la siguiente temporada: cerrada y sin fecha de cierre (se
       // elegirá de nuevo al abrir la nueva edición).
       await setVotingOpen(false, { season: season + 1, closesAt: null });
-      setSeasonMessage(`${t('archived')}: ${result.deleted} ${t('votes')} · ${season} → ${season + 1}`);
+      setSeasonMessage(`${t('archived')}: ${result.deleted} ${t('votes')} · ${result.cleared} ${t('categories').toLowerCase()} · ${season} → ${season + 1}`);
     } catch (err) {
       setSeasonMessage(err.message);
     } finally {
