@@ -52,7 +52,11 @@ function App() {
   // categories.length: Revisión
   // 99: Éxito
   const [currentStep, setCurrentStep] = useState(-1);
-  
+  // Paso al que volver tras pasar por login al reabrir la app. Se rellena con el
+  // progreso guardado, pero NO se aplica a currentStep hasta que el usuario
+  // continúa desde la pantalla de login (así la app siempre arranca en login).
+  const [resumeStep, setResumeStep] = useState(0);
+
   // ============ Datos del Usuario ============
   const [userNickname, setUserNickname] = useState('');
   const [userDisplayName, setUserDisplayName] = useState('');
@@ -106,12 +110,14 @@ function App() {
         setUserDisplayName(user.displayName || ''); // Inicializar con displayName del usuario
         setCanEditNickname(false); // No editable después del login
 
-        // Recuperar progreso previo de localStorage
+        // Recuperar progreso previo de localStorage. Restauramos los votos, pero
+        // el paso solo se recuerda (resumeStep): al reabrir la app siempre se
+        // muestra primero la pantalla de login, y al continuar se retoma ahí.
         const savedProgress = localStorage.getItem('votingProgress');
         if (savedProgress) {
           const progress = JSON.parse(savedProgress);
           setUserVotes(progress.votes || {});
-          setCurrentStep(progress.step || 0);
+          setResumeStep(progress.step > 0 ? progress.step : 0);
         }
       }
       setIsLoadingAuth(false);
@@ -159,8 +165,9 @@ function App() {
     if (currentStep === 99) {
       localStorage.removeItem('votingProgress');
     }
-    // Solo guardar cuando hay usuario autenticado y estamos en votación activa
-    else if (currentUser && currentStep >= -1 && currentStep < validCats.length + 1) {
+    // Solo guardar en pasos reales de votación (>= 0). En la pantalla de login
+    // (-1) NO se persiste, para no machacar el paso guardado al reabrir.
+    else if (currentUser && currentStep >= 0 && currentStep < validCats.length + 1) {
       const progress = { votes: userVotes, step: currentStep };
       localStorage.setItem('votingProgress', JSON.stringify(progress));
     }
@@ -192,9 +199,18 @@ function App() {
         return;
       }
 
+      // Reapertura con sesión de Firebase aún válida: no relanzar el popup de
+      // Google, continuar directamente donde se quedó (resumeStep).
+      if (auth.currentUser) {
+        setCurrentUser(auth.currentUser);
+        setCurrentStep(resumeStep);
+        setIsLoading(false);
+        return;
+      }
+
       const result = await signInWithPopup(auth, googleProvider);
       setCurrentUser(result.user);
-      setCurrentStep(0); // Pasar a la primera categoría
+      setCurrentStep(resumeStep); // Continuar donde lo dejó (0 si es nuevo)
     } catch (error) {
       logger.error('Auth Error:', error.code, error.message);
       
@@ -224,9 +240,10 @@ function App() {
       await signOut(auth);
       setCurrentUser(null);
       setCurrentStep(-1);
+      setResumeStep(0);
       setUserVotes({});
       setUserNickname('');
-      // localStorage se limpiará automáticamente vía useEffect
+      localStorage.removeItem('votingProgress');
     } catch (error) {
       logger.error('Logout Error:', error);
     }
@@ -237,12 +254,13 @@ function App() {
    */
   const handleReturnToHome = () => {
     setCurrentStep(-1); // Volver a login
+    setResumeStep(0); // Olvidar el progreso recordado
     setUserVotes({}); // Limpiar votos
     setUserNickname(''); // Limpiar apodo
     setUserDisplayName(''); // Limpiar displayName
     setErrorMessage(''); // Limpiar errores
     setSuccessMessage(''); // Limpiar mensajes de éxito
-    // localStorage se limpiará automáticamente vía useEffect
+    localStorage.removeItem('votingProgress');
   };
 
   /**
