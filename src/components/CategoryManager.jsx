@@ -33,7 +33,8 @@ const emptyForm = () => ({
  * CategoryManager v5 - Categorías bilingües (ES/EN)
  *
  * Modelo guardado en Firestore:
- *   { title: {es,en}, options: [{id,es,en}], optionIds, weight, orderIndex, ... }
+ *   { title: {es,en}, options: [{id,name}], optionIds, weight, orderIndex, ... }
+ * El título es bilingüe; los nombres de opción son únicos ({id,name}).
  * Los `optionIds` se mantienen también como array plano por compatibilidad de lectura.
  *
  * @param {string} language - Idioma de la interfaz ('es' | 'en')
@@ -108,11 +109,11 @@ export default function CategoryManager({ language = 'es', onClose }) {
       setIsSaving(true);
       const docId = editingId || generateUUID();
 
-      // Nombres de juego en idioma único: se guarda el mismo valor en es/en
-      // (mantiene el modelo {id,es,en} para que optionId y scoring no cambien).
+      // Nombres de juego en idioma único: se guardan como { id, name }.
+      // El `id` se conserva al editar para que optionId/votos/scoring no cambien.
       const options = validOptions.map((opt, idx) => {
         const value = opt.value.trim();
-        return { id: opt.id || `${docId}_option_${idx}`, es: value, en: value };
+        return { id: opt.id || `${docId}_option_${idx}`, name: value };
       });
       const optionIds = options.map(o => o.id);
 

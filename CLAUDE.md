@@ -107,8 +107,8 @@ src/
   El nombre se resuelve al mostrar con `getOptionLabel(category, optionId, language)`.
 - Categoría bilingüe:
   ```js
-  { title: { es, en },
-    options: [ { id: "<docId>_option_0", es, en }, ... ],
+  { title: { es, en },                                  // título bilingüe
+    options: [ { id: "<docId>_option_0", name }, ... ],  // nombre de opción único
     optionIds: ["<docId>_option_0", ...],   // espejo plano por compatibilidad
     weight, orderIndex, winner: "<optionId>"|null, isActive }
   ```
@@ -123,11 +123,12 @@ src/
   (`computeLeaderboard`, `scoreBallot`). **Usa `hasTitle(cat)` en vez de `cat.title.trim()`**
   (title es objeto).
 - **Título de categoría bilingüe; nombres de juego en idioma único.** El CategoryManager edita
-  el título en ES/EN, pero las opciones (juegos) tienen un único campo; al guardar se escribe el
-  mismo texto en `es` y `en` (se mantiene la forma `{id,es,en}` para no romper optionId/scoring).
-- **Tolerancia legacy**: el scoring y el display normalizan con `resolveOptionId(category, value)`,
-  así que funcionan tanto con datos nuevos (optionId) como antiguos (nombre/título string), sin
-  necesidad de migrar los datos existentes.
+  el título en ES/EN, pero las opciones (juegos) se guardan como `{ id, name }` (un solo nombre).
+  El `id` se conserva al editar para no romper optionId/scoring/votos.
+- **Tolerancia legacy**: `tField`, `getOptionLabel` y `resolveOptionId` toleran datos antiguos
+  (opción `{id,es,en}` o string plano) además del formato actual `{id,name}`, y el scoring/display
+  normalizan con `resolveOptionId(category, value)`. Funcionan tanto con datos nuevos (optionId)
+  como antiguos (nombre/título string), sin necesidad de migrar los datos existentes.
 - **Histórico**: `useSeasonResults()` lee `results/{año}`; el AdminPanel tiene la pestaña
   **Histórico** que muestra, por edición, ganadores por categoría y la clasificación.
 

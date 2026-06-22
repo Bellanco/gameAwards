@@ -1,25 +1,26 @@
 /**
  * Helpers de localización para datos de Firestore (categorías y opciones).
  *
- * Modelo de datos bilingüe:
- *   category.title   = { es: "...", en: "..." }
- *   category.options = [ { id: "<docId>_option_0", es: "...", en: "..." }, ... ]
+ * Modelo de datos:
+ *   category.title   = { es: "...", en: "..." }            (bilingüe)
+ *   category.options = [ { id: "<docId>_option_0", name: "..." }, ... ]  (nombre único)
  *
- * Estos helpers toleran también el formato antiguo (string) por seguridad,
- * de modo que un dato a medio migrar nunca rompe el render.
+ * Estos helpers toleran también formatos antiguos (string plano, u opción
+ * { es, en }) por seguridad, de modo que un dato sin migrar nunca rompe el render.
  */
 
 /**
  * Devuelve el texto en el idioma pedido a partir de un campo que puede ser
- * un objeto { es, en } o un string plano (legacy).
- * @param {{es?: string, en?: string}|string|null|undefined} field
+ * un objeto { es, en } (título bilingüe), un objeto { name } (opción de nombre
+ * único) o un string plano (legacy).
+ * @param {{es?: string, en?: string, name?: string}|string|null|undefined} field
  * @param {string} language - 'es' | 'en'
  * @returns {string}
  */
 export const tField = (field, language = 'es') => {
   if (field == null) return '';
   if (typeof field === 'string') return field;
-  return field[language] || field.es || field.en || '';
+  return field[language] || field.es || field.en || field.name || '';
 };
 
 /**
@@ -92,7 +93,7 @@ export const getOptionByLabel = (category, label) =>
   (category?.options || []).find((opt) =>
     typeof opt === 'string'
       ? opt === label
-      : opt.es === label || opt.en === label
+      : opt.name === label || opt.es === label || opt.en === label
   );
 
 /**
@@ -109,7 +110,9 @@ export const resolveOptionId = (category, value) => {
   // ¿es un nombre? -> devolver el id de esa opción
   const opts = category?.options || [];
   const idx = opts.findIndex((opt) =>
-    typeof opt === 'string' ? opt === value : opt.es === value || opt.en === value
+    typeof opt === 'string'
+      ? opt === value
+      : opt.name === value || opt.es === value || opt.en === value
   );
   if (idx >= 0) return getOptionId(opts[idx], category.id, idx);
   return value;

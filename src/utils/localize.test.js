@@ -21,6 +21,16 @@ const category = {
   ],
 };
 
+// Categoría con el nuevo modelo de opciones { id, name } (nombre único).
+const categoryNameModel = {
+  id: 'cat2',
+  title: { es: 'Mejor Banda Sonora', en: 'Best Score' },
+  options: [
+    { id: 'cat2_option_0', name: 'Hades' },
+    { id: 'cat2_option_1', name: 'Hi-Fi Rush' },
+  ],
+};
+
 describe('tField', () => {
   it('devuelve el idioma pedido', () => {
     expect(tField({ es: 'Hola', en: 'Hi' }, 'en')).toBe('Hi');
@@ -33,6 +43,10 @@ describe('tField', () => {
   it('devuelve cadena vacía si es null/undefined', () => {
     expect(tField(null)).toBe('');
     expect(tField(undefined)).toBe('');
+  });
+  it('localiza opciones de nombre único { name }', () => {
+    expect(tField({ id: 'x', name: 'Hades' }, 'en')).toBe('Hades');
+    expect(tField({ id: 'x', name: 'Hades' }, 'es')).toBe('Hades');
   });
 });
 
@@ -85,6 +99,10 @@ describe('getOptionLabel', () => {
   it('devuelve el propio valor si no se encuentra', () => {
     expect(getOptionLabel(category, 'desconocido', 'es')).toBe('desconocido');
   });
+  it('localiza opciones de nombre único { id, name }', () => {
+    expect(getOptionLabel(categoryNameModel, 'cat2_option_0', 'en')).toBe('Hades');
+    expect(getOptionLabel(categoryNameModel, 'cat2_option_1', 'es')).toBe('Hi-Fi Rush');
+  });
 });
 
 describe('resolveOptionId', () => {
@@ -97,5 +115,9 @@ describe('resolveOptionId', () => {
   it('devuelve el valor original si no se puede resolver', () => {
     expect(resolveOptionId(category, 'otro')).toBe('otro');
     expect(resolveOptionId(category, '')).toBe('');
+  });
+  it('resuelve un nombre único { name } a su optionId', () => {
+    expect(resolveOptionId(categoryNameModel, 'cat2_option_1')).toBe('cat2_option_1');
+    expect(resolveOptionId(categoryNameModel, 'Hades')).toBe('cat2_option_0');
   });
 });
