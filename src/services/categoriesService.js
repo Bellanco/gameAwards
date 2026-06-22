@@ -46,6 +46,9 @@ export async function loadAndSortCategories(includeInvalid = false, autoCleanDup
     });
 
     for (const [key, docs] of Object.entries(titleGroups)) {
+      // Blindaje: nunca tratar una clave vacía como "duplicado" (un cambio de
+      // formato podría dejar títulos sin resolver y agruparlos todos juntos).
+      if (!key) continue;
       if (docs.length > 1) {
         logger.warn(`Duplicados encontrados para: "${key}"`);
         docs.sort((a, b) => {
@@ -59,9 +62,23 @@ export async function loadAndSortCategories(includeInvalid = false, autoCleanDup
       }
     }
 
+    // Tope de seguridad: si el borrado afectaría a la mitad o más de la
+    // colección, casi seguro es un falso positivo por datos sin migrar. En ese
+    // caso NO se borra nada en Firestore; solo se descartan en memoria y se
+    // avisa. Evita que un error de formato vacíe las categorías.
+    const safeToDelete =
+      toDelete.length > 0 && toDelete.length < Math.ceil(allDocs.length / 2)
+        ? toDelete
+        : [];
+    if (toDelete.length > 0 && safeToDelete.length === 0) {
+      logger.warn(
+        `⚠️ Auto-limpieza abortada: ${toDelete.length}/${allDocs.length} categorías marcadas como duplicadas (posible dato sin migrar). No se borra nada en Firestore.`
+      );
+    }
+
     // Borrado en Firestore SOLO si lo pide un admin (evita escrituras en lecturas).
     if (autoCleanDuplicates) {
-      for (const docId of toDelete) {
+      for (const docId of safeToDelete) {
         try {
           logger.log(`🗑️ Eliminando duplicado: ${docId}`);
           await deleteDoc(doc(db, 'categories', docId));
@@ -71,8 +88,10 @@ export async function loadAndSortCategories(includeInvalid = false, autoCleanDup
       }
     }
 
-    // Retornar solo documentos válidos (sin duplicados)
-    const filtered = allDocs.filter(cat => !toDelete.includes(cat.id));
+    // Retornar solo documentos válidos (sin duplicados). Usa `safeToDelete`: si
+    // el tope de seguridad abortó el borrado, tampoco se ocultan en memoria, así
+    // la app nunca se queda sin categorías por un falso positivo de duplicados.
+    const filtered = allDocs.filter(cat => !safeToDelete.includes(cat.id));
 
     // Filtrar según includeInvalid
     const categoriesData = includeInvalid
