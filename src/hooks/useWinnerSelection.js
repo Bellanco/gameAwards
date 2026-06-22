@@ -12,6 +12,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { logError, ERROR_TYPES } from '../services/errorService';
 import logger from '../services/loggerService';
+import { resolveOptionId } from '../utils/localize';
 
 /**
  * @typedef {Object} Winner
@@ -44,39 +45,32 @@ export const useWinnerSelection = (categories = []) => {
       const winnersData = {};
       categoriesData.forEach(category => {
         if (category.winner) {
-          winnersData[category.id] = {
-            name: category.winner,
-            optionId: category.winnerOptionId
-          };
+          // Normaliza por si el dato antiguo guardó el ganador por nombre.
+          winnersData[category.id] = resolveOptionId(category, category.winner);
         }
       });
       setWinners(winnersData);
     } catch (err) {
-      logError(ERROR_TYPES.VALIDATION_ERROR, err, { 
-        context: 'useWinnerSelection - loadExistingWinners' 
+      logError(ERROR_TYPES.VALIDATION_ERROR, err, {
+        context: 'useWinnerSelection - loadExistingWinners'
       });
     }
   }, []);
 
   /**
-   * Seleccionar ganador para una categoría
+   * Seleccionar ganador para una categoría (por optionId).
    * @param {string} categoryId - ID de la categoría
-   * @param {string} optionName - Nombre de la opción
+   * @param {string} optionId - ID de la opción ganadora
    */
-  const selectWinner = useCallback((categoryId, optionName) => {
+  const selectWinner = useCallback((categoryId, optionId) => {
     setWinners(prev => {
-      const current = prev[categoryId];
       // Toggle: si ya está seleccionado, deseleccionar
-      if (current?.name === optionName) {
+      if (prev[categoryId] === optionId) {
         const updated = { ...prev };
         delete updated[categoryId];
         return updated;
       }
-      // Si no, seleccionar
-      return {
-        ...prev,
-        [categoryId]: { name: optionName, optionId: optionName }
-      };
+      return { ...prev, [categoryId]: optionId };
     });
     setHasChanges(true);
   }, []);
@@ -118,7 +112,7 @@ export const useWinnerSelection = (categories = []) => {
           try {
             const categoryRef = doc(db, 'categories', categoryId);
             await updateDoc(categoryRef, {
-              winner: winner.name,
+              winner: winner, // optionId ganador
               winnerSelectedAt: new Date().toISOString()
             });
             savedCount++;
@@ -145,8 +139,8 @@ export const useWinnerSelection = (categories = []) => {
    * @param {string} optionName - Nombre de la opción
    * @returns {boolean}
    */
-  const isWinnerSelected = useCallback((categoryId, optionName) => {
-    return winners[categoryId]?.name === optionName;
+  const isWinnerSelected = useCallback((categoryId, optionId) => {
+    return winners[categoryId] === optionId;
   }, [winners]);
 
   /**

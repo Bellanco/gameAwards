@@ -83,6 +83,11 @@ export const es = {
   thankYouForVoting: "Gracias por votar en The Game Awards",
   officialsVotingPlatform: "La plataforma oficial de votación de The Game Awards",
   
+  // Ya votó (bloqueo de re-voto)
+  alreadyVotedTitle: "Ya has votado",
+  alreadyVotedMessage: "Solo se permite un voto por persona en esta edición.",
+  alreadyVotedNote: "Tu voto ya quedó registrado y no se puede modificar. Vuelve cuando se anuncien los resultados.",
+
   // Deadline
   votingClosed: "La votación ha cerrado",
   votingDeadlineMessage: "El plazo de votación para The Game Awards ha terminado",
@@ -162,13 +167,60 @@ export const es = {
   // Category Manager
   weight: "Ponderación",
   options: "Opciones",
-  categoryTitle: "Nombre",
+  categoryName: "Nombre",
+  option: "Opción",
   delete: "Eliminar",
-  cancel: "Cancelar",
-  
+  save: "Guardar",
+  create: "Crear",
+  edit: "Editar",
+  newFem: "Nueva",
+  search: "Buscar",
+  notFound: "No encontradas",
+  activeFem: "activas",
+  preparingPanel: "Preparando panel...",
+  updated: "Actualizado",
+  created: "Creado",
+  reordered: "Reordenado",
+  catNameRequired: "Nombre requerido",
+  catMinOptions: "Se necesitan al menos 2 opciones",
+  catInvalidWeight: "Ponderación inválida",
+  catDeleteConfirm: "¿Eliminar categoría?",
+  catDeletedKept: "Eliminada - tabla mantenida",
+  catReorderError: "Error al reordenar",
+  order: "Orden",
+  moveUp: "Subir",
+  moveDown: "Bajar",
+  reorderSearchHint: "Quita la búsqueda para reordenar",
+
+  // Temporada / Control de votación (Admin)
+  season: "Temporada",
+  seasonDescription: "Abre o cierra la votación y gestiona el reinicio anual de la edición.",
+  currentSeason: "Temporada actual",
+  openVoting: "Abrir votación",
+  closeVoting: "Cerrar votación",
+  saved: "Guardado",
+  closingDate: "Fecha de cierre",
+  closingDateHelp: "Elige el día en que se cierra la votación; ese día a las 23:59 dejará de admitir votos. Puedes cambiarla mientras la edición esté abierta. Deja el campo vacío y guarda para quitarla.",
+  closesOn: "Cierra el",
+  noClosingDate: "Sin fecha de cierre (se cierra solo manualmente)",
+  archiveAndReset: "Archivar y reiniciar edición",
+  archiveAndResetDescription: "Guarda los resultados y la clasificación de esta temporada en el archivo (results) y luego BORRA todos los votos para empezar la nueva edición. Esta acción no se puede deshacer.",
+  archiveResetConfirm: "¿Archivar resultados y borrar TODOS los votos para reiniciar la edición?",
+  archived: "Archivado",
+  history: "Histórico",
+  historyDescription: "Ganadores y clasificación de ediciones anteriores.",
+  noHistory: "Aún no hay ediciones archivadas. Usa \"Archivar y reiniciar edición\" al cerrar una temporada.",
+
   // Generic
   close: "Cerrar",
   logout: "Cerrar sesión",
+  anonymous: "Anónimo",
+  changeTheme: "Cambiar tema",
+
+  // Error Boundary
+  unexpectedError: "Algo salió mal",
+  unexpectedErrorMessage: "Ha ocurrido un error inesperado. Intenta recargar la página.",
+  reloadPage: "Recargar página",
   
   // Tema
   theme: "Tema",
@@ -189,6 +241,10 @@ export const es = {
   moreCategory: "categoría más",
   moreCategories: "categorías más",
   mustVoteAllBefore: "Debes votar en todas las categorías antes de enviar tus votos",
+  errorEnterNickname: "Por favor, ingresa un apodo.",
+  errorMissingVotes: "Te faltan {count} categoría(s) por votar: {names}",
+  errorVotingEnded: "El plazo de votación ha terminado.",
+  errorSavingVote: "Error al guardar tu voto. Intenta de nuevo.",
   
   // 404 No encontrada
   pageNotFound: "Página no encontrada",

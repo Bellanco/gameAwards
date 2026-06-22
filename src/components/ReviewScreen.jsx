@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from '../data/literals';
 import { getRandomGradients } from '../utils/gradients';
+import { hasTitle, getCategoryTitle, getOptionLabel } from '../utils/localize';
 import GameCard from './GameCard';
 import { ScreenLayout } from './layouts';
 import { Header } from './ui';
@@ -12,8 +13,6 @@ import { Header } from './ui';
 export default function ReviewScreen({
   categories,
   userVotes,
-  userNickname,
-  onNicknameChange,
   userDisplayName,
   onDisplayNameChange,
   onSubmit,
@@ -21,17 +20,14 @@ export default function ReviewScreen({
   onReturnHome,
   isLoading,
   errorMessage,
-  canEditNickname,
   language,
   onToggleLanguage,
   theme,
   onToggleTheme
 }) {
   // Filtrar solo categorías válidas (no placeholders, no vacías)
-  const validCategories = useMemo(() => 
-    categories.filter(cat => 
-      !cat.isPlaceholder && cat.title && cat.title.trim()
-    ),
+  const validCategories = useMemo(() =>
+    categories.filter(cat => !cat.isPlaceholder && hasTitle(cat)),
     [categories]
   );
   
@@ -63,17 +59,16 @@ export default function ReviewScreen({
     }
   };
 
-  // ============ Carga de gradientes (sin imágenes) ============
+  // ============ Carga de gradientes (sin imágenes, clave = optionId) ============
   useEffect(() => {
-    // Generar gradientes aleatorios para juegos votados
-    const votedGameNames = Object.values(userVotes)
+    const votedOptionIds = Object.values(userVotes)
       .filter(Boolean)
-      .map(voteData => typeof voteData === 'object' ? voteData.name : voteData)
+      .map(voteData => (typeof voteData === 'object' ? voteData.id : voteData))
       .filter(Boolean);
-    
-    const gradients = getRandomGradients(votedGameNames);
+
+    const gradients = getRandomGradients(votedOptionIds);
     setGameGradients(gradients);
-    
+
     setLoadingImages(false);
   }, [userVotes]);
 
@@ -91,9 +86,6 @@ export default function ReviewScreen({
     />
   );
 
-  // Footer vacío - Los botones estarán en el contenido principal
-  const footerContent = null;
-
   return (
     <ScreenLayout
       language={language}
@@ -101,17 +93,18 @@ export default function ReviewScreen({
       theme={theme}
       onToggleTheme={onToggleTheme}
       header={headerContent}
-      footer={footerContent ? <Footer>{footerContent}</Footer> : null}
+      footer={null}
       showControlBar={false}
     >
       {/* Contenido principal */}
       <div className="w-full max-w-7xl mx-auto px-4 md:px-6 py-8 flex flex-col">
         {/* 1. Display Name Input */}
         <div className="theme-card theme-border-primary border rounded-lg p-6 mb-6">
-          <label className="block text-sm font-bold theme-text-primary mb-3">
+          <label htmlFor="reviewDisplayName" className="block text-sm font-bold theme-text-primary mb-3">
             {t('displayName')}
           </label>
           <input
+            id="reviewDisplayName"
             type="text"
             maxLength="50"
             value={userDisplayName}
@@ -133,6 +126,17 @@ export default function ReviewScreen({
             <p className="text-xs mt-1 opacity-90 text-white">
               {t('mustVoteAllBefore')}
             </p>
+          </div>
+        )}
+
+        {/* Error de envío (apodo, votos faltantes, plazo, fallo al guardar) */}
+        {errorMessage && (
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="p-4 status-error rounded-lg mb-6 border border-status-error"
+          >
+            <p className="text-sm font-semibold text-white">{errorMessage}</p>
           </div>
         )}
 
@@ -175,16 +179,17 @@ export default function ReviewScreen({
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
             {validCategories.map((category, categoryIndex) => {
               const votedGame = userVotes[category.id];
+              const votedName = votedGame ? getOptionLabel(category, votedGame.id, language) : null;
 
               return (
                 <GameCard
                   key={category.id}
                   variant="review"
-                  gameName={votedGame?.name}
-                  gradient={votedGame ? gameGradients[votedGame?.name] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80' : 'bg-slate-900/80'}
+                  gameName={votedName}
+                  gradient={votedGame ? gameGradients[votedGame?.id] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80' : 'bg-slate-900/80'}
                   isVoted={!!votedGame}
                   onSelect={() => onPrevious(categoryIndex)}
-                  categoryTitle={category.title}
+                  categoryTitle={getCategoryTitle(category, language)}
                   translationLabel={t('notVoted')}
                   statusBadge={t('voted')}
                 />

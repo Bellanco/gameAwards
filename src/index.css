@@ -8,42 +8,47 @@
  */
 
 :root {
-  /* ===== TEMA CLARO (por defecto) - WCAG 2.1 Level AA ===== */
-  
-  /* Fondos */
-  --bg-primary: #e0eaeb;
-  --bg-secondary: #75a8d8;
-  --bg-tertiary: #bcc8e1;
-  
-  /* Texto */
-  --text-primary: #1f2937;       /* Gray-800 - Negro muy oscuro */
-  --text-secondary: #374151;     /* Gray-700 - Oscuro para contraste 6.5:1+ */
-  --text-tertiary: #6b7280;      /* Gray-500 - Gris medio para jerarquía */
+  /* ===== TEMA CLARO (por defecto) - WCAG 2.1 Level AA =====
+     Misma jerarquía que el oscuro: la página es el fondo base y las tarjetas
+     (bg-secondary) resaltan por encima. En claro las tarjetas son blancas y la
+     página un gris frío muy suave, con bordes/sombra para separar. */
+
+  /* Fondos (blanco roto cálido: marfil, algo amarillento y menos brillante) */
+  --bg-primary: #ebe5d8;         /* Página (marfil cálido, un punto más oscuro que las tarjetas) */
+  --bg-secondary: #f6f2e8;       /* Tarjetas, cabeceras, inputs (marfil, no blanco puro) */
+  --bg-tertiary: #e3dcca;        /* Hover / superficies elevadas */
+  --bg-unvoted: #f0ebdf;         /* Tarjetas sin votar (review) */
+
+  /* Texto (contraste verificado sobre blanco y sobre la página clara) */
+  --text-primary: #1f2937;       /* Gray-800 - ~12:1 sobre blanco */
+  --text-secondary: #374151;     /* Gray-700 - ~9:1 */
+  --text-tertiary: #4b5563;      /* Gray-600 - ~6.9:1 (AA también sobre #eef2f7) */
   --text-inverse: #ffffff;
-  
-  /* Bordes */
-  --border-primary: #e5e7eb;
-  --border-secondary: #d1d5db;
-  --border-empty: #45608f;       /* Gris para elementos vacíos (no seleccionados) */
-  
+
+  /* Bordes (gris cálido, visibles sobre el marfil) */
+  --border-primary: #d8d0bf;     /* Gris cálido suave */
+  --border-secondary: #bcb29b;   /* Gris cálido - hover */
+  --border-empty: #bcb29b;       /* Gris cálido - opción no seleccionada */
+
   /* Colores de marca */
-  --color-primary: #fafaf8;
-  --color-secondary: #d97706;    /* Naranja dorado (TGA) */
-  --color-tertiary: #06b6d4;     /* Azul cian */
-  
-  /* Acentos mejorados para accesibilidad WCAG AA (contraste 4.5:1+) */
-  --color-accent: #b45309;       /* Ámbar oscuro (amber-700) - 8.5:1 contraste */
-  --color-success: #15803d;      /* Verde oscuro (green-700) - 7.2:1 contraste */
-  --color-error: #dc2626;        /* Rojo oscuro (red-600) - 7.5:1 contraste */
-  --color-warning: #c2410c;      /* Naranja oscuro (orange-700) - 8.1:1 contraste */
-  --color-info: #1e40af;         /* Azul oscuro (blue-800) - 8.8:1 contraste */
-  
-  --placeholder-color: #465468;  /* Gris para placeholders */
-  
+  --color-primary: #ffffff;
+  --color-secondary: #b45309;    /* Ámbar-700 (botón primario: blanco encima ~4.7:1) */
+  --color-tertiary: #0891b2;     /* Cian-600 */
+
+  /* Acentos accesibles WCAG AA (texto sobre el marfil, 4.5:1+).
+     Algo más oscuros que sobre blanco puro porque la tarjeta es marfil. */
+  --color-accent: #92400e;       /* Amber-800  - ~5.8:1 sobre marfil */
+  --color-success: #166534;      /* Green-800  - ~5.8:1 */
+  --color-error: #b91c1c;        /* Red-700    - ~5.3:1 */
+  --color-warning: #c2410c;      /* Orange-700 - ~4.6:1 */
+  --color-info: #1e40af;         /* Blue-800   - ~7.8:1 */
+
+  --placeholder-color: #6b6453;  /* Gris cálido - placeholders sobre marfil */
+
   /* Sombras */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.16);
 }
 
 html.dark {

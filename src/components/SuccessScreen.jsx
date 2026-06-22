@@ -8,14 +8,12 @@ import { Header } from './ui';
  * SuccessScreen v4 - Refactorizado con Header reutilizable
  * Muestra confirmación de voto exitoso con animaciones
  */
-export default function SuccessScreen({ 
-  userNickname, 
-  onLogout, 
-  onReturnHome, 
-  language, 
-  onToggleLanguage, 
-  theme, 
-  onToggleTheme 
+export default function SuccessScreen({
+  userNickname,
+  language,
+  onToggleLanguage,
+  theme,
+  onToggleTheme
 }) {
   const t = useTranslation(language);
 

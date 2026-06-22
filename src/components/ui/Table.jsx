@@ -18,11 +18,12 @@
 
 import React from 'react';
 
-export default function Table({ 
-  columns = [], 
-  rows = [], 
+export default function Table({
+  columns = [],
+  rows = [],
   onRowClick,
-  className = ''
+  className = '',
+  emptyText = '—'
 }) {
   return (
     <div className={`bg-slate-800/30 border border-slate-700 rounded-lg overflow-hidden ${className}`}>
@@ -38,15 +39,27 @@ export default function Table({
       <div className="divide-y divide-slate-700">
         {rows.length === 0 ? (
           <div className="p-4 text-center text-slate-400 text-sm">
-            No hay datos
+            {emptyText}
           </div>
         ) : (
           rows.map((row, rowIdx) => (
             <div
               key={rowIdx}
-              className="grid gap-4 p-4 items-center hover:bg-slate-800/50 transition-colors cursor-pointer"
+              role={onRowClick ? 'button' : undefined}
+              tabIndex={onRowClick ? 0 : undefined}
+              className={`grid gap-4 p-4 items-center hover:bg-slate-800/50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
               style={{ gridTemplateColumns: `repeat(${columns.length}, 1fr)` }}
-              onClick={() => onRowClick?.(rowIdx, row)}
+              onClick={onRowClick ? () => onRowClick(rowIdx, row) : undefined}
+              onKeyDown={
+                onRowClick
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onRowClick(rowIdx, row);
+                      }
+                    }
+                  : undefined
+              }
             >
               {row.map((cell, cellIdx) => (
                 <div key={cellIdx} className="text-slate-300 text-sm">

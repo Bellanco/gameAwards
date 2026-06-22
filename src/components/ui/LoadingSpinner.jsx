@@ -15,14 +15,14 @@
 
 import React from 'react';
 
-export default function LoadingSpinner({ 
-  text = 'Cargando...', 
-  fullScreen = false 
+export default function LoadingSpinner({
+  text = '',
+  fullScreen = false
 }) {
   const content = (
-    <div className="flex flex-col items-center justify-center gap-4">
+    <div className="flex flex-col items-center justify-center gap-4" role="status" aria-live="polite">
       <div className="animate-spin text-4xl">●</div>
-      <p className="text-slate-400 text-sm">{text}</p>
+      {text && <p className="text-slate-400 text-sm">{text}</p>}
     </div>
   );
 

@@ -3,9 +3,12 @@ import { auth, googleProvider } from '../firebase';
 import { signOut, signInWithPopup } from 'firebase/auth';
 import { useTranslation } from '../data/literals';
 import { LanguageIcon, ThemeIcon, MedalGoldIcon, MedalSilverIcon, MedalBronzeIcon } from './Icons';
-import { useAdminCheck, useFirestoreCategories, useFirestoreBallots } from '../hooks';
+import { useAdminCheck, useFirestoreCategories, useFirestoreBallots, useVotingConfig, useSeasonResults } from '../hooks';
 import { sortCategoriesByOrder } from '../services/categoriesService';
+import { setVotingOpen, setClosingDate, archiveAndResetSeason } from '../services/seasonService';
+import { getCategoryTitle as localizeCategoryTitle, getOptionLabel, hasTitle } from '../utils/localize';
 import { LoadingSpinner } from './ui';
+import logger from '../services/loggerService';
 
 // Importar pantallas de administración
 import CategoryManager from './CategoryManager';
@@ -22,11 +25,15 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
   const { isAdmin, currentUser, isLoading: authLoading } = useAdminCheck();
   const { categories, isLoading: categoriesLoading } = useFirestoreCategories();
   const { ballots, isLoading: ballotsLoading } = useFirestoreBallots();
-  
+  const { isOpen: isVotingOpen, season, closesAt } = useVotingConfig();
+  const { results: seasonResults, isLoading: resultsLoading } = useSeasonResults();
+
   const [statsData, setStatsData] = useState(null);
-  const [viewMode, setViewMode] = useState('overview'); // 'overview' | 'results' | 'ballots' | 'categories' | 'winners' | 'ranking'
-  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [viewMode, setViewMode] = useState('overview'); // 'overview' | 'ballots' | 'categories' | 'winners' | 'ranking' | 'history' | 'season'
   const [errorMessage, setErrorMessage] = useState('');
+  const [seasonBusy, setSeasonBusy] = useState(false);
+  const [seasonMessage, setSeasonMessage] = useState('');
+  const [closeDate, setCloseDate] = useState(''); // 'YYYY-MM-DD' para el input
 
   // Calcular estadísticas cuando cambian categorías o votos
   useEffect(() => {
@@ -35,14 +42,23 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
     }
   }, [categories, ballots]);
 
+  // Sincronizar el input de fecha de cierre con config/voting.closesAt
+  useEffect(() => {
+    if (closesAt) {
+      const d = new Date(closesAt);
+      const pad = (n) => String(n).padStart(2, '0');
+      setCloseDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+    } else {
+      setCloseDate('');
+    }
+  }, [closesAt]);
+
   /**
    * Calcula estadísticas de los votos
    * Mantiene el orden de categoriesList (ordenadas por orderIndex)
    */
   const calculateStats = (ballotsList, categoriesList) => {
-    const validCats = categoriesList.filter(cat => 
-      !cat.isPlaceholder && cat.title && cat.title.trim()
-    );
+    const validCats = categoriesList.filter(cat => !cat.isPlaceholder && hasTitle(cat));
     const validCatIds = new Set(validCats.map(c => c.id));
 
     // Contar votos para cada categoría
@@ -67,10 +83,6 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
     });
 
     setStatsData(stats);
-    if (Object.keys(stats).length > 0) {
-      // Seleccionar la primera categoría en orden correcto
-      setSelectedCategory(validCats.length > 0 ? validCats[0].id : Object.keys(stats)[0]);
-    }
   };
 
   /**
@@ -79,7 +91,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
   const getValidBallots = () => {
     const validCatIds = new Set(
       categories
-        .filter(c => !c.isPlaceholder && c.title && c.title.trim())
+        .filter(c => !c.isPlaceholder && hasTitle(c))
         .map(c => c.id)
     );
     return ballots.filter(ballot => 
@@ -93,7 +105,13 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
    */
   const getCategoryTitle = (categoryId) => {
     const cat = categories.find(c => c.id === categoryId);
-    return cat?.title || categoryId;
+    return cat ? localizeCategoryTitle(cat, language) : categoryId;
+  };
+
+  // Etiqueta localizada de una opción (optionId) dentro de una categoría.
+  const optionDisplay = (categoryId, optionId) => {
+    const cat = categories.find(c => c.id === categoryId);
+    return cat ? getOptionLabel(cat, optionId, language) : optionId;
   };
 
   /**
@@ -113,16 +131,6 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
   };
 
   /**
-   * Obtener ganador y votación de una categoría
-   */
-  const getWinner = (categoryId) => {
-    if (!statsData || !statsData[categoryId]) return null;
-    const category = statsData[categoryId];
-    const winner = Object.entries(category).sort(([, a], [, b]) => b - a)[0];
-    return { name: winner[0], votes: winner[1] };
-  };
-
-  /**
    * Manejar login con Google
    */
   const handleLogin = async () => {
@@ -130,7 +138,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
       setErrorMessage('');
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
-      console.error('Error al iniciar sesión:', error);
+      logger.error('Error al iniciar sesión:', error);
       setErrorMessage(error.message || 'Error al iniciar sesión');
     }
   };
@@ -140,6 +148,60 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
    */
   const handleLogout = async () => {
     await signOut(auth);
+  };
+
+  /**
+   * Abrir / cerrar la votación (config/voting.isOpen).
+   */
+  const handleToggleVoting = async () => {
+    try {
+      setSeasonBusy(true);
+      setSeasonMessage('');
+      await setVotingOpen(!isVotingOpen, { season });
+      setSeasonMessage(t('saved'));
+      setTimeout(() => setSeasonMessage(''), 2500);
+    } catch (err) {
+      setSeasonMessage(err.message);
+    } finally {
+      setSeasonBusy(false);
+    }
+  };
+
+  /**
+   * Guardar (o limpiar) la fecha de cierre de la votación.
+   */
+  const handleSaveClosingDate = async () => {
+    try {
+      setSeasonBusy(true);
+      setSeasonMessage('');
+      await setClosingDate(closeDate || null);
+      setSeasonMessage(t('saved'));
+      setTimeout(() => setSeasonMessage(''), 2500);
+    } catch (err) {
+      setSeasonMessage(err.message);
+    } finally {
+      setSeasonBusy(false);
+    }
+  };
+
+  /**
+   * Archivar resultados de la temporada y reiniciar la edición (borra votos).
+   */
+  const handleArchiveReset = async () => {
+    if (!window.confirm(`${t('archiveResetConfirm')} (${season})`)) return;
+    try {
+      setSeasonBusy(true);
+      setSeasonMessage('');
+      const result = await archiveAndResetSeason({ season, categories, ballots });
+      // Avanzar a la siguiente temporada: cerrada y sin fecha de cierre (se
+      // elegirá de nuevo al abrir la nueva edición).
+      await setVotingOpen(false, { season: season + 1, closesAt: null });
+      setSeasonMessage(`${t('archived')}: ${result.deleted} ${t('votes')} · ${result.cleared} ${t('categories').toLowerCase()} · ${season} → ${season + 1}`);
+    } catch (err) {
+      setSeasonMessage(err.message);
+    } finally {
+      setSeasonBusy(false);
+    }
   };
 
   // No autenticado
@@ -212,7 +274,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
 
           {/* Navigation Tabs */}
           <div className="flex gap-2 md:gap-3 flex-wrap overflow-x-auto pb-2">
-            {['overview', 'results', 'ballots', 'categories', 'winners', 'ranking'].map(mode => (
+            {['overview', 'ballots', 'categories', 'winners', 'ranking', 'history', 'season'].map(mode => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
@@ -223,11 +285,12 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                 }`}
               >
                 {mode === 'overview' && t('overview')}
-                {mode === 'results' && t('winners')}
                 {mode === 'ballots' && t('allBallots')}
                 {mode === 'categories' && t('categories')}
                 {mode === 'winners' && t('selectWinners')}
                 {mode === 'ranking' && t('ranking')}
+                {mode === 'history' && t('history')}
+                {mode === 'season' && t('season')}
               </button>
             ))}
           </div>
@@ -261,9 +324,8 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                 <h2 className="text-2xl font-black theme-text-primary mb-6">{t('resultsByCategory')}</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {Object.entries(statsData).map(([category, votes]) => {
-                    const winner = Object.entries(votes).sort(([, a], [, b]) => b - a)[0];
                     return (
-                      <div key={category} className="theme-card theme-border-primary border rounded-lg p-6 hover:border-yellow-500/50 transition-all cursor-pointer" onClick={() => { setViewMode('results'); setSelectedCategory(category); }}>
+                      <div key={category} className="theme-card theme-border-primary border rounded-lg p-6">
                         <h3 className="text-lg font-bold theme-accent mb-4">{getCategoryTitle(category)}</h3>
                         <div className="space-y-2">
                           {Object.entries(votes).sort(([, a], [, b]) => b - a).slice(0, 3).map(([option, count], idx) => (
@@ -272,7 +334,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                                 {idx === 0 && <MedalGoldIcon className="w-4 h-4" />}
                                 {idx === 1 && <MedalSilverIcon className="w-4 h-4" />}
                                 {idx === 2 && <MedalBronzeIcon className="w-4 h-4" />}
-                                {option}
+                                {optionDisplay(category, option)}
                               </span>
                               <span className="font-bold">{count}</span>
                             </div>
@@ -284,94 +346,6 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                 </div>
               </div>
             )}
-          </div>
-        )}
-
-        {/* Results */}
-        {viewMode === 'results' && statsData && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2">
-              <div className="bg-black rounded-lg overflow-hidden theme-border-primary border shadow-2xl">
-                <div className="aspect-video bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center relative">
-                  <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-white text-xl font-bold text-center px-4">{t('theWinners')}</p>
-                    <p className="text-amber-100 text-sm mt-2">
-                      {selectedCategory && getWinner(selectedCategory) ? getWinner(selectedCategory).name : t('selectACategory')}
-                    </p>
-                  </div>
-                </div>
-                {selectedCategory && statsData[selectedCategory] && (
-                  <div className="p-6 theme-container-secondary theme-border-primary border-t">
-                    <div className="mb-4">
-                      <p className="text-xs theme-text-tertiary uppercase mb-2">{t('categoryLabel')}</p>
-                      <h3 className="text-2xl font-black theme-accent">{getCategoryTitle(selectedCategory)}</h3>
-                    </div>
-                    <div>
-                      <p className="text-xs theme-text-tertiary uppercase mb-2">{t('winner')}</p>
-                      <p className="text-xl font-bold theme-text-primary mb-2">{getWinner(selectedCategory)?.name}</p>
-                      <p className="text-sm theme-text-secondary">{getWinner(selectedCategory)?.votes} {t('votes')}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              {selectedCategory && statsData[selectedCategory] && (
-                <div className="mt-8">
-                  <h3 className="text-lg font-bold theme-text-primary mb-4">{t('top3')}</h3>
-                  <div className="space-y-2">
-                    {Object.entries(statsData[selectedCategory]).sort(([, a], [, b]) => b - a).slice(0, 3).map(([option, votes], idx) => (
-                      <div key={option} className={`p-4 rounded-lg border transition-all ${idx === 0 ? 'bg-amber-600/10 border-amber-600 shadow-lg shadow-amber-600/20' : 'theme-card theme-border-primary'}`}>
-                        <div className="flex justify-between items-center">
-                          <span className="text-lg font-bold flex items-center gap-2">
-                            {idx === 0 && <MedalGoldIcon className="w-5 h-5 theme-accent" />}
-                            {idx === 1 && <MedalSilverIcon className="w-5 h-5 text-gray-400" />}
-                            {idx === 2 && <MedalBronzeIcon className="w-5 h-5 text-amber-700" />}
-                            {option}
-                          </span>
-                          <span className="theme-accent font-bold text-xl">{votes}</span>
-                        </div>
-                        <div className="mt-2 h-2 theme-container-secondary rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-amber-600 to-amber-500"
-                            style={{ width: `${(votes / Math.max(...Object.values(statsData[selectedCategory]))) * 100}%` }} />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            <div>
-              <div className="theme-card theme-border-primary border rounded-lg p-6">
-                <h3 className="text-lg font-bold theme-text-primary mb-6">{t('categories')}</h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {statsData && Object.keys(statsData).map(category => {
-                    const winner = getWinner(category);
-                    const isSelected = selectedCategory === category;
-                    return (
-                      <button key={category} onClick={() => setSelectedCategory(category)}
-                        className={`w-full text-left p-4 rounded-lg border transition-all ${isSelected ? 'bg-amber-600/10 border-amber-600 shadow-lg' : 'theme-container-secondary theme-border-primary hover:theme-border-secondary'}`}>
-                        <p className={`text-sm font-semibold mb-1 ${isSelected ? 'theme-accent' : 'theme-text-secondary'}`}>
-                          {getCategoryTitle(category)}
-                        </p>
-                        <p className="text-xs theme-text-tertiary">{t('winner')}: {winner?.name.substring(0, 20)}...</p>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="mt-6 bg-gradient-to-br from-amber-600/10 to-amber-600/5 border border-amber-600/30 rounded-lg p-6">
-                  <h3 className="text-sm font-bold theme-accent uppercase mb-4">{t('summary')}</h3>
-                  <div className="space-y-2 text-sm theme-text-secondary">
-                    <div className="flex justify-between">
-                      <span>{t('totalVotes')}:</span>
-                      <span className="font-bold theme-accent">{getValidBallots().length}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>{t('categories')}:</span>
-                      <span className="font-bold theme-accent">{statsData ? Object.keys(statsData).length : 0}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
@@ -404,7 +378,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                           </summary>
                           <div className="mt-2 p-2 theme-container-secondary rounded text-xs font-mono theme-text-secondary">
                             {getSortedBallotSelections(ballot).map(([cat, val]) => (
-                              <div key={cat}><span className="text-info">{getCategoryTitle(cat)}:</span> {val}</div>
+                              <div key={cat}><span className="text-info">{getCategoryTitle(cat)}:</span> {optionDisplay(cat, val)}</div>
                             ))}
                           </div>
                         </details>
@@ -430,6 +404,147 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
         {/* Ranking */}
         {viewMode === 'ranking' && (
           <WinnersPanel mode="ranking" language={language} onClose={() => setViewMode('overview')} />
+        )}
+
+        {/* Histórico de resultados por año */}
+        {viewMode === 'history' && (
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-2xl font-black theme-text-primary">{t('history')}</h2>
+              <p className="theme-text-secondary text-sm">{t('historyDescription')}</p>
+            </div>
+
+            {resultsLoading ? (
+              <LoadingSpinner text={t('loadingData')} />
+            ) : seasonResults.length === 0 ? (
+              <div className="theme-card theme-border-primary border rounded-lg p-8 text-center">
+                <p className="theme-text-secondary">{t('noHistory')}</p>
+              </div>
+            ) : (
+              seasonResults.map(edition => {
+                const snap = edition.categoriesSnapshot || [];
+                const board = edition.leaderboard || [];
+                return (
+                  <div key={edition.id} className="theme-card theme-border-primary border rounded-lg overflow-hidden">
+                    <div className="theme-header theme-border-primary border-b px-6 py-4 flex justify-between items-center">
+                      <h3 className="text-2xl font-black theme-accent">{edition.season}</h3>
+                      <span className="text-xs theme-text-tertiary">{edition.totalBallots || 0} {t('votes')}</span>
+                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+                      {/* Ganadores por categoría */}
+                      <div>
+                        <h4 className="text-sm font-bold theme-text-secondary uppercase mb-3">{t('winners')}</h4>
+                        <div className="space-y-1.5">
+                          {snap.filter(c => c.winner).map(cat => (
+                            <div key={cat.id} className="flex justify-between gap-3 text-sm">
+                              <span className="theme-text-tertiary truncate">{localizeCategoryTitle(cat, language)}</span>
+                              <span className="theme-text-primary font-semibold text-right">{getOptionLabel(cat, cat.winner, language)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Clasificación */}
+                      <div>
+                        <h4 className="text-sm font-bold theme-text-secondary uppercase mb-3">{t('ranking')}</h4>
+                        <div className="space-y-1.5">
+                          {board.slice(0, 10).map(entry => (
+                            <div key={entry.userId} className="flex justify-between gap-3 text-sm">
+                              <span className="theme-text-tertiary">
+                                {entry.rank === 1 && '🥇 '}{entry.rank === 2 && '🥈 '}{entry.rank === 3 && '🥉 '}
+                                {entry.rank > 3 && `${entry.rank}. `}{entry.nickname}
+                              </span>
+                              <span className="theme-accent font-bold">{entry.points} {t('pts')}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* Season / Voting control */}
+        {viewMode === 'season' && (
+          <div className="max-w-2xl space-y-6">
+            <div>
+              <h2 className="text-2xl font-black theme-text-primary">{t('season')}</h2>
+              <p className="theme-text-secondary text-sm">{t('seasonDescription')}</p>
+            </div>
+
+            {seasonMessage && (
+              <div className="p-3 rounded-lg theme-card theme-border-primary border text-sm theme-text-primary">
+                {seasonMessage}
+              </div>
+            )}
+
+            {/* Estado de la votación */}
+            <div className="theme-card theme-border-primary border rounded-lg p-6">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="text-xs theme-text-tertiary uppercase mb-1">{t('currentSeason')}</p>
+                  <p className="text-3xl font-black theme-accent">{season}</p>
+                  <p className={`text-sm font-semibold mt-1 ${isVotingOpen ? 'text-status-success' : 'text-status-error'}`}>
+                    {isVotingOpen ? t('votingOpen') : t('votingClosed')}
+                  </p>
+                </div>
+                <button
+                  onClick={handleToggleVoting}
+                  disabled={seasonBusy}
+                  className={`py-3 px-6 rounded-lg font-bold text-sm transition-all disabled:opacity-50 ${
+                    isVotingOpen
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
+                >
+                  {isVotingOpen ? t('closeVoting') : t('openVoting')}
+                </button>
+              </div>
+            </div>
+
+            {/* Fecha de cierre (dinámica) */}
+            <div className="theme-card theme-border-primary border rounded-lg p-6">
+              <h3 className="text-lg font-bold theme-text-primary mb-2">{t('closingDate')}</h3>
+              <p className="theme-text-secondary text-sm mb-4">{t('closingDateHelp')}</p>
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                <input
+                  type="date"
+                  value={closeDate}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setCloseDate(e.target.value)}
+                  disabled={seasonBusy}
+                  className="px-4 py-2.5 theme-container-secondary theme-border-primary border rounded theme-text-primary focus:outline-none focus:border-amber-600"
+                />
+                <button
+                  onClick={handleSaveClosingDate}
+                  disabled={seasonBusy}
+                  className="py-2.5 px-5 rounded-lg font-bold text-sm theme-accent-bg text-white transition-all disabled:opacity-50"
+                >
+                  {t('save')}
+                </button>
+              </div>
+              <p className="text-sm theme-text-tertiary mt-3">
+                {closesAt
+                  ? `${t('closesOn')}: ${new Date(closesAt).toLocaleString()}`
+                  : t('noClosingDate')}
+              </p>
+            </div>
+
+            {/* Archivar y reiniciar */}
+            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6">
+              <h3 className="text-lg font-bold text-red-400 mb-2">{t('archiveAndReset')}</h3>
+              <p className="theme-text-secondary text-sm mb-4">{t('archiveAndResetDescription')}</p>
+              <button
+                onClick={handleArchiveReset}
+                disabled={seasonBusy}
+                className="py-3 px-6 rounded-lg font-bold text-sm bg-red-600 hover:bg-red-700 text-white transition-all disabled:opacity-50"
+              >
+                {seasonBusy ? t('loadingData') : t('archiveAndReset')}
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { LanguageIcon, ThemeIcon } from '../Icons';
+import { useTranslation } from '../../data/literals';
 
 /**
  * ControlBar - Componente reutilizable para barra de controles
@@ -20,6 +21,7 @@ export default function ControlBar({
   onToggleTheme,
   customClass = {}
 }) {
+  const t = useTranslation(language || 'es');
   const {
     container = 'absolute top-4 right-4 z-50 flex gap-2',
     buttonBase = 'flex items-center gap-2 px-3 py-2 theme-card theme-border-primary border rounded-lg text-sm font-semibold transition-all hover:border-yellow-500 hover:scale-105'
@@ -31,8 +33,8 @@ export default function ControlBar({
       <button
         onClick={onToggleTheme}
         className={buttonBase}
-        title={theme === 'light' ? 'Tema Oscuro' : 'Tema Claro'}
-        aria-label="Toggle theme"
+        title={theme === 'light' ? t('darkTheme') : t('lightTheme')}
+        aria-label={t('changeTheme')}
       >
         <ThemeIcon className="w-4 h-4" isDark={theme === 'dark'} />
       </button>
@@ -41,8 +43,8 @@ export default function ControlBar({
       <button
         onClick={onToggleLanguage}
         className={buttonBase}
-        title="Toggle Language"
-        aria-label="Toggle language"
+        title={t('changeLanguage')}
+        aria-label={t('changeLanguage')}
       >
         <LanguageIcon className="w-4 h-4" />
         <span>{language.toUpperCase()}</span>

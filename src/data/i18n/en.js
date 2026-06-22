@@ -83,6 +83,11 @@ export const en = {
   thankYouForVoting: "Thank you for voting in The Game Awards",
   officialsVotingPlatform: "The official voting platform for The Game Awards",
   
+  // Already voted (re-vote block)
+  alreadyVotedTitle: "You have already voted",
+  alreadyVotedMessage: "Only one vote per person is allowed in this edition.",
+  alreadyVotedNote: "Your vote has been recorded and cannot be changed. Come back when the results are announced.",
+
   // Deadline
   votingClosed: "Voting is closed",
   votingDeadlineMessage: "The voting deadline for The Game Awards has ended",
@@ -162,13 +167,60 @@ export const en = {
   // Category Manager
   weight: "Weight",
   options: "Options",
-  categoryTitle: "Name",
+  categoryName: "Name",
+  option: "Option",
   delete: "Delete",
-  cancel: "Cancel",
-  
+  save: "Save",
+  create: "Create",
+  edit: "Edit",
+  newFem: "New",
+  search: "Search",
+  notFound: "Not found",
+  activeFem: "active",
+  preparingPanel: "Preparing panel...",
+  updated: "Updated",
+  created: "Created",
+  reordered: "Reordered",
+  catNameRequired: "Name required",
+  catMinOptions: "At least 2 options are required",
+  catInvalidWeight: "Invalid weight",
+  catDeleteConfirm: "Delete category?",
+  catDeletedKept: "Deleted - table kept",
+  catReorderError: "Error reordering",
+  order: "Order",
+  moveUp: "Move up",
+  moveDown: "Move down",
+  reorderSearchHint: "Clear the search to reorder",
+
+  // Season / Voting control (Admin)
+  season: "Season",
+  seasonDescription: "Open or close voting and manage the yearly edition reset.",
+  currentSeason: "Current season",
+  openVoting: "Open voting",
+  closeVoting: "Close voting",
+  saved: "Saved",
+  closingDate: "Closing date",
+  closingDateHelp: "Pick the day voting closes; that day at 23:59 it stops accepting votes. You can change it while the edition is open. Leave the field empty and save to remove it.",
+  closesOn: "Closes on",
+  noClosingDate: "No closing date (closes manually only)",
+  archiveAndReset: "Archive and reset edition",
+  archiveAndResetDescription: "Saves this season's results and leaderboard to the archive (results) and then DELETES all votes to start the new edition. This action cannot be undone.",
+  archiveResetConfirm: "Archive results and delete ALL votes to reset the edition?",
+  archived: "Archived",
+  history: "History",
+  historyDescription: "Winners and standings from previous editions.",
+  noHistory: "No archived editions yet. Use \"Archive and reset edition\" when closing a season.",
+
   // Generic
   close: "Close",
   logout: "Log Out",
+  anonymous: "Anonymous",
+  changeTheme: "Change theme",
+
+  // Error Boundary
+  unexpectedError: "Something went wrong",
+  unexpectedErrorMessage: "An unexpected error occurred. Try reloading the page.",
+  reloadPage: "Reload page",
   
   // Theme
   theme: "Theme",
@@ -189,6 +241,10 @@ export const en = {
   moreCategory: "more category",
   moreCategories: "more categories",
   mustVoteAllBefore: "You must vote in all categories before submitting your ballot",
+  errorEnterNickname: "Please enter a nickname.",
+  errorMissingVotes: "You are missing votes in {count} category(ies): {names}",
+  errorVotingEnded: "The voting deadline has ended.",
+  errorSavingVote: "Error saving your vote. Please try again.",
   
   // 404 Not Found
   pageNotFound: "Page Not Found",

@@ -4,7 +4,6 @@
  * Se puede integrar con Firebase Crashlytics en el futuro
  */
 
-import { trackError } from './analyticsService';
 import logger from './loggerService';
 
 /**
@@ -73,7 +72,7 @@ export const logError = async (errorType, error, context = {}) => {
 export const getErrorLog = () => {
   try {
     return JSON.parse(localStorage.getItem('appErrorLog') || '[]');
-  } catch (e) {
+  } catch {
     return [];
   }
 };
