@@ -354,12 +354,12 @@ export default function CategoryManager({ language = 'es', onClose }) {
                     draggedCategory?.docId === category.docId && isSaving
                       ? 'bg-yellow-200/60 border-yellow-300 ring-2 ring-yellow-300 dark:bg-yellow-500/40 dark:border-yellow-400 dark:ring-yellow-400'
                       : draggedCategory?.docId === category.docId
-                      ? 'bg-slate-700/20 border-slate-500 opacity-50 scale-95'
+                      ? 'bg-[var(--bg-tertiary)] border-[var(--border-secondary)] opacity-50 scale-95'
                       : hoveredIndex === index && draggedCategory && !isSaving
                       ? 'bg-yellow-100/60 border-yellow-300 ring-2 ring-yellow-300/50 dark:bg-yellow-500/30 dark:border-yellow-400 dark:ring-yellow-400/50'
                       : editingId === category.docId
                       ? 'bg-yellow-100/50 border-yellow-300/50 dark:bg-yellow-500/20 dark:border-yellow-400/50'
-                      : 'bg-slate-700/30 border-slate-600/30 hover:border-slate-500/50'
+                      : 'theme-card hover:border-[var(--border-secondary)]'
                   }`}
                 >
                   {/* Nº de orden (orderIndex + 1) */}
@@ -543,7 +543,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
                   </Button>
                 </div>
 
-                <div className="flex gap-3 flex-shrink-0 border-t border-slate-700/50 pt-4">
+                <div className="flex gap-3 flex-shrink-0 border-t theme-border-primary pt-4">
                   <Button variant="primary" fullWidth loading={false} type="submit">
                     {editingId ? t('save') : t('create')}
                   </Button>

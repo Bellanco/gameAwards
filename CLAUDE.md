@@ -46,7 +46,7 @@ src/
 │   ├── form/                # Inputs de formulario (TextInput, Select, Checkbox…) + index.js
 │   └── layouts/             # ScreenLayout, ControlBar
 ├── hooks/                   # Hooks custom, reexportados desde hooks/index.js
-├── services/               # Lógica sin UI (Firestore, analytics, errores, logger, imágenes)
+├── services/               # Lógica sin UI (Firestore, analytics, errores, logger)
 ├── data/
 │   ├── literals.js          # índice i18n → useTranslation(language)
 │   └── i18n/{es,en}.js      # textos (mismas claves en ambos)
@@ -59,8 +59,10 @@ src/
 - `0..n-1` → Votación (una categoría por paso)
 - `n` (= `validCategories.length`) → Revisión
 - `99` → Éxito
-- Ruta `/admin` → `AdminPanel` (siempre accesible, salta el flujo)
-- Deadline: 1 de diciembre, calculado en un `useEffect`.
+- Ruta `/admin` → `AdminPanel` (siempre accesible, salta el flujo; carga diferida con `lazy`)
+- Bloqueo de re-voto: si el usuario ya tiene ballot en Firestore → `AlreadyVotedScreen`
+- Votación cerrada (`isDeadlineReached`) → `DeadlineScreen` (antes de login y flujo)
+- Sin categorías válidas → mensaje de aviso (no hay pantalla dedicada)
 
 ## Reglas del proyecto (no negociables)
 
@@ -84,13 +86,15 @@ src/
 ## Firebase / Firestore
 
 - Auth: Google (`signInWithPopup`). El **UID de Firebase es el ID del documento** → garantiza
-  un voto por usuario. Escribe con `setDoc(doc(db, "ballots", uid), data)` (upsert).
+  un voto por usuario. Escribe con `setDoc(doc(db, "ballots", uid), data)` — solo `create`
+  (las reglas deniegan `update`: un voto por persona, no modificable).
 - Colecciones:
   - `ballots/{uid}` — voto del usuario. **Lectura solo dueño o admin** (no público).
   - `categories/{id}` — categorías bilingües (lectura pública, escritura admin).
   - `config/voting` — estado de la votación (lectura pública, escritura admin).
   - `results/{year}` — archivo de resultados por temporada (lectura pública, escritura admin).
-  - `winners`/`surveyWinners`/`admin` — colecciones de compatibilidad/admin.
+  - `winners`/`surveyWinners` — compatibilidad legacy (lectura pública, escritura/borrado admin).
+  - `admin/**` — configuración sensible (lectura y escritura solo admin).
 - Reglas en `firestore.rules`. **Escritura valida `isOwner` o `isAdmin()`**; `ballots` valida
   esquema en el write. `delete` de ballots solo admin (reinicio anual). Si tocas el modelo de
   datos, actualiza también las reglas.
@@ -148,6 +152,30 @@ src/
 `<tipo>(<scope>): <asunto>` — tipos: `feat`, `fix`, `refactor`, `style`, `docs`, `chore`.
 Ej.: `fix(auth): resolver error de UID en Firebase`. No commitees ni hagas push salvo que se pida.
 
+## Agentes (`.claude/agents/`)
+
+Agentes especializados con el contexto del proyecto precargado. Delega en ellos por dominio.
+**`CLAUDE.md` (este archivo) es la fuente única de verdad**; los agentes son guías de trabajo
+que apuntan aquí para los hechos volátiles (modelo de datos, rutas, scripts).
+
+| Agente | Modelo | Cuándo usarlo |
+|---|---|---|
+| `feature-builder` | sonnet | Construir/refactorizar UI React, pantallas, hooks, flujo de votación, bugs de estado. |
+| `firebase-guardian` | sonnet | Firestore (lecturas/escrituras/queries), modelo de datos, `firestore.rules`, Auth. |
+| `content-i18n` | haiku | Categorías/nominados y textos i18n (ES/EN); auditar paridad de claves. |
+| `agent-maintainer` | sonnet | Resincronizar agentes + este `CLAUDE.md` contra el código (anti-drift). |
+
+### Protocolo de mantenimiento (mantener el contexto al día)
+
+Los archivos de agente son estáticos: no se actualizan solos. Para que su contexto no quede
+obsoleto a medida que la app evoluciona:
+
+1. Mantén **este `CLAUDE.md`** al día cuando cambies arquitectura, modelo de datos, rutas o
+   scripts. Los agentes delegan aquí lo volátil, así que esto los mantiene correctos.
+2. Tras un cambio estructural relevante (o periódicamente), invoca al agente **`agent-maintainer`**
+   para auditar drift y resincronizar `CLAUDE.md` + agentes con el código real. Devuelve un
+   informe de qué corrigió y qué requiere decisión humana.
+
 ## Referencias
 
 - Estándares detallados: `.github/instructions/tga-ballot-standards.instructions.md`
@@ -161,5 +189,5 @@ Ej.: `fix(auth): resolver error de UID en Firebase`. No commitees ni hagas push 
   verifican el estado inicial); si se añaden aserciones sobre el estado resuelto, usar `waitFor`.
 - El acceso admin requiere asignar el custom claim `admin:true` (ver comando arriba) **antes**
   de poder leer `ballots` o escribir categorías/config. Sin el claim, el panel mostrará 404.
-- El bundle principal supera 500 kB (Firebase). Si importa, valorar code-splitting con
-  `import()` dinámico o `manualChunks`.
+- El bundle principal es grande (Firebase). `AdminPanel` ya se carga con `lazy()` (code-splitting).
+  Si importa reducir más, valorar `manualChunks` en `vite.config.js` para separar `firebase` y `react`.

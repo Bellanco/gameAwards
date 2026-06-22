@@ -9,7 +9,7 @@ export const es = {
   votingOpen: "La votación está abierta",
   
   // Login
-  loginSubtitle: "Participa en la porra oficial de The Game Awards",
+  loginSubtitle: "Participa en la porra de The Game Awards",
   loginBtn: "Inicia sesión con Google",
   daysRemaining: "días restantes",
   votingNowOpen: "La votación está abierta ahora",
@@ -81,7 +81,7 @@ export const es = {
   checkBackDecember: "Regresa para ver los ganadores de The Game Awards.",
   signOut: "Cerrar sesión",
   thankYouForVoting: "Gracias por votar en The Game Awards",
-  officialsVotingPlatform: "La plataforma oficial de votación de The Game Awards",
+  officialsVotingPlatform: "La plataforma de votación de The Game Awards",
   
   // Ya votó (bloqueo de re-voto)
   alreadyVotedTitle: "Ya has votado",

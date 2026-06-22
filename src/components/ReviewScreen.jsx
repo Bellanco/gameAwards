@@ -110,7 +110,7 @@ export default function ReviewScreen({
             value={userDisplayName}
             onChange={(e) => onDisplayNameChange(e.target.value)}
             placeholder={t('enterNickname')}
-            className="w-full px-4 py-3 bg-white dark:bg-slate-800 theme-text-primary border-2 border-gray-300 dark:border-slate-600 rounded-lg theme-placeholder focus:border-status-warning focus:outline-none focus:ring-1 focus:ring-status-warning transition-colors"
+            className="w-full px-4 py-3 theme-container-secondary border-2 theme-border-primary rounded-lg theme-placeholder focus:border-status-warning focus:outline-none focus:ring-1 focus:ring-status-warning transition-colors"
           />
           <p className="text-xs theme-text-tertiary mt-2">
             {userDisplayName.length}/50

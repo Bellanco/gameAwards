@@ -402,12 +402,12 @@ function App() {
   // Loading inicial (autenticación)
   if (isLoadingAuth) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
+      <div className="min-h-screen theme-gradient-primary flex items-center justify-center">
         <div className="text-center">
           <div className="mb-4 flex justify-center">
-            <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin"></div>
+            <div className="w-12 h-12 border-4 theme-border-primary border-t-blue-500 rounded-full animate-spin"></div>
           </div>
-          <p className="text-slate-400">{t('loadingApp')}</p>
+          <p className="theme-text-tertiary">{t('loadingApp')}</p>
         </div>
       </div>
     );
@@ -416,12 +416,12 @@ function App() {
   // Loading de categorías
   if (categoriesLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+      <div className="min-h-screen theme-gradient-primary flex items-center justify-center p-4">
         <div className="text-center">
           <div className="mb-4 flex justify-center">
-            <div className="w-12 h-12 border-4 border-slate-700 border-t-emerald-500 rounded-full animate-spin"></div>
+            <div className="w-12 h-12 border-4 theme-border-primary border-t-emerald-500 rounded-full animate-spin"></div>
           </div>
-          <p className="text-slate-400">{t('loadingCategories')}</p>
+          <p className="theme-text-tertiary">{t('loadingCategories')}</p>
         </div>
       </div>
     );
@@ -436,8 +436,8 @@ function App() {
   if (window.location.pathname === '/admin') {
     return (
       <Suspense fallback={
-        <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-          <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin" />
+        <div className="min-h-screen theme-gradient-primary flex items-center justify-center">
+          <div className="w-12 h-12 border-4 theme-border-primary border-t-blue-500 rounded-full animate-spin" />
         </div>
       }>
         <AdminPanel language={language} onToggleLanguage={toggleLanguage} theme={theme} onToggleTheme={toggleTheme} />
@@ -448,13 +448,13 @@ function App() {
   // Sin categorías válidas - mostrar mensaje solo para público
   if (validCategories.length === 0 && !isLoadingAuth && !categoriesLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4">
+      <div className="min-h-screen theme-gradient-primary flex items-center justify-center p-4">
         <div className="text-center">
           <div className="text-5xl mb-4">📋</div>
-          <h1 className="text-2xl font-bold text-white mb-2">No hay categorías disponibles</h1>
-          <p className="text-slate-400">{t('errorTryAgain')}</p>
+          <h1 className="text-2xl font-bold theme-text-primary mb-2">No hay categorías disponibles</h1>
+          <p className="theme-text-tertiary">{t('errorTryAgain')}</p>
           {categories.length > 0 && (
-            <p className="text-xs text-slate-500 mt-4">
+            <p className="text-xs theme-text-tertiary mt-4">
               (Admin: {categories.length} categoría(s) en base de datos, pero vacías)
             </p>
           )}
@@ -471,8 +471,8 @@ function App() {
   // Comprobando en Firestore si el usuario ya votó (evita parpadeo)
   if (currentUser && !voteChecked && currentStep !== 99) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-slate-700 border-t-blue-500 rounded-full animate-spin" />
+      <div className="min-h-screen theme-gradient-primary flex items-center justify-center">
+        <div className="w-12 h-12 border-4 theme-border-primary border-t-blue-500 rounded-full animate-spin" />
       </div>
     );
   }

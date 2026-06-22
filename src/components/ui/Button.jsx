@@ -36,10 +36,10 @@ export default function Button({
   // Variantes de color
   const variantClasses = {
     primary: 'bg-blue-600 hover:bg-blue-700 text-white',
-    secondary: 'bg-slate-800 hover:bg-slate-700 text-slate-100',
+    secondary: 'theme-btn-secondary border',
     success: 'btn-success',
     danger: 'btn-danger',
-    outline: 'bg-transparent border border-slate-600 hover:bg-slate-800 text-slate-100'
+    outline: 'bg-transparent border theme-border-secondary theme-text-primary hover:bg-[var(--bg-secondary)]'
   };
 
   // Tamaños

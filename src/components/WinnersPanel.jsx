@@ -9,7 +9,7 @@
  * Ventajas:
  * - Un único componente con lógica centralizada
  * - Usa hooks custom (useFirestoreCategories, useFirestoreBallots)
- * - Componentes UI reutilizables (Button, Card, Alert, Table)
+ * - Componentes UI reutilizables (Button, Card, Alert)
  * - Todos los literales en i18n
  * - Mejor manejo de errores
  */
@@ -291,7 +291,7 @@ export default function WinnersPanel({
                                 p-4 rounded-lg font-semibold transition-all text-center
                                 ${isWinner
                                   ? 'bg-yellow-600 text-white border-2 border-yellow-400'
-                                  : 'bg-slate-700 hover:bg-slate-600 text-slate-200 border-2 border-transparent'
+                                  : 'theme-btn-secondary border-2 border-transparent'
                                 }
                               `}
                             >
@@ -395,15 +395,15 @@ export default function WinnersPanel({
                 ) : (
                   <>
                     {/* Encabezados de las columnas */}
-                    <div className="grid grid-cols-3 gap-4 px-3 py-2 border-b border-slate-600 text-xs font-bold text-slate-400 uppercase">
+                    <div className="grid grid-cols-3 gap-4 px-3 py-2 border-b theme-border-primary text-xs font-bold theme-text-tertiary uppercase">
                       <span>{t('categories')}</span>
                       <span className="text-center">{t('vote')}</span>
                       <span className="text-right">{t('points')}</span>
                     </div>
                     {/* Filas de datos */}
                     {getUserCorrectVotes(selectedUserId).map((vote, idx) => (
-                      <div key={idx} className="grid grid-cols-3 gap-4 p-3 bg-slate-700/50 rounded items-center">
-                        <span className="text-slate-300">{vote.category}</span>
+                      <div key={idx} className="grid grid-cols-3 gap-4 p-3 theme-card rounded items-center">
+                        <span className="theme-text-secondary">{vote.category}</span>
                         <span className="text-success font-semibold text-center">{vote.vote}</span>
                         <span className="theme-accent font-bold text-right">+{vote.points} {t('pts')}</span>
                       </div>
