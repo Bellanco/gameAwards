@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from '../data/literals';
+import { useAppContext } from '../context/AppContext';
 import { getRandomGradients } from '../utils/gradients';
 import { hasTitle, getCategoryTitle, getOptionLabel } from '../utils/localize';
 import GameCard from './GameCard';
 import { ScreenLayout } from './layouts';
 import { Header } from './ui';
+import { TextInput } from './form';
+import { MAX_USER_TEXT_LENGTH } from '../utils/sanitize';
 
 /**
  * ReviewScreen v5 - Refactorizado con componentes modulares
@@ -20,10 +23,6 @@ export default function ReviewScreen({
   onReturnHome,
   isLoading,
   errorMessage,
-  language,
-  onToggleLanguage,
-  theme,
-  onToggleTheme
 }) {
   // Filtrar solo categorías válidas (no placeholders, no vacías)
   const validCategories = useMemo(() =>
@@ -36,6 +35,7 @@ export default function ReviewScreen({
   const totalCategories = validCategories.length;
   const isComplete = voteCount === totalCategories;
   const missingVotes = totalCategories - voteCount;
+  const { language } = useAppContext();
   const t = useTranslation(language);
 
   // DEBUG - Verificar estado de votos
@@ -79,51 +79,39 @@ export default function ReviewScreen({
       subtitle={`${voteCount} ${t('of')} ${totalCategories} ${t('categoriesVoted')}`}
       progress={`${voteCount} / ${totalCategories}`}
       progressPercentage={totalCategories > 0 ? Math.round((voteCount / totalCategories) * 100) : 0}
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
     />
   );
 
   return (
     <ScreenLayout
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
       header={headerContent}
       footer={null}
       showControlBar={false}
     >
       {/* Contenido principal */}
       <div className="w-full max-w-7xl mx-auto px-4 md:px-6 py-8 flex flex-col">
-        {/* 1. Display Name Input */}
+        {/* 1. Nombre visible. El tope sale de utils/sanitize, que es el mismo
+            que exigen las reglas de Firestore: así el input no puede aceptar
+            algo que el servidor vaya a rechazar. */}
         <div className="theme-card theme-border-primary border rounded-lg p-6 mb-6">
-          <label htmlFor="reviewDisplayName" className="block text-sm font-bold theme-text-primary mb-3">
-            {t('displayName')}
-          </label>
-          <input
-            id="reviewDisplayName"
-            type="text"
-            maxLength="50"
+          <TextInput
+            label={t('displayName')}
+            name="reviewDisplayName"
             value={userDisplayName}
             onChange={(e) => onDisplayNameChange(e.target.value)}
             placeholder={t('enterNickname')}
-            className="w-full px-4 py-3 theme-container-secondary border-2 theme-border-primary rounded-lg theme-placeholder focus:border-status-warning focus:outline-none focus:ring-1 focus:ring-status-warning transition-colors"
+            maxLength={MAX_USER_TEXT_LENGTH}
+            required
           />
-          <p className="text-xs theme-text-tertiary mt-2">
-            {userDisplayName.length}/50
-          </p>
         </div>
 
         {/* 2. Warning if incomplete */}
         {!isComplete && (
           <div className="p-4 status-warning rounded-lg mb-8 border border-status-warning">
-            <p className="text-sm font-semibold text-white">
+            <p className="text-sm font-semibold">
               {t('completeVoteInCategory')} {missingVotes} {missingVotes !== 1 ? t('moreCategories') : t('moreCategory')}
             </p>
-            <p className="text-xs mt-1 opacity-90 text-white">
+            <p className="text-sm mt-1 opacity-95">
               {t('mustVoteAllBefore')}
             </p>
           </div>
@@ -136,7 +124,7 @@ export default function ReviewScreen({
             aria-live="assertive"
             className="p-4 status-error rounded-lg mb-6 border border-status-error"
           >
-            <p className="text-sm font-semibold text-white">{errorMessage}</p>
+            <p className="text-sm font-semibold">{errorMessage}</p>
           </div>
         )}
 
@@ -144,7 +132,7 @@ export default function ReviewScreen({
         <div className="flex gap-3 md:gap-4 w-full mb-8">
           <button
             onClick={handleEditVotes}
-            className="flex-1 py-3 px-4 rounded-lg font-semibold theme-card theme-border-primary border theme-text-primary transition-all hover:border-status-warning hover:bg-status-warning/10"
+            className="flex-1 py-3 px-4 rounded-lg font-semibold theme-btn-secondary border theme-text-primary transition-all hover:theme-border-secondary"
           >
             {t('editVotes')}
           </button>
@@ -153,7 +141,7 @@ export default function ReviewScreen({
             disabled={!isComplete || isLoading}
             className={`flex-1 py-3 px-4 rounded-lg font-bold transition-all ${
               isComplete && !isLoading
-                ? 'bg-gradient-to-r from-amber-700 to-amber-800 text-white hover:from-amber-600 hover:to-amber-700 hover:shadow-lg hover:shadow-amber-700/30 transform hover:scale-105'
+                ? 'theme-btn-primary transform hover:scale-105'
                 : 'theme-card theme-text-tertiary cursor-not-allowed opacity-50'
             }`}
             title={!isComplete ? t('completeAllCategories') : ''}
@@ -186,7 +174,7 @@ export default function ReviewScreen({
                   key={category.id}
                   variant="review"
                   gameName={votedName}
-                  gradient={votedGame ? gameGradients[votedGame?.id] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80' : 'bg-slate-900/80'}
+                  gradient={votedGame ? gameGradients[votedGame?.id] || 'bg-gradient-to-br from-stone-900/70 to-slate-700/70' : 'bg-zinc-900/70'}
                   isVoted={!!votedGame}
                   onSelect={() => onPrevious(categoryIndex)}
                   categoryTitle={getCategoryTitle(category, language)}
@@ -202,7 +190,7 @@ export default function ReviewScreen({
         {onReturnHome && (
           <button
             onClick={onReturnHome}
-            className="w-full py-3 px-4 rounded-lg font-semibold theme-card theme-border-primary border theme-text-primary transition-all hover:border-status-error hover:bg-status-error/10"
+            className="w-full py-3 px-4 rounded-lg font-semibold theme-btn-secondary theme-border-primary border theme-text-primary transition-all hover:theme-border-secondary"
             title={t('cancelVoting')}
           >
             {t('cancel')}

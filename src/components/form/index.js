@@ -3,5 +3,3 @@
  */
 
 export { default as TextInput } from './TextInput';
-export { default as FormGroup } from './FormGroup';
-export { default as Checkbox } from './Checkbox';

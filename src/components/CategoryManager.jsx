@@ -1,24 +1,18 @@
 import React, { useState } from 'react';
-import { setDoc, deleteDoc, doc, writeBatch } from 'firebase/firestore';
-import { db } from '../firebase';
 import { useTranslation } from '../data/literals';
+import { useAppContext } from '../context/AppContext';
 import { useFirestoreCategories } from '../hooks';
-import { Button, Card, Alert } from './ui';
+import { Button } from './ui';
+import CategoryList from './admin/CategoryList';
+import CategoryForm from './admin/CategoryForm';
 import { logError, ERROR_TYPES } from '../services/errorService';
 import { tField, getCategoryTitle, hasTitle } from '../utils/localize';
-import { sortCategoriesByOrder } from '../services/categoriesService';
-
-/**
- * Generar UUID v4
- * @returns {string}
- */
-const generateUUID = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
+import {
+  sortCategoriesByOrder,
+  saveCategory,
+  deleteCategory,
+  reorderCategories,
+} from '../services/categoriesService';
 
 const emptyOption = () => ({ id: null, value: '' });
 
@@ -40,7 +34,8 @@ const emptyForm = () => ({
  * @param {string} language - Idioma de la interfaz ('es' | 'en')
  * @param {Function} onClose - Callback para cerrar el panel
  */
-export default function CategoryManager({ language = 'es', onClose }) {
+export default function CategoryManager({ onClose }) {
+  const { language } = useAppContext();
   const t = useTranslation(language);
   const { categories, isLoading, refetch } = useFirestoreCategories(true);
 
@@ -107,43 +102,19 @@ export default function CategoryManager({ language = 'es', onClose }) {
 
     try {
       setIsSaving(true);
-      const docId = editingId || generateUUID();
 
-      // Nombres de juego en idioma único: se guardan como { id, name }.
-      // El `id` se conserva al editar para que optionId/votos/scoring no cambien.
-      const options = validOptions.map((opt, idx) => {
-        const value = opt.value.trim();
-        return { id: opt.id || `${docId}_option_${idx}`, name: value };
-      });
-      const optionIds = options.map(o => o.id);
+      // Las nuevas van al final del orden actual.
+      const indices = categories.map(c => typeof c.orderIndex === 'number' ? c.orderIndex : 0);
+      const orderIndex = (indices.length > 0 ? Math.max(...indices) : -1) + 1;
 
-      const title = {
-        es: formData.titleEs.trim(),
-        en: (formData.titleEn.trim() || formData.titleEs.trim()),
-      };
-
-      // Calcular orderIndex para nuevas categorías
-      let orderIndex;
-      if (!editingId) {
-        const indices = categories.map(c => typeof c.orderIndex === 'number' ? c.orderIndex : 0);
-        orderIndex = (indices.length > 0 ? Math.max(...indices) : -1) + 1;
-      }
-
-      // merge:true SIEMPRE. Al editar, NO incluimos orderIndex/createdAt/isActive,
-      // así se preservan (antes con merge:false se borraban y la categoría se
-      // reordenaba al perder su orderIndex).
-      await setDoc(doc(db, 'categories', docId), {
-        title,
-        options,
-        optionIds,
+      await saveCategory({
+        docId: editingId,
+        titleEs: formData.titleEs,
+        titleEn: formData.titleEn,
+        options: validOptions,
         weight,
-        ...(editingId ? { updatedAt: new Date().toISOString() } : {
-          orderIndex,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isActive: true
-        })
-      }, { merge: true });
+        orderIndex,
+      });
 
       setSuccessMessage(editingId ? t('updated') : t('created'));
       setFormData(emptyForm());
@@ -166,24 +137,10 @@ export default function CategoryManager({ language = 'es', onClose }) {
 
     try {
       setIsSaving(true);
-      const validCats = categories.filter(cat => hasTitle(cat));
+      const isLastWithTitle = categories.filter(cat => hasTitle(cat)).length === 1;
 
-      if (validCats.length === 1) {
-        // Si es la última, crear placeholder para mantener la colección.
-        await setDoc(doc(db, 'categories', docId), {
-          title: { es: '', en: '' },
-          options: [],
-          optionIds: [],
-          weight: 1,
-          isPlaceholder: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        });
-        setSuccessMessage(t('catDeletedKept'));
-      } else {
-        await deleteDoc(doc(db, 'categories', docId));
-        setSuccessMessage(t('deleted'));
-      }
+      const { kept } = await deleteCategory(docId, isLastWithTitle);
+      setSuccessMessage(kept ? t('catDeletedKept') : t('deleted'));
 
       await refetch();
       setTimeout(() => setSuccessMessage(''), 2500);
@@ -225,14 +182,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
   const persistOrder = async (ordered) => {
     try {
       setIsSaving(true);
-      const batch = writeBatch(db);
-      ordered.forEach((cat, i) => {
-        batch.update(doc(db, 'categories', cat.docId), {
-          orderIndex: i,
-          updatedAt: new Date().toISOString(),
-        });
-      });
-      await batch.commit();
+      await reorderCategories(ordered);
       await refetch();
       setSuccessMessage(t('reordered'));
       setTimeout(() => setSuccessMessage(''), 1200);
@@ -284,13 +234,13 @@ export default function CategoryManager({ language = 'es', onClose }) {
       <div className="h-screen flex flex-col theme-gradient-primary items-center justify-center">
         <div className="relative w-24 h-24">
           <div className="absolute inset-0 rounded-full border-4 theme-border-primary"></div>
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-amber-600 border-r-amber-700 animate-spin"></div>
-          <div className="absolute inset-2 rounded-full bg-gradient-to-br from-amber-600/20 to-orange-600/20 flex items-center justify-center">
-            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-amber-600 to-orange-600 animate-pulse"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[var(--color-accent)] border-r-[var(--color-secondary)] animate-spin"></div>
+          <div className="absolute inset-2 rounded-full bg-status-warning-light flex items-center justify-center">
+            <div className="w-3 h-3 rounded-full theme-accent-bg theme-flicker"></div>
           </div>
         </div>
         <div className="mt-12 text-center">
-          <p className="text-lg font-semibold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+          <p className="text-lg font-semibold theme-accent theme-display uppercase">
             {t('loadingData')}
           </p>
           <p className="text-sm theme-text-secondary mt-3">{t('preparingPanel')}</p>
@@ -305,10 +255,10 @@ export default function CategoryManager({ language = 'es', onClose }) {
       <div className="theme-container-secondary theme-border-primary border-b backdrop-blur px-4 md:px-6 py-3 flex-shrink-0 z-40">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-xl md:text-2xl font-black bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+            <h1 className="text-xl md:text-2xl font-black theme-accent theme-display uppercase">
               {t('categories')}
             </h1>
-            <p className="theme-text-secondary text-xs md:text-sm mt-0.5">{validCategories.length} {t('activeFem')}</p>
+            <p className="theme-text-secondary text-sm mt-0.5">{validCategories.length} {t('activeFem')}</p>
           </div>
           <Button variant="secondary" size="md" onClick={onClose}>
             ✕ {t('back')}
@@ -319,244 +269,40 @@ export default function CategoryManager({ language = 'es', onClose }) {
       {/* Content */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-3 overflow-hidden px-4 md:px-6 py-3">
 
-        {/* Sidebar - List */}
-        <Card className="md:col-span-1 flex flex-col overflow-hidden">
-          <div className="p-3 border-b theme-border-primary flex-shrink-0">
-            <input
-              type="text"
-              placeholder={`${t('search')}...`}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 theme-container-secondary theme-border-primary border rounded theme-text-primary theme-placeholder text-sm focus:outline-none focus:border-amber-600/50"
-              disabled={isSaving}
-            />
-          </div>
+        <CategoryList
+          orderedCategories={orderedCategories}
+          filteredCategories={filteredCategories}
+          validCategories={validCategories}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          searching={searching}
+          isSaving={isSaving}
+          editingId={editingId}
+          draggedCategory={draggedCategory}
+          setDraggedCategory={setDraggedCategory}
+          hoveredIndex={hoveredIndex}
+          setHoveredIndex={setHoveredIndex}
+          onEdit={handleEditCategory}
+          onDelete={handleDeleteCategory}
+          onMove={moveCategory}
+          onDrop={handleDropCategory}
+        />
 
-          <div className="flex-1 overflow-y-auto space-y-1.5 p-3">
-            {filteredCategories.length === 0 ? (
-              <p className="theme-text-tertiary text-center text-xs py-4">
-                {searchTerm ? t('notFound') : t('noCategories')}
-              </p>
-            ) : (
-              filteredCategories.map((category, index) => {
-                const orderNum = orderedCategories.findIndex(c => c.docId === category.docId) + 1;
-                return (
-                <div
-                  key={category.docId}
-                  draggable={!isSaving && !searching}
-                  onDragStart={(e) => { if (searching) return; e.dataTransfer.effectAllowed = 'move'; setDraggedCategory(category); }}
-                  onDragEnd={() => setDraggedCategory(null)}
-                  onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-                  onDragEnter={(e) => { e.preventDefault(); setHoveredIndex(index); }}
-                  onDragLeave={(e) => { if (e.currentTarget === e.target) setHoveredIndex(null); }}
-                  onDrop={(e) => handleDropCategory(e, category)}
-                  className={`p-3 rounded border transition-all flex items-center gap-2 group ${searching ? '' : 'cursor-grab'} ${
-                    draggedCategory?.docId === category.docId && isSaving
-                      ? 'bg-yellow-200/60 border-yellow-300 ring-2 ring-yellow-300 dark:bg-yellow-500/40 dark:border-yellow-400 dark:ring-yellow-400'
-                      : draggedCategory?.docId === category.docId
-                      ? 'bg-[var(--bg-tertiary)] border-[var(--border-secondary)] opacity-50 scale-95'
-                      : hoveredIndex === index && draggedCategory && !isSaving
-                      ? 'bg-yellow-100/60 border-yellow-300 ring-2 ring-yellow-300/50 dark:bg-yellow-500/30 dark:border-yellow-400 dark:ring-yellow-400/50'
-                      : editingId === category.docId
-                      ? 'bg-yellow-100/50 border-yellow-300/50 dark:bg-yellow-500/20 dark:border-yellow-400/50'
-                      : 'theme-card hover:border-[var(--border-secondary)]'
-                  }`}
-                >
-                  {/* Nº de orden (orderIndex + 1) */}
-                  <div
-                    className="flex-shrink-0 w-7 h-7 rounded-full theme-accent-bg text-white text-xs font-bold flex items-center justify-center"
-                    title={t('order')}
-                  >
-                    {orderNum}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <button
-                      onClick={() => handleEditCategory(category)}
-                      disabled={isSaving}
-                      className="w-full text-left mb-2 disabled:opacity-50"
-                    >
-                      <div className="font-semibold truncate theme-text-primary text-sm">{getCategoryTitle(category, language)}</div>
-                      <div className="flex gap-3 mt-1 text-xs theme-text-tertiary">
-                        <span>{category.options?.length || 0} {t('options').toLowerCase()}</span>
-                        <span className="font-semibold theme-accent">{category.weight || 1}x</span>
-                      </div>
-                    </button>
-
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      fullWidth
-                      onClick={() => handleDeleteCategory(category.docId)}
-                      loading={false}
-                    >
-                      {t('delete')}
-                    </Button>
-                  </div>
-
-                  {/* Subir / bajar (reasigna el nº de orden) */}
-                  <div className="flex-shrink-0 flex flex-col gap-1">
-                    <button
-                      type="button"
-                      onClick={() => moveCategory(category.docId, 'up')}
-                      disabled={isSaving || searching || orderNum === 1}
-                      title={t('moveUp')}
-                      aria-label={t('moveUp')}
-                      className="w-7 h-6 rounded theme-container-secondary theme-border-primary border text-xs theme-text-secondary hover:theme-border-secondary disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      ▲
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveCategory(category.docId, 'down')}
-                      disabled={isSaving || searching || orderNum === orderedCategories.length}
-                      title={t('moveDown')}
-                      aria-label={t('moveDown')}
-                      className="w-7 h-6 rounded theme-container-secondary theme-border-primary border text-xs theme-text-secondary hover:theme-border-secondary disabled:opacity-30 disabled:cursor-not-allowed"
-                    >
-                      ▼
-                    </button>
-                  </div>
-                </div>
-                );
-              })
-            )}
-          </div>
-
-          <div className="p-3 border-t theme-border-primary theme-text-tertiary flex-shrink-0 text-center text-xs">
-            {filteredCategories.length} / {validCategories.length}
-            {searching && <div className="mt-1 theme-accent">{t('reorderSearchHint')}</div>}
-          </div>
-        </Card>
-
-        {/* Form Panel */}
-        <div className="md:col-span-2 lg:col-span-3 flex flex-col gap-3 overflow-hidden min-h-0">
-
-          {errorMessage && (
-            <Alert type="error" autoClose={3000} onClose={() => setErrorMessage('')}>
-              {errorMessage}
-            </Alert>
-          )}
-          {successMessage && (
-            <Alert type="success" autoClose={2500} onClose={() => setSuccessMessage('')}>
-              {successMessage}
-            </Alert>
-          )}
-
-          <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
-            <Card.Header>
-              <h2 className="text-lg font-bold theme-text-primary">
-                {editingId ? t('edit') : t('newFem')}
-              </h2>
-            </Card.Header>
-
-            <Card.Body className="flex-1 overflow-y-auto">
-              <form onSubmit={handleAddCategory} className="space-y-4 flex flex-col h-full">
-
-                {/* Título bilingüe */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm font-semibold theme-text-primary block mb-2">{t('categoryName')} (ES)</label>
-                    <input
-                      type="text"
-                      value={formData.titleEs}
-                      onChange={(e) => setFormData({ ...formData, titleEs: e.target.value })}
-                      placeholder="ej: Juego del Año"
-                      className="w-full px-4 py-3 theme-container-secondary theme-border-primary border rounded theme-text-primary theme-placeholder text-base focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30"
-                      disabled={isSaving}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold theme-text-primary block mb-2">{t('categoryName')} (EN)</label>
-                    <input
-                      type="text"
-                      value={formData.titleEn}
-                      onChange={(e) => setFormData({ ...formData, titleEn: e.target.value })}
-                      placeholder="e.g. Game of the Year"
-                      className="w-full px-4 py-3 theme-container-secondary theme-border-primary border rounded theme-text-primary theme-placeholder text-base focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30"
-                      disabled={isSaving}
-                    />
-                  </div>
-                </div>
-
-                {/* Ponderación */}
-                <div>
-                  <label className="text-sm font-semibold theme-text-primary block mb-2">{t('weight')}</label>
-                  <div className="flex gap-2">
-                    {[0.5, 1, 2, 3].map((value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, weight: value })}
-                        disabled={isSaving}
-                        className={`flex-1 py-2.5 px-3 rounded text-sm font-bold transition-all ${
-                          formData.weight === value
-                            ? 'theme-accent-bg text-white border border-amber-600'
-                            : 'theme-container-secondary theme-text-secondary theme-border-primary border hover:border-amber-600/50'
-                        }`}
-                      >
-                        {value}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Opciones bilingües */}
-                <div className="flex-1 flex flex-col min-h-0">
-                  <label className="text-sm font-semibold theme-text-primary block mb-2">
-                    {t('options')} ({formData.options.filter(o => o.value.trim()).length})
-                  </label>
-                  <div className="space-y-2 overflow-y-auto flex-1 pr-2">
-                    {formData.options.map((option, index) => (
-                      <div key={index} className="flex gap-2 items-start">
-                        <input
-                          type="text"
-                          value={option.value}
-                          onChange={(e) => handleOptionChange(index, e.target.value)}
-                          placeholder={`${t('option')} ${index + 1}`}
-                          className="flex-1 px-3 py-2 theme-container-secondary theme-border-primary border rounded theme-text-primary text-sm theme-placeholder focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30"
-                          disabled={isSaving}
-                        />
-                        {formData.options.length > 2 && (
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            onClick={() => handleRemoveOption(index)}
-                            loading={false}
-                            type="button"
-                          >
-                            ✕
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  <Button
-                    variant="secondary"
-                    fullWidth
-                    onClick={handleAddOption}
-                    loading={false}
-                    className="mt-3"
-                    type="button"
-                  >
-                    + {t('option')}
-                  </Button>
-                </div>
-
-                <div className="flex gap-3 flex-shrink-0 border-t theme-border-primary pt-4">
-                  <Button variant="primary" fullWidth loading={false} type="submit">
-                    {editingId ? t('save') : t('create')}
-                  </Button>
-                  {editingId && (
-                    <Button variant="secondary" fullWidth onClick={handleCancel} loading={false} type="button">
-                      {t('cancel')}
-                    </Button>
-                  )}
-                </div>
-              </form>
-            </Card.Body>
-          </Card>
-        </div>
+        <CategoryForm
+          formData={formData}
+          setFormData={setFormData}
+          editingId={editingId}
+          isSaving={isSaving}
+          errorMessage={errorMessage}
+          setErrorMessage={setErrorMessage}
+          successMessage={successMessage}
+          setSuccessMessage={setSuccessMessage}
+          onSubmit={handleAddCategory}
+          onCancel={handleCancel}
+          onAddOption={handleAddOption}
+          onRemoveOption={handleRemoveOption}
+          onOptionChange={handleOptionChange}
+        />
       </div>
     </div>
   );

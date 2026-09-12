@@ -33,10 +33,19 @@ export function useTheme() {
    * Aplicar tema al cargar y cuando cambia
    */
   useEffect(() => {
+    const root = document.documentElement;
+
     if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
+      root.classList.add('dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark');
+    }
+
+    root.setAttribute('data-theme', theme);
+
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+      metaTheme.setAttribute('content', theme === 'dark' ? '#0d121a' : '#d8cfbb');
     }
     
     localStorage.setItem('appTheme', theme);

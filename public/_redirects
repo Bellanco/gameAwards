@@ -1,0 +1,5 @@
+# CloudFlare Pages sirve ficheros estáticos: sin esta regla, /admin (que no
+# existe como archivo en dist/) devuelve un 404 del servidor y React no llega a
+# arrancar nunca. Con ella, toda ruta entrega index.html con estado 200 y es la
+# app quien decide qué pintar (ver src/utils/routes.js).
+/*    /index.html   200

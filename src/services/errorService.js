@@ -42,10 +42,15 @@ export const logError = async (errorType, error, context = {}) => {
   // Log en desarrollo
   logger.error(`[${errorType}]`, errorData);
 
-  // Track en Analytics (sin await para no bloquear)
+  // Track en Analytics (sin await para no bloquear).
+  // Se envía SIEMPRE lo ya saneado (errorData.message y, solo en desarrollo, el
+  // contexto): en producción el mensaje crudo puede llevar rutas de Firestore,
+  // identificadores o datos del usuario, y Google Analytics no debe recibirlos.
   try {
     const { trackError } = await import('./analyticsService');
-    trackError(errorType, errorMessage, context).catch(e => logger.warn('Analytics tracking failed', e));
+    trackError(errorType, errorData.message, isDev ? context : {}).catch(e =>
+      logger.warn('Analytics tracking failed', e)
+    );
   } catch (e) {
     logger.warn('Could not import analytics service', e);
   }
@@ -78,28 +83,6 @@ export const getErrorLog = () => {
 };
 
 /**
- * Limpia el log de errores
- */
-export const clearErrorLog = () => {
-  localStorage.removeItem('appErrorLog');
-};
-
-/**
- * Exporta el log de errores como archivo
- */
-export const downloadErrorLog = () => {
-  const errorLog = getErrorLog();
-  const dataStr = JSON.stringify(errorLog, null, 2);
-  const dataBlob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(dataBlob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `error-log-${new Date().toISOString()}.json`;
-  link.click();
-  URL.revokeObjectURL(url);
-};
-
-/**
  * Error handler global para errores no capturados
  */
 export const setupGlobalErrorHandler = () => {
@@ -126,16 +109,4 @@ export const setupGlobalErrorHandler = () => {
       }
     );
   });
-};
-
-/**
- * Wrap para funciones async con error handling
- */
-export const withErrorHandling = async (fn, errorType = ERROR_TYPES.UNKNOWN_ERROR) => {
-  try {
-    return await fn();
-  } catch (error) {
-    logError(errorType, error);
-    throw error;
-  }
 };

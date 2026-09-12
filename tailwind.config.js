@@ -7,14 +7,34 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ['Cinzel', 'Times New Roman', 'serif'],
+        body: ['Source Sans 3', 'Segoe UI', 'Tahoma', 'sans-serif'],
+      },
       screens: {
         'xs': '360px', // iPhone SE y pantallas pequeñas
       },
+      // `h-screen` y `min-h-screen` pasan a usar unidades DINÁMICAS de viewport.
+      //
+      // 100vh en iOS Safari y Chrome Android incluye la barra de direcciones, así
+      // que el layout header/main/footer de VoteScreen dejaba la fila de botones
+      // parcialmente debajo de ella, y en CategoryManager (con overflow-hidden)
+      // el contenido inferior era directamente inalcanzable.
+      //
+      // Se redefine aquí, en un solo sitio, en vez de tocar los ~15 usos. Si
+      // alguna vez hace falta el vh estático, sigue disponible como `h-[100vh]`.
+      // Soporte: Safari 15.4+, Chrome 108+, Firefox 101+ (>96% de navegadores).
+      height: {
+        screen: '100dvh',
+      },
+      minHeight: {
+        screen: '100dvh',
+      },
       colors: {
-        // Colores personalizados para el tema claro
-        primary: '#fafaf8', // Blanco roto (off-white)
-        secondary: '#d97706', // Naranja dorado (golden orange)
-        tertiary: '#06b6d4', // Azul cian (cyan blue)
+        // Colores base inspirados en pergamino y acero
+        primary: '#efe5d3',
+        secondary: '#7d5a2b',
+        tertiary: '#4c9cb6',
         
         // Colores de accesibilidad WCAG 2.1 AA (contraste 4.5:1+)
         'accent': {
@@ -52,11 +72,38 @@ export default {
           'bg-primary': 'var(--bg-primary)',
           'bg-secondary': 'var(--bg-secondary)',
           'bg-tertiary': 'var(--bg-tertiary)',
+          'bg-unvoted': 'var(--bg-unvoted)',
           'text-primary': 'var(--text-primary)',
           'text-secondary': 'var(--text-secondary)',
           'text-tertiary': 'var(--text-tertiary)',
           'text-inverse': 'var(--text-inverse)',
+          'border-primary': 'var(--border-primary)',
+          'border-secondary': 'var(--border-secondary)',
         },
+      },
+      boxShadow: {
+        themeSm: 'var(--shadow-sm)',
+        themeMd: 'var(--shadow-md)',
+        themeLg: 'var(--shadow-lg)',
+      },
+      keyframes: {
+        themeFadeInUp: {
+          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        emberFlicker: {
+          '0%, 100%': { opacity: '0.92', filter: 'saturate(1)' },
+          '50%': { opacity: '1', filter: 'saturate(1.15)' },
+        },
+        metalShine: {
+          '0%': { backgroundPosition: '0% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+      },
+      animation: {
+        'theme-fade-in': 'themeFadeInUp 420ms cubic-bezier(0.22, 1, 0.36, 1)',
+        'ember-flicker': 'emberFlicker 2.8s ease-in-out infinite',
+        'metal-shine': 'metalShine 2.6s linear infinite',
       },
     },
   },

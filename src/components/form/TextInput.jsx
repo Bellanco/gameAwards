@@ -22,7 +22,7 @@ export default function TextInput({
       {label && (
         <label htmlFor={name} className="block text-sm font-bold theme-text-secondary mb-2">
           {label}
-          {required && <span className="text-red-500 ml-1">*</span>}
+          {required && <span className="text-status-error ml-1">*</span>}
         </label>
       )}
       <input
@@ -39,26 +39,26 @@ export default function TextInput({
         className={`
           w-full px-4 py-3 
           theme-container-secondary theme-border-primary border rounded-lg 
-          theme-text-primary placeholder-slate-500 
-          focus:border-yellow-500 focus:outline-none 
+          theme-text-primary theme-placeholder 
+          focus:outline-none focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40 
           transition-colors
           disabled:opacity-50 disabled:cursor-not-allowed
-          ${error ? 'border-red-500' : ''}
+          ${error ? 'border-status-error' : ''}
           ${className}
         `}
       />
       {maxLength && (
-        <p className="text-xs theme-text-tertiary mt-1">
+        <p className="text-sm theme-text-secondary mt-1">
           {value?.length || 0}/{maxLength}
         </p>
       )}
       {error && (
-        <p id={`${name}-error`} className="text-xs text-red-400 mt-1">
+        <p id={`${name}-error`} className="text-sm text-status-error mt-1">
           {error}
         </p>
       )}
       {help && !error && (
-        <p id={`${name}-help`} className="text-xs theme-text-tertiary mt-1">
+        <p id={`${name}-help`} className="text-sm theme-text-secondary mt-1">
           {help}
         </p>
       )}

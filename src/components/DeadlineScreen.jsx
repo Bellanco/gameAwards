@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../data/literals';
+import { useAppContext } from '../context/AppContext';
 import { CloseIcon } from './Icons';
 import { ScreenLayout } from './layouts';
 import { Header } from './ui';
@@ -8,7 +9,8 @@ import { Header } from './ui';
  * DeadlineScreen v4 - Refactorizado con Header reutilizable
  * Muestra que la votación ha finalizado
  */
-export default function DeadlineScreen({ language, onToggleLanguage, theme, onToggleTheme }) {
+export default function DeadlineScreen() {
+  const { language } = useAppContext();
   const t = useTranslation(language);
 
   // Header con controles
@@ -16,25 +18,17 @@ export default function DeadlineScreen({ language, onToggleLanguage, theme, onTo
     <Header
       title={t('votingClosed')}
       subtitle={t('votingDeadlineMessage')}
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
     />
   );
 
   return (
     <ScreenLayout
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
       header={headerContent}
       showControlBar={false}
     >
       {/* Fondo decorativo */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-red-500/5 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-status-error-light rounded-full blur-3xl"></div>
         <div className="absolute bottom-1/3 right-1/4 w-96 h-96 theme-bg-overlay-light rounded-full blur-3xl"></div>
       </div>
 
@@ -43,11 +37,11 @@ export default function DeadlineScreen({ language, onToggleLanguage, theme, onTo
         <div className="text-center max-w-md">
           {/* Icono de reloj */}
           <div className="mb-8">
-            <CloseIcon className="w-24 h-24 mx-auto text-red-500 animate-pulse" />
+            <CloseIcon className="w-24 h-24 mx-auto text-status-error theme-flicker" />
           </div>
 
           {/* Título */}
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight theme-text-primary mb-4">
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight theme-display uppercase theme-text-primary mb-4">
             {t('votingClosed')}
           </h1>
 
@@ -57,13 +51,13 @@ export default function DeadlineScreen({ language, onToggleLanguage, theme, onTo
           </p>
 
           {/* Información principal */}
-          <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-8 mb-8">
+          <div className="bg-status-error-light border border-status-error rounded-2xl p-8 mb-8">
             <div className="flex flex-col gap-4">
               <div>
-                <p className="text-xs text-red-400 uppercase font-semibold mb-2">{t('status')}</p>
-                <p className="text-2xl font-bold text-red-400">{t('closed')}</p>
+                <p className="text-sm text-status-error uppercase font-semibold mb-2">{t('status')}</p>
+                <p className="text-2xl font-bold text-status-error">{t('closed')}</p>
               </div>
-              <div className="border-t border-red-500/20 pt-4">
+              <div className="border-t border-status-error/30 pt-4">
                 <p className="text-sm theme-text-primary leading-relaxed">
                   {t('noNewVotesAccepted')}
                 </p>
@@ -74,23 +68,23 @@ export default function DeadlineScreen({ language, onToggleLanguage, theme, onTo
           {/* Próximas acciones */}
           <div className="space-y-3 mb-10">
             <div className="flex items-center gap-4 p-4 theme-card theme-border-primary border rounded-lg">
-              <span className="text-2xl font-bold">■</span>
+              <span className="text-2xl font-bold theme-accent">■</span>
               <div className="text-left">
-                <p className="text-xs theme-text-tertiary uppercase">{t('results')}</p>
+                <p className="text-sm theme-text-secondary uppercase">{t('results')}</p>
                 <p className="theme-text-primary font-semibold">{t('resultsWillBeShown')}</p>
               </div>
             </div>
             <div className="flex items-center gap-4 p-4 theme-card theme-border-primary border rounded-lg">
-              <span className="text-2xl font-bold">▲</span>
+              <span className="text-2xl font-bold theme-accent">▲</span>
               <div className="text-left">
-                <p className="text-xs theme-text-tertiary uppercase">{t('nextEdition')}</p>
+                <p className="text-sm theme-text-secondary uppercase">{t('nextEdition')}</p>
                 <p className="theme-text-primary font-semibold">{t('decemberNextYear')}</p>
               </div>
             </div>
             <div className="flex items-center gap-4 p-4 theme-card theme-border-primary border rounded-lg">
-              <span className="text-2xl font-bold">▶</span>
+              <span className="text-2xl font-bold theme-accent">▶</span>
               <div className="text-left">
-                <p className="text-xs theme-text-tertiary uppercase">{t('stayTuned')}</p>
+                <p className="text-sm theme-text-secondary uppercase">{t('stayTuned')}</p>
                 <p className="theme-text-primary font-semibold">{t('weWillNotifyYou')}</p>
               </div>
             </div>
@@ -112,7 +106,7 @@ export default function DeadlineScreen({ language, onToggleLanguage, theme, onTo
           </button>
 
           {/* Footer */}
-          <p className="mt-6 text-xs theme-text-tertiary">
+          <p className="mt-6 text-sm theme-text-secondary">
             © The Game Awards {new Date().getFullYear()}
           </p>
         </div>

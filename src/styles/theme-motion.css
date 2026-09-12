@@ -1,0 +1,56 @@
+/*
+ * Capa de motion global del tema.
+ */
+
+.theme-entrance {
+  animation: themeFadeInUp var(--motion-slow) var(--motion-ease);
+}
+
+.theme-flicker {
+  animation: emberFlicker 2.8s ease-in-out infinite;
+}
+
+.theme-shine {
+  background-size: 200% 100%;
+  animation: metalShine 2.6s linear infinite;
+}
+
+@keyframes themeFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes emberFlicker {
+  0%, 100% {
+    opacity: 0.92;
+    filter: saturate(1);
+  }
+  50% {
+    opacity: 1;
+    filter: saturate(1.15);
+  }
+}
+
+@keyframes metalShine {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

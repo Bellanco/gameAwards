@@ -1,10 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../data/literals';
+import { useAppContext } from '../context/AppContext';
+import { useViewport } from '../hooks/useViewport';
 import { getRandomGradients } from '../utils/gradients';
+import { getGridColumns } from '../utils/gridDensity';
 import { tField, getCategoryTitle, getOptionId, getOptionLabel } from '../utils/localize';
 import GameCard from './GameCard';
 import { ScreenLayout } from './layouts';
 import { Header, Footer } from './ui';
+import { trackCategoryViewed } from '../services/analyticsService';
+
+/**
+ * Pausa tras seleccionar un nominado, para que el check llegue a verse antes de
+ * pasar a la categoría siguiente. Es el ÚNICO retardo del flujo: la navegación
+ * con los botones es inmediata.
+ */
+const SELECTION_FEEDBACK_MS = 120;
 
 /**
  * VoteScreen v2 - Refactorizado con componentes modulares
@@ -20,20 +31,27 @@ export default function VoteScreen({
   onNext,
   onFinish,
   progressPercentage,
-  language,
-  onToggleLanguage,
-  theme,
-  onToggleTheme
 }) {
+  const { language } = useAppContext();
   const t = useTranslation(language);
+  const viewportInfo = useViewport();
   const [gameGradients, setGameGradients] = useState({});
   const [loadingImages, setLoadingImages] = useState(true);
   const [hasVerticalScroll, setHasVerticalScroll] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [viewportInfo, setViewportInfo] = useState({ isMobile: false, isLandscape: false, width: 0 });
   const scrollContainerRef = useRef(null);
-  
+
+  // Bloqueo de navegación contra doble pulsación (ghost clicks).
+  //
+  // Antes se encadenaban tres setTimeout (100 + 100 + 50 ms), así que cada
+  // categoría costaba ~250 ms de espera percibida —unos 6 segundos en una porra
+  // de 25 categorías— y ninguno se limpiaba al desmontar. Ahora el bloqueo es un
+  // ref (inmediato y sin re-render) y solo queda UN retardo, el de la selección,
+  // para que dé tiempo a ver el check antes de cambiar de categoría.
+  const navigationLock = useRef(false);
+  const selectionTimer = useRef(null);
+
   const isVoted = !!userVotes[category?.id];
   const selectedOption = userVotes[category?.id];
   const optionCount = category?.options?.length || 0;
@@ -45,7 +63,9 @@ export default function VoteScreen({
     const gradients = getRandomGradients(optionIds);
     setGameGradients(gradients);
     setLoadingImages(false);
-    setIsTransitioning(false); // Reset transition state when category changes
+    // Al cambiar de categoría se libera el bloqueo de navegación.
+    navigationLock.current = false;
+    setIsTransitioning(false);
     
     // Limpiar cualquier estado de focus de botones anteriores
     const activeElement = document.activeElement;
@@ -118,90 +138,35 @@ export default function VoteScreen({
     };
   }, [category?.id, category?.options]);
 
-  // Mantener metadata de viewport para responder a orientación y ancho real
+  // Métrica de embudo: en qué categoría abandona la gente. Va en su propio
+  // efecto para no acoplar la analítica al ciclo de los degradados.
   useEffect(() => {
-    const updateViewportInfo = () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      setViewportInfo({
-        isMobile: width < 768,
-        isLandscape: width > height,
-        width
-      });
-    };
+    if (category?.id) trackCategoryViewed(category.id, currentStep + 1, totalSteps);
+  }, [category?.id, currentStep, totalSteps]);
 
-    updateViewportInfo();
-    window.addEventListener('resize', updateViewportInfo);
-    window.addEventListener('orientationchange', updateViewportInfo);
-
-    return () => {
-      window.removeEventListener('resize', updateViewportInfo);
-      window.removeEventListener('orientationchange', updateViewportInfo);
-    };
-  }, []);
+  // El temporizador de la selección debe morir con el componente: si no, al
+  // salir rápido de la pantalla dispara un setState sobre un árbol desmontado.
+  useEffect(() => () => clearTimeout(selectionTimer.current), []);
 
   // Validación defensiva (tras los hooks, para no alterar su orden entre renders).
   if (!category || !category.options || category.options.length === 0) {
     return (
       <div className="h-screen theme-gradient-primary flex items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold theme-text-primary mb-2">{t('invalidCategory')}</h1>
+          <h1 className="text-2xl font-bold theme-display uppercase theme-text-primary mb-2">{t('invalidCategory')}</h1>
           <p className="theme-text-secondary">{t('noOptions')}</p>
         </div>
       </div>
     );
   }
 
-  // Calibración fina de densidad visual por rango de viewport + cantidad de opciones.
-  const gridDensityConfig = (() => {
-    const width = viewportInfo.width || 320;
-
-    if (isMobilePortrait) {
-      // Evitar saltos bruscos (5 opciones en 2 cols y 6 en 3 cols) en móviles tipo Pixel.
-      // En anchos <= 430px mantenemos densidad estable con máximo 2 columnas hasta 8 opciones.
-      if (width <= 430) {
-        if (optionCount <= 3) return { minCardWidthPx: 180, maxColumns: 2 };
-        return { minCardWidthPx: 150, maxColumns: 2 };
-      }
-
-      if (optionCount <= 3) return { minCardWidthPx: 190, maxColumns: 2 };
-      if (optionCount <= 6) return { minCardWidthPx: 160, maxColumns: 2 };
-      return { minCardWidthPx: 145, maxColumns: 3 };
-    }
-
-    if (viewportInfo.isMobile && viewportInfo.isLandscape) {
-      if (optionCount <= 4) return { minCardWidthPx: 170, maxColumns: 4 };
-      if (optionCount <= 8) return { minCardWidthPx: 190, maxColumns: 3 };
-      return { minCardWidthPx: 170, maxColumns: 4 };
-    }
-
-    if (width < 900) {
-      return { minCardWidthPx: viewportInfo.isMobile ? 200 : 220, maxColumns: 2 };
-    }
-
-    if (width < 1280) {
-      if (optionCount <= 4) return { minCardWidthPx: 260, maxColumns: 2 };
-      if (optionCount <= 8) return { minCardWidthPx: 240, maxColumns: 3 };
-      return { minCardWidthPx: 220, maxColumns: 4 };
-    }
-
-    if (width < 1600) {
-      if (optionCount <= 4) return { minCardWidthPx: 280, maxColumns: 4 };
-      if (optionCount <= 8) return { minCardWidthPx: 260, maxColumns: 4 };
-      return { minCardWidthPx: 240, maxColumns: 5 };
-    }
-
-    if (optionCount <= 4) return { minCardWidthPx: 320, maxColumns: 4 };
-    if (optionCount <= 8) return { minCardWidthPx: 290, maxColumns: 5 };
-    return { minCardWidthPx: 260, maxColumns: 6 };
-  })();
-
-  const safeViewportWidth = Math.max(320, (viewportInfo.width || 320) - 24);
-  const columnsByWidth = Math.max(1, Math.floor(safeViewportWidth / gridDensityConfig.minCardWidthPx));
-  const gridColumns = Math.max(
-    1,
-    Math.min(optionCount, gridDensityConfig.maxColumns, columnsByWidth)
-  );
+  // Columnas de la rejilla según ancho y nº de nominados (ver utils/gridDensity).
+  const gridColumns = getGridColumns({
+    width: viewportInfo.width,
+    optionCount,
+    isMobile: viewportInfo.isMobile,
+    isLandscape: viewportInfo.isLandscape,
+  });
 
   const denseLandscapeClass = viewportInfo.isMobile && viewportInfo.isLandscape && optionCount >= 6
     ? 'gap-1.5 sm:gap-2 md:gap-3'
@@ -216,27 +181,26 @@ export default function VoteScreen({
     }
   };
 
-  // Manejadores de navegación con protección contra ghost clicks
-  const handleNext = () => {
+  const navigate = (move) => {
+    if (navigationLock.current) return;
+    navigationLock.current = true;
     setIsTransitioning(true);
-    setTimeout(() => {
-      onNext();
-      // Pequeño delay adicional para garantizar que se limpie el estado
-      setTimeout(() => setIsTransitioning(false), 50);
-    }, 100);
+    move();
   };
 
-  const handlePrevious = () => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      onPrevious();
-      // Pequeño delay adicional para garantizar que se limpie el estado
-      setTimeout(() => setIsTransitioning(false), 50);
-    }, 100);
-  };
+  // Pulsar un botón navega al instante; el bloqueo lo libera el efecto de cambio
+  // de categoría.
+  const handleNext = () => navigate(onNext);
+  const handlePrevious = () => navigate(() => onPrevious());
 
   const handleSelectOption = (categoryId, option) => {
+    if (navigationLock.current) return;
     onSelectOption(categoryId, option);
+    // Marcamos el bloqueo YA (impide un segundo toque durante la pausa) pero
+    // dejamos que el check se pinte antes de avanzar.
+    navigationLock.current = true;
+    setIsTransitioning(true);
+    selectionTimer.current = setTimeout(onNext, SELECTION_FEEDBACK_MS);
   };
 
   // Header con progreso y controles
@@ -248,10 +212,6 @@ export default function VoteScreen({
       subtitle={isVoted
         ? `${t('yourSelection')}: ${getOptionLabel(category, selectedOption?.id, language)}`
         : t('chooseYourFavorite')}
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
     />
   );
 
@@ -263,10 +223,10 @@ export default function VoteScreen({
         <button
           onClick={handlePrevious}
           disabled={currentStep === 0}
-          className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-semibold text-xs sm:text-sm transition transform ${
+          className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-semibold text-sm transition transform ${
             currentStep === 0
               ? 'theme-btn-secondary border cursor-not-allowed opacity-40'
-              : 'theme-btn-secondary border hover:scale-105 shadow-md'
+              : 'theme-btn-secondary border hover:scale-105 theme-shadow-md'
           }`}
         >
           {t('previous')}
@@ -275,10 +235,10 @@ export default function VoteScreen({
         <button
           onClick={handleNext}
           disabled={currentStep === totalSteps - 1}
-          className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-bold text-xs sm:text-sm transition transform ${
+          className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-bold text-sm transition transform ${
             currentStep === totalSteps - 1
               ? 'theme-card theme-text-tertiary cursor-not-allowed opacity-50'
-              : 'bg-gradient-to-r from-amber-600 to-amber-700 text-white hover:from-amber-500 hover:to-amber-600 hover:scale-105'
+              : 'theme-btn-primary hover:scale-105'
           }`}
         >
           {t('next')}
@@ -288,7 +248,7 @@ export default function VoteScreen({
       {/* Fila 2: Finalizar */}
       <button
         onClick={onFinish}
-        className="flex-1 py-2 sm:py-2.5 px-3 rounded font-bold bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-500 hover:to-green-600 text-xs sm:text-sm transition-colors"
+        className="flex-1 py-2 sm:py-2.5 px-3 rounded font-bold btn-success text-sm transition-colors"
       >
         {t('finish')}
       </button>
@@ -297,10 +257,6 @@ export default function VoteScreen({
 
   return (
     <ScreenLayout
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
       header={headerContent}
       footer={<Footer>{footerContent}</Footer>}
       backgroundImage=""
@@ -309,7 +265,7 @@ export default function VoteScreen({
     >
       {/* Indicador de carga */}
       {loadingImages && (
-        <div className="text-center text-xs sm:text-sm theme-text-tertiary px-4 sm:px-6 lg:px-8 py-2">
+        <div className="text-center text-sm theme-text-secondary px-4 sm:px-6 lg:px-8 py-2">
           {t('loading')}
         </div>
       )}
@@ -341,18 +297,14 @@ export default function VoteScreen({
                   key={`${category.id}_${optionId}`}
                   variant="vote"
                   gameName={optionName}
-                  gradient={gameGradients[optionId] || 'bg-gradient-to-br from-slate-900/60 to-slate-900/80'}
+                  gradient={gameGradients[optionId] || 'bg-gradient-to-br from-zinc-900/60 to-zinc-700/80'}
                   isSelected={isSelected}
                   isMobilePortrait={isMobilePortrait}
                   compact={optionCount > 4 || viewportInfo.isLandscape || gridColumns >= 4}
                   isTransitioning={isTransitioning}
-                  onSelect={() => {
-                    if (!isTransitioning) {
-                      handleSelectOption(category.id, { id: optionId, name: optionName });
-                      // Avanzar automáticamente a siguiente categoría o a ReviewScreen
-                      setTimeout(() => handleNext(), 100);
-                    }
-                  }}
+                  onSelect={() =>
+                    handleSelectOption(category.id, { id: optionId, name: optionName })
+                  }
                 />
               );
             })}
@@ -360,7 +312,7 @@ export default function VoteScreen({
         </div>
 
         {/* Status - Compact */}
-        <div className="mt-2 sm:mt-3 px-2 sm:px-3 py-1 sm:py-1.5 theme-card theme-border-primary border rounded text-xs flex-shrink-0">
+        <div className="mt-2 sm:mt-3 px-2 sm:px-3 py-1 sm:py-1.5 theme-card theme-border-primary border rounded text-sm flex-shrink-0">
           <span className={`font-bold ${isVoted ? 'text-status-success' : 'text-status-warning'}`}>
             {isVoted ? t('voted') : t('pending')}
           </span>
@@ -375,7 +327,7 @@ export default function VoteScreen({
             {/* Flecha animada - Clickeable */}
             <button
               onClick={scrollToBottom}
-              className="relative z-10 pb-2 animate-bounce hover:scale-125 transition-transform cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400 p-1"
+              className="relative z-10 pb-2 animate-bounce hover:scale-125 transition-transform cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] p-1"
               aria-label="Scroll to bottom"
               title="Pulsa para ver más opciones"
             >

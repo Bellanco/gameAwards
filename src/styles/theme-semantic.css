@@ -1,0 +1,280 @@
+/*
+ * Capa semantica reutilizable.
+ * Los componentes deben consumir estas clases en lugar de hardcodes.
+ */
+
+.theme-container-primary {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color var(--motion-base) var(--motion-ease), color var(--motion-base) var(--motion-ease);
+}
+
+.theme-container-secondary {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: background-color var(--motion-base) var(--motion-ease), color var(--motion-base) var(--motion-ease);
+}
+
+.theme-container-tertiary {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  transition: background-color var(--motion-base) var(--motion-ease), color var(--motion-base) var(--motion-ease);
+}
+
+.theme-gradient-primary {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 88%, #ffffff 12%), var(--bg-secondary) 58%, color-mix(in srgb, var(--bg-secondary) 88%, #000000 12%)) !important;
+  color: var(--text-primary);
+  transition: background var(--motion-slow) var(--motion-ease), color var(--motion-base) var(--motion-ease);
+}
+
+.theme-gradient-secondary {
+  background: linear-gradient(135deg, var(--bg-secondary), color-mix(in srgb, var(--bg-tertiary) 86%, var(--color-tertiary) 14%)) !important;
+  color: var(--text-primary);
+  transition: background var(--motion-slow) var(--motion-ease), color var(--motion-base) var(--motion-ease);
+}
+
+.theme-text-primary {
+  color: var(--text-primary);
+  transition: color var(--motion-base) var(--motion-ease);
+}
+
+.theme-text-secondary {
+  color: var(--text-secondary);
+  transition: color var(--motion-base) var(--motion-ease);
+}
+
+.theme-text-tertiary {
+  color: var(--text-tertiary);
+  transition: color var(--motion-base) var(--motion-ease);
+}
+
+.theme-text-inverse {
+  color: var(--text-inverse);
+}
+
+.theme-border-primary {
+  border-color: var(--border-primary);
+  transition: border-color var(--motion-base) var(--motion-ease);
+}
+
+.theme-border-secondary {
+  border-color: var(--border-secondary);
+  transition: border-color var(--motion-base) var(--motion-ease);
+}
+
+.theme-border-empty {
+  border-color: var(--border-empty);
+}
+
+.theme-placeholder::placeholder {
+  color: var(--placeholder-color);
+  opacity: 0.85;
+}
+
+.theme-accent {
+  color: var(--color-accent);
+}
+
+.theme-accent-bg {
+  background-color: var(--color-accent);
+}
+
+.theme-accent-border {
+  border-color: var(--color-accent);
+}
+
+.theme-bg-overlay {
+  background-color: color-mix(in srgb, var(--bg-secondary) 86%, transparent 14%);
+  opacity: 0.5;
+  backdrop-filter: blur(12px);
+  transition: background-color var(--motion-base) var(--motion-ease), opacity var(--motion-fast) var(--motion-ease);
+}
+
+.theme-bg-overlay-light {
+  background-color: color-mix(in srgb, var(--bg-secondary) 72%, transparent 28%);
+  opacity: 0.3;
+  backdrop-filter: blur(8px);
+  transition: background-color var(--motion-base) var(--motion-ease), opacity var(--motion-fast) var(--motion-ease);
+}
+
+.theme-btn-primary {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--color-secondary) 84%, #000000 16%), color-mix(in srgb, var(--color-secondary) 72%, #f4d08b 28%));
+  color: var(--text-inverse);
+  border: 1px solid color-mix(in srgb, var(--color-secondary) 68%, #000000 32%);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--motion-fast) var(--motion-ease), filter var(--motion-fast) var(--motion-ease), box-shadow var(--motion-base) var(--motion-ease);
+}
+
+.theme-btn-primary:hover {
+  filter: brightness(1.07);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.theme-btn-secondary {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 92%, #ffffff 8%), var(--bg-secondary));
+  color: var(--text-primary);
+  border-color: var(--border-primary);
+  transition: background-color var(--motion-base) var(--motion-ease), color var(--motion-base) var(--motion-ease), border-color var(--motion-base) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+}
+
+.theme-btn-secondary:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-secondary);
+  transform: translateY(-1px);
+}
+
+.theme-card {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-primary);
+  box-shadow: var(--shadow-sm);
+  transition: background-color var(--motion-base) var(--motion-ease), color var(--motion-base) var(--motion-ease), border-color var(--motion-base) var(--motion-ease), box-shadow var(--motion-base) var(--motion-ease);
+}
+
+.theme-card-strong {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 90%, #ffffff 10%), color-mix(in srgb, var(--bg-secondary) 96%, #000000 4%));
+  border-color: color-mix(in srgb, var(--border-primary) 88%, #ffffff 12%);
+}
+
+.theme-card-hover:hover {
+  background-color: var(--bg-tertiary);
+  box-shadow: var(--shadow-md);
+}
+
+.theme-header {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-primary) 88%, #000000 12%), var(--bg-secondary)) !important;
+  border-bottom-color: var(--border-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+  transition: background var(--motion-base) var(--motion-ease), border-color var(--motion-base) var(--motion-ease), color var(--motion-base) var(--motion-ease);
+}
+
+.theme-footer {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 94%, #000000 6%), color-mix(in srgb, var(--bg-primary) 94%, #000000 6%));
+  color: var(--text-secondary);
+  transition: background var(--motion-base) var(--motion-ease), color var(--motion-base) var(--motion-ease);
+}
+
+.theme-shadow-sm {
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-shadow-md {
+  box-shadow: var(--shadow-md);
+}
+
+.theme-shadow-lg {
+  box-shadow: var(--shadow-lg);
+}
+
+.status-success {
+  background-color: var(--color-success);
+  color: var(--text-inverse);
+  border-color: var(--color-success);
+}
+
+.status-error {
+  background-color: var(--color-error);
+  color: var(--text-inverse);
+  border-color: var(--color-error);
+}
+
+.status-warning {
+  background-color: var(--color-warning);
+  color: var(--text-inverse);
+  border-color: var(--color-warning);
+}
+
+.status-info {
+  background-color: var(--color-info);
+  color: var(--text-inverse);
+  border-color: var(--color-info);
+}
+
+.text-status-success {
+  color: var(--color-success);
+}
+
+.text-status-error {
+  color: var(--color-error);
+}
+
+.text-status-warning {
+  color: var(--color-warning);
+}
+
+.text-status-info {
+  color: var(--color-info);
+}
+
+.border-status-success {
+  border-color: var(--color-success);
+}
+
+.border-status-error {
+  border-color: var(--color-error);
+}
+
+.border-status-warning {
+  border-color: var(--color-warning);
+}
+
+.border-status-info {
+  border-color: var(--color-info);
+}
+
+:root .bg-status-success-light {
+  background-color: var(--status-success-light);
+}
+
+:root .bg-status-error-light {
+  background-color: var(--status-error-light);
+}
+
+:root .bg-status-warning-light {
+  background-color: var(--status-warning-light);
+}
+
+:root .bg-status-info-light {
+  background-color: var(--status-info-light);
+}
+
+.medal-gold {
+  color: #f4c369;
+  background: linear-gradient(135deg, #9d7234 0%, #d2a65c 100%);
+}
+
+.medal-silver {
+  color: #d5dae2;
+  background: linear-gradient(135deg, #7b8696 0%, #b9c0cb 100%);
+}
+
+.medal-bronze {
+  color: #d8a173;
+  background: linear-gradient(135deg, #844f2e 0%, #be7c49 100%);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-success) 86%, #000000 14%), color-mix(in srgb, var(--color-success) 78%, #b8ebc7 22%));
+  color: var(--text-inverse);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-error) 88%, #000000 12%), color-mix(in srgb, var(--color-error) 72%, #f2aaaa 28%));
+  color: var(--text-inverse);
+}
+
+.btn-error {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-error) 88%, #000000 12%), color-mix(in srgb, var(--color-error) 72%, #f2aaaa 28%));
+  color: var(--text-inverse);
+}
+
+.theme-metal-line {
+  border-top: 1px solid color-mix(in srgb, var(--border-primary) 68%, #ffffff 32%);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-secondary) 70%, #000000 30%);
+}

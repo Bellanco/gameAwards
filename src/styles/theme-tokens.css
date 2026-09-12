@@ -1,0 +1,117 @@
+/*
+ * Tokens por tema (light/dark)
+ * Fuente unica para color, tipografia y sombras.
+ */
+
+:root {
+  --font-display: 'Cinzel', 'Times New Roman', serif;
+  --font-body: 'Source Sans 3', 'Segoe UI', Tahoma, sans-serif;
+
+  /* Tema claro (pergamino). */
+  --bg-primary: #d8cfbb;
+  --bg-secondary: #efe5d3;
+  --bg-tertiary: #e0d4bf;
+  --bg-unvoted: #e8dcc8;
+
+  --text-primary: #251d13;
+  --text-secondary: #3c3024;
+  --text-tertiary: #4b3d2e;
+  --text-inverse: #ffffff;
+
+  --border-primary: #a88e67;
+  --border-secondary: #8a6e47;
+  --border-empty: #8f8169;
+
+  --color-primary: #efe5d3;
+  --color-secondary: #7d5a2b;
+  --color-tertiary: #2f6c7b;
+
+  --color-accent: #765121;
+  --color-success: #1f5a34;
+  --color-error: #8f1f1f;
+  --color-warning: #8d4f13;
+  --color-info: #1f4f81;
+
+  --placeholder-color: #5a4a38;
+
+  --shadow-sm: 0 1px 3px 0 rgba(61, 43, 21, 0.15), inset 0 1px 0 rgba(255, 248, 230, 0.25);
+  --shadow-md: 0 6px 12px -2px rgba(61, 43, 21, 0.22), inset 0 1px 0 rgba(255, 248, 230, 0.2);
+  --shadow-lg: 0 16px 30px -8px rgba(61, 43, 21, 0.32), inset 0 1px 0 rgba(255, 248, 230, 0.18);
+
+  --status-success-light: rgba(31, 90, 52, 0.18);
+  --status-error-light: rgba(143, 31, 31, 0.2);
+  --status-warning-light: rgba(141, 79, 19, 0.2);
+  --status-info-light: rgba(31, 79, 129, 0.2);
+
+  --motion-fast: 160ms;
+  --motion-base: 260ms;
+  --motion-slow: 420ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html.dark {
+  --bg-primary: #0d121a;
+  --bg-secondary: #161d27;
+  --bg-tertiary: #202936;
+  --bg-unvoted: #111722;
+
+  --text-primary: #ede7db;
+  --text-secondary: #d8ccb9;
+  --text-tertiary: #c5b9a7;
+  --text-inverse: #1f2937;
+
+  --border-primary: #4d5a69;
+  --border-secondary: #6a7789;
+  --border-empty: #4f5763;
+
+  --color-primary: #161d27;
+  --color-secondary: #cf9f4a;
+  --color-tertiary: #4c9cb6;
+
+  --color-accent: #e8b15b;
+  --color-success: #63cf8b;
+  --color-error: #ef7b7b;
+  --color-warning: #e89e4f;
+  --color-info: #7cb8e8;
+
+  --placeholder-color: #b1a48f;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(236, 215, 176, 0.06);
+  --shadow-md: 0 6px 12px -2px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(236, 215, 176, 0.08);
+  --shadow-lg: 0 18px 32px -8px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(236, 215, 176, 0.1);
+
+  --status-success-light: rgba(99, 207, 139, 0.22);
+  --status-error-light: rgba(239, 123, 123, 0.22);
+  --status-warning-light: rgba(232, 158, 79, 0.22);
+  --status-info-light: rgba(124, 184, 232, 0.22);
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  background-image:
+    radial-gradient(circle at 10% 15%, rgba(125, 90, 43, 0.12), transparent 28%),
+    radial-gradient(circle at 90% 10%, rgba(47, 108, 123, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(255, 249, 235, 0.06), transparent 30%);
+}
+
+html.dark body {
+  background-image:
+    radial-gradient(circle at 15% 10%, rgba(232, 177, 91, 0.1), transparent 24%),
+    radial-gradient(circle at 85% 15%, rgba(124, 184, 232, 0.1), transparent 24%),
+    linear-gradient(180deg, rgba(24, 30, 40, 0.25), transparent 35%);
+}
+
+.theme-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.012em;
+}

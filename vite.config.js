@@ -1,5 +1,4 @@
-/// <reference types="vitest/config" />
-import { defineConfig } from 'vitest/config'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
@@ -8,6 +7,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.js'],
+    // Los tests de reglas necesitan el emulador de Firestore: viven aparte, en
+    // vitest.rules.config.js (`npm run test:rules`).
+    exclude: ['**/node_modules/**', '**/dist/**', '**/*.rules.test.js'],
   },
   define: {
     // Asegurar que import.meta.env.PROD sea true en producción

@@ -1,0 +1,61 @@
+# Cabeceras de seguridad y caché para CloudFlare Pages.
+#
+# OJO: `_headers` casa por ruta LITERAL. `/index.html` no cubre `/`, que es por
+# donde entra todo el mundo, así que las reglas de caché del HTML van duplicadas.
+
+/*
+  Content-Security-Policy: default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'sha256-Ri1fsGbErizijec53ettCVOya414algBr2hM3EpN7Zw=' https://apis.google.com https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://www.google-analytics.com https://*.google-analytics.com; frame-src https://accounts.google.com https://*.firebaseapp.com; manifest-src 'self'; upgrade-insecure-requests
+  Strict-Transport-Security: max-age=15552000
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Cross-Origin-Resource-Policy: same-origin
+
+# NOTAS sobre la CSP, por si algo deja de funcionar:
+#
+# - `script-src` lleva el HASH del script anti-FOUC que va inline en index.html
+#   (el que fija el tema antes de que React pinte). Si tocas ESE script, aunque
+#   sea un espacio, hay que recalcular el hash o la página se queda sin tema:
+#     npm run build && node -e "const f=require('fs'),c=require('crypto');\
+#     const h=f.readFileSync('dist/index.html','utf8')\
+#     .match(/<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/)[1];\
+#     console.log('sha256-'+c.createHash('sha256').update(h,'utf8').digest('base64'))"
+#
+# - `apis.google.com` y `www.gstatic.com` en `script-src`, y `accounts.google.com`
+#   + `*.firebaseapp.com` en `frame-src`: los necesita signInWithPopup. Sin ellos
+#   el login de Google no abre.
+#
+# - `Cross-Origin-Opener-Policy: same-origin-allow-popups` (NO `same-origin`):
+#   con `same-origin` el popup de Google pierde la referencia a la ventana que lo
+#   abrió y el login se queda colgado sin resolver ni fallar.
+#
+# - `style-src` lleva `'unsafe-inline'` porque la app usa estilos en línea
+#   (degradados calculados, ancho de la barra de progreso, tamaño de AutoSizeText).
+#   Quitarlo exige migrar esos estilos a clases o a variables CSS.
+#
+# - `fonts.googleapis.com` / `fonts.gstatic.com`: Google Fonts, que se cargan desde
+#   index.html. Si algún día se auto-hospedan las fuentes (mejora 3.6 de la
+#   auditoría), estas dos entradas se pueden borrar.
+#
+# - `frame-ancestors 'none'` + `X-Frame-Options: DENY`: la app no debe poder
+#   embeberse en un iframe. Sin esto era clickjackeable (superponer algo sobre el
+#   botón de login).
+#
+# - `Strict-Transport-Security`: 6 meses, SIN `includeSubDomains` ni `preload`.
+#   No se puede revertir rápido —solo caduca—, así que el valor es conservador.
+
+# El HTML es el único documento que cambia sin cambiar de URL, y de él cuelgan los
+# nombres de todos los chunks: un shell obsoleto referencia ficheros que ya no
+# existen y deja la app sin arrancar.
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# Los assets de Vite llevan el hash del contenido en el nombre: una URL identifica
+# un contenido para siempre.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
