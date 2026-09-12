@@ -8,6 +8,7 @@ import { useTheme, useVotingConfig } from './hooks';
 import logger from './services/loggerService';
 import { hasTitle, getCategoryTitle } from './utils/localize';
 import { resolveRoute, FALLBACK_ROUTE } from './utils/routes';
+import { sanitizeUserText } from './utils/sanitize';
 
 // Componentes modulares
 import VoteScreen from './components/VoteScreen';
@@ -348,8 +349,10 @@ function App() {
    */
   const submitBallot = async () => {
     // Se valida el nombre EDITABLE, que es el que ReviewScreen muestra y el
-    // usuario puede corregir si el mensaje de error aparece.
-    const displayName = userDisplayName.trim();
+    // usuario puede corregir si el mensaje de error aparece. Se valida ya
+    // SANEADO, que es lo que se envía: las reglas exigen que no llegue vacío, y
+    // un nombre que el saneado deja en blanco daría un rechazo opaco.
+    const displayName = sanitizeUserText(userDisplayName);
     if (!displayName) {
       setErrorMessage(t('errorEnterNickname'));
       return;
@@ -372,6 +375,11 @@ function App() {
       return;
     }
 
+    if (!currentUser) {
+      setErrorMessage(t('errorSavingVote'));
+      return;
+    }
+
     try {
       setIsLoading(true);
       setErrorMessage('');
@@ -383,19 +391,18 @@ function App() {
         selections[categoryId] = vote.id;
       });
 
-      // Sanitizado básico de texto introducido por el usuario.
-      const sanitize = (value) => (value || '').trim().replace(/[<>]/g, '').slice(0, 50);
-
       // Preparar datos (estructura validada por firestore.rules)
       // userNickname = nombre de la cuenta de Google (no editable); se lee de
       // currentUser, no de estado, para que no pueda quedar vacío.
+      // uid y email van SIN valor por defecto: las reglas exigen que coincidan
+      // con el token, así que un 'demo-user' solo produciría un rechazo opaco.
       const ballotData = {
-        userId: currentUser?.uid || 'demo-user',
-        userEmail: currentUser?.email || 'demo@example.com',
-        userNickname: sanitize(currentUser?.displayName || displayName),
-        userDisplayName: sanitize(displayName),
+        userId: currentUser.uid,
+        userEmail: currentUser.email,
+        userNickname: sanitizeUserText(currentUser.displayName) || displayName,
+        userDisplayName: displayName,
         selections: selections, // { categoryId: optionId }
-        season: season,
+        season: Math.trunc(season), // las reglas exigen un entero
         submittedAt: new Date().toISOString(),
         isActive: true
       };

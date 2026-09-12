@@ -42,10 +42,15 @@ export const logError = async (errorType, error, context = {}) => {
   // Log en desarrollo
   logger.error(`[${errorType}]`, errorData);
 
-  // Track en Analytics (sin await para no bloquear)
+  // Track en Analytics (sin await para no bloquear).
+  // Se envía SIEMPRE lo ya saneado (errorData.message y, solo en desarrollo, el
+  // contexto): en producción el mensaje crudo puede llevar rutas de Firestore,
+  // identificadores o datos del usuario, y Google Analytics no debe recibirlos.
   try {
     const { trackError } = await import('./analyticsService');
-    trackError(errorType, errorMessage, context).catch(e => logger.warn('Analytics tracking failed', e));
+    trackError(errorType, errorData.message, isDev ? context : {}).catch(e =>
+      logger.warn('Analytics tracking failed', e)
+    );
   } catch (e) {
     logger.warn('Could not import analytics service', e);
   }

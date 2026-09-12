@@ -21,6 +21,7 @@ npm run build      # build de producción a dist/ (minify + drop_console)
 npm run preview    # previsualizar el build
 npm test           # tests con Vitest (una pasada)
 npm run test:watch # tests en modo watch
+npm run test:rules # tests de firestore.rules contra el emulador (necesita Java)
 ```
 
 ### Tests (Vitest)
@@ -76,6 +77,9 @@ No se usa router; la navegación entre categorías es estado de React.
 - **`/admin` sin sesión** → `LoginScreen` (es el mismo login que el flujo público).
 - `public/_redirects` (`/* /index.html 200`) es **imprescindible**: sin él CloudFlare Pages
   devuelve un 404 estático en `/admin` y React no llega a arrancar.
+- `public/_headers` lleva la CSP y las cabeceras de seguridad. La CSP autoriza el script
+  anti-FOUC de `index.html` **por su hash sha256**: si tocas ese script hay que recalcularlo
+  (el propio archivo trae el comando). `src/test/csp.test.js` falla si se olvida.
 
 ## Reglas del proyecto (no negociables)
 
@@ -110,7 +114,13 @@ No se usa router; la navegación entre categorías es estado de React.
   - `admin/**` — configuración sensible (lectura y escritura solo admin).
 - Reglas en `firestore.rules`. **Escritura valida `isOwner` o `isAdmin()`**; `ballots` valida
   esquema en el write. `delete` de ballots solo admin (reinicio anual). Si tocas el modelo de
-  datos, actualiza también las reglas.
+  datos, actualiza también las reglas **y sus tests** (`npm run test:rules`, 26 casos contra el
+  emulador). Publicar con `firebase deploy --only firestore:rules`.
+- **El plazo de votación se valida en servidor**, no solo en el navegador: `allow create` de
+  `ballots` llama a `votingIsOpen()`, que lee `config/voting`. Si `config/voting` no existe, se
+  considera abierta (estado «aún sin configurar»). El esquema exige además que
+  `userEmail == request.auth.token.email` (impide suplantar el correo de otra persona), que
+  `season` sea entero y que `selections` no exceda 60 entradas.
 - **Admin por custom claims** (`admin:true`), verificado por el servidor. `useAdminCheck()` lee
   `getIdTokenResult().claims.admin`. Para asignar el claim una vez (Admin SDK / CLI):
   ```js
@@ -158,11 +168,15 @@ No se usa router; la navegación entre categorías es estado de React.
 
 ### Control de votación y reset anual
 
-- `config/voting = { isOpen, season, closesAt, updatedAt }`. La app lee esto con
+- `config/voting = { isOpen, season, closesAt, closesAtMillis, updatedAt }`. La app lee esto con
   `useVotingConfig()`. La votación está cerrada si `isOpen=false` **o** si ya pasó `closesAt`
   → `DeadlineScreen`. `closesAt` es la **fecha de cierre editable** desde la pestaña Temporada
-  (se guarda como ese día a las 23:59:59 local vía `seasonService.setClosingDate('YYYY-MM-DD')`);
-  el reinicio anual la limpia. Reemplaza el viejo cálculo client-side del 1 de diciembre.
+  (`seasonService.setClosingDate('YYYY-MM-DD')`); el reinicio anual la limpia.
+- **`closesAt` y `closesAtMillis` son el mismo instante en dos formatos** y viajan siempre
+  juntos: `closesAt` (ISO) lo lee el cliente para mostrar; `closesAtMillis` (epoch) lo comparan
+  las reglas, que no saben parsear una cadena ISO. Escribir uno sin el otro deja el plazo sin
+  efecto en servidor. El instante se fija en **Europe/Madrid** (`utils/closingDate.js`), no en
+  la hora local del administrador.
 - El admin abre/cierra y reinicia desde la pestaña **Temporada** del AdminPanel. El reinicio
   (`seasonService.archiveAndResetSeason`) archiva ganadores + clasificación en `results/{año}`
   y luego **borra** todos los `ballots`; después avanza la temporada y deja la votación cerrada.

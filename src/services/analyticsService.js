@@ -7,22 +7,26 @@
 import { trackEvent } from '../firebase';
 
 /**
+ * NOTA DE PRIVACIDAD: ningún evento de este archivo puede llevar datos
+ * personales (correo, apodo, nombre). Google Analytics no debe recibir PII —
+ * lo prohíben sus propios términos y es un problema de RGPD. Si necesitas
+ * distinguir usuarios, usa un identificador seudónimo, nunca el correo.
+ */
+
+/**
  * Track: Usuario inicia sesión
  */
-export const trackLogin = async (email) => {
+export const trackLogin = async () => {
   await trackEvent('login', {
-    method: 'google',
-    user_email: email
+    method: 'google'
   });
 };
 
 /**
  * Track: Usuario cierra sesión
  */
-export const trackLogout = async (email) => {
-  await trackEvent('logout', {
-    user_email: email
-  });
+export const trackLogout = async () => {
+  await trackEvent('logout');
 };
 
 /**
@@ -50,10 +54,9 @@ export const trackVoteChanged = async (categoryId, previousOption, newOption) =>
 /**
  * Track: Usuario envía su papeleta
  */
-export const trackBallotSubmitted = async (totalVotes, nickname) => {
+export const trackBallotSubmitted = async (totalVotes) => {
   await trackEvent('ballot_submitted', {
-    total_votes: totalVotes,
-    user_nickname: nickname
+    total_votes: totalVotes
   });
 };
 
@@ -98,9 +101,8 @@ export const trackIncompleteBallotAttempt = async (missingCategories) => {
 /**
  * Track: Acceso a panel de administración
  */
-export const trackAdminAccessAttempted = async (email, isAuthorized) => {
+export const trackAdminAccessAttempted = async (isAuthorized) => {
   await trackEvent('admin_access_attempted', {
-    email: email,
     authorized: isAuthorized
   });
 };

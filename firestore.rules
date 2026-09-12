@@ -1,12 +1,15 @@
 /**
  * Reglas de Firestore - Seguro para Producción
- * Copia este contenido en Firebase Console > Firestore Database > Rules
- * y pulsa "Publish".
+ * Publicar con: firebase deploy --only firestore:rules
+ * (o pegando este contenido en Firebase Console > Firestore Database > Rules)
  *
  * Acceso de administrador (custom claims, verificado por el servidor):
  *   Firebase Admin SDK / CLI:
  *     admin.auth().setCustomUserClaims(uid, { admin: true })
  *   El usuario debe re-loguearse (o refrescar token) para recibir el claim.
+ *
+ * Estas reglas están cubiertas por tests contra el emulador:
+ *   npm run test:rules
  */
 
 rules_version = '2';
@@ -23,19 +26,65 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
+    // Nº máximo de categorías que puede traer un voto. No es el número real de
+    // categorías (las reglas no deben depender de ello), solo un tope sensato
+    // para que nadie escriba un mapa gigante en su propio documento.
+    function maxSelections() {
+      return 60;
+    }
+
+    // ¿La votación está abierta AHORA, según config/voting?
+    //
+    // Esta comprobación es la que hace que el plazo exista de verdad: antes solo
+    // se evaluaba en el navegador (App.jsx), así que cualquiera podía registrar
+    // un voto fuera de plazo desde la consola o con el reloj del sistema atrasado.
+    //
+    // Se compara contra `closesAtMillis` (epoch en ms) porque las reglas no
+    // saben parsear la cadena ISO de `closesAt`. Lo escribe seasonService.
+    //
+    // Si config/voting NO existe todavía se considera ABIERTA, igual que hace el
+    // cliente: es el estado "el admin aún no ha configurado nada" y no debe
+    // bloquear la primera edición.
+    function votingConfigRef() {
+      return /databases/$(database)/documents/config/voting;
+    }
+
+    function votingConfigAllows() {
+      let cfg = get(votingConfigRef()).data;
+      return cfg.get('isOpen', true) == true &&
+             (cfg.get('closesAtMillis', null) == null ||
+              request.time.toMillis() < cfg.get('closesAtMillis', null));
+    }
+
+    function votingIsOpen() {
+      return !exists(votingConfigRef()) || votingConfigAllows();
+    }
+
     // Validación de esquema de un voto entrante.
+    //
+    // Comprueba tipos, tamaños y —esto es lo importante— que el correo es el del
+    // token: antes `userEmail` solo tenía que ser un string, así que se podía
+    // suplantar el de otra persona y el panel de admin lo mostraba tal cual.
     function isValidBallot(userId) {
       let d = request.resource.data;
       return d.keys().hasOnly([
                'userId', 'userEmail', 'userNickname', 'userDisplayName',
                'selections', 'season', 'submittedAt', 'isActive'
              ]) &&
+             d.keys().hasAll([
+               'userId', 'userEmail', 'userNickname', 'userDisplayName',
+               'selections', 'season', 'submittedAt', 'isActive'
+             ]) &&
              d.userId == userId &&
-             d.userEmail is string &&
-             d.userNickname is string &&
+             d.userEmail == request.auth.token.email &&
+             d.userNickname is string && d.userNickname.size() <= 50 &&
+             d.userDisplayName is string &&
+             d.userDisplayName.size() > 0 && d.userDisplayName.size() <= 50 &&
              d.selections is map &&
-             d.submittedAt is string &&
-             d.isActive is bool;
+             d.selections.size() > 0 && d.selections.size() <= maxSelections() &&
+             d.season is int && d.season >= 2000 && d.season <= 2999 &&
+             d.submittedAt is string && d.submittedAt.size() <= 40 &&
+             d.isActive == true;
     }
 
     // ===== ballots (votos de usuarios) =====
@@ -44,8 +93,8 @@ service cloud.firestore {
       // podía leer email + voto de todos -> fuga de privacidad.)
       allow read: if isOwner(userId) || isAdmin();
 
-      // Creación: solo el propietario y solo con esquema válido.
-      allow create: if isOwner(userId) && isValidBallot(userId);
+      // Creación: solo el propietario, con esquema válido y DENTRO DE PLAZO.
+      allow create: if isOwner(userId) && isValidBallot(userId) && votingIsOpen();
 
       // Actualización: DENEGADA -> un voto por persona, no se puede sobrescribir.
       // (El reinicio anual borra los ballots, permitiendo crear uno nuevo.)

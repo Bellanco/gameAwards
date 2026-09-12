@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { computeLeaderboard } from '../utils/scoring';
+import { buildClosingDate } from '../utils/closingDate';
 import { logError, ERROR_TYPES } from './errorService';
 import logger from './loggerService';
 
@@ -36,7 +37,14 @@ export async function setVotingOpen(isOpen, extra = {}) {
     {
       isOpen,
       ...(typeof extra.season === 'number' ? { season: extra.season } : {}),
-      ...(extra.closesAt !== undefined ? { closesAt: extra.closesAt } : {}),
+      // `closesAtMillis` viaja SIEMPRE junto a `closesAt`: es el campo que leen
+      // las reglas, y dejarlo desincronizado permitiría votar tras el cierre.
+      ...(extra.closesAt !== undefined
+        ? {
+            closesAt: extra.closesAt,
+            closesAtMillis: extra.closesAt ? new Date(extra.closesAt).getTime() : null,
+          }
+        : {}),
       updatedAt: new Date().toISOString(),
     },
     { merge: true }
@@ -57,15 +65,24 @@ export async function setSeason(season) {
 
 /**
  * Fija (o limpia) la fecha de cierre de la votación.
- * Recibe el día elegido en formato 'YYYY-MM-DD' y lo guarda como el instante
- * de ese día a las 23:59:59 (hora local). Pasa null para quitar la fecha.
+ *
+ * Recibe el día elegido ('YYYY-MM-DD') y guarda DOS campos:
+ *  - `closesAt`: ISO, el que lee el cliente para mostrar y calcular días.
+ *  - `closesAtMillis`: epoch en ms, el que comparan las reglas de Firestore
+ *    (no saben parsear una cadena ISO). Es el que hace que el plazo se cumpla
+ *    en servidor y no solo en el navegador.
+ *
+ * El instante se fija en Europe/Madrid, no en la hora local del administrador
+ * (ver utils/closingDate.js). Pasa null para quitar la fecha.
+ *
  * @param {string|null} day - 'YYYY-MM-DD' o null
+ * @returns {Promise<string|null>} La fecha de cierre en ISO, o null
  */
 export async function setClosingDate(day) {
-  const closesAt = day ? new Date(`${day}T23:59:59`).toISOString() : null;
+  const { closesAt, closesAtMillis } = buildClosingDate(day);
   await setDoc(
     VOTING_DOC,
-    { closesAt, updatedAt: new Date().toISOString() },
+    { closesAt, closesAtMillis, updatedAt: new Date().toISOString() },
     { merge: true }
   );
   return closesAt;
