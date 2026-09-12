@@ -1,0 +1,82 @@
+<!--
+  Tarjeta de previsualización al compartir el enlace (Open Graph / Twitter).
+
+  ESTE ARCHIVO ES LA FUENTE; lo que se publica es `share-card.jpg`, que se
+  rasteriza desde aquí con `npm run share-card`. WhatsApp, X, Facebook y
+  LinkedIn NO renderizan SVG en `og:image`: si se apunta a este archivo, el
+  enlace se comparte sin imagen (que es justo lo que pasaba antes).
+
+  Medidas: 1200x630 es la proporción 1.91:1 que piden todas esas plataformas.
+  Nada importante debe acercarse a menos de ~40px del borde: algunos clientes
+  recortan la tarjeta a 2:1.
+
+  Paleta: la del tema oscuro de la app (src/styles/theme-tokens.css) —fondo
+  #0d121a, texto #ede7db, acento dorado #e8b15b— para que la previsualización y
+  la aplicación se reconozcan como lo mismo.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="cardTitle cardDesc">
+  <title id="cardTitle">TGA Ballot</title>
+  <desc id="cardDesc">La porra de The Game Awards: vota categoría a categoría y compara tus aciertos.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d121a"/>
+      <stop offset="55%" stop-color="#161d27"/>
+      <stop offset="100%" stop-color="#202936"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f5d08a"/>
+      <stop offset="50%" stop-color="#e8b15b"/>
+      <stop offset="100%" stop-color="#b45309"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Halos de fondo, muy tenues: dan profundidad sin competir con el texto. -->
+  <circle cx="1090" cy="120" r="200" fill="#e8b15b" fill-opacity="0.05"/>
+  <circle cx="1160" cy="520" r="240" fill="#60a5fa" fill-opacity="0.05"/>
+
+  <!-- Filete dorado superior: el mismo gesto que el borde de selección de la app. -->
+  <rect x="0" y="0" width="1200" height="8" fill="url(#gold)"/>
+
+  <!-- Emblema, derivado de public/tga-icon.svg -->
+  <g transform="translate(96 203) scale(1.24)">
+    <circle cx="100" cy="100" r="98" fill="url(#blue)" stroke="#1e40af" stroke-width="2"/>
+    <circle cx="100" cy="100" r="85" fill="none" stroke="url(#gold)" stroke-width="3" opacity="0.85"/>
+    <circle cx="100" cy="100" r="75" fill="none" stroke="url(#gold)" stroke-width="2" opacity="0.6"/>
+    <line x1="100" y1="20" x2="100" y2="35" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
+    <line x1="180" y1="100" x2="165" y2="100" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
+    <line x1="100" y1="180" x2="100" y2="165" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
+    <line x1="20" y1="100" x2="35" y2="100" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
+    <text x="100" y="126" font-family="Cinzel, Georgia, 'Times New Roman', serif" font-size="66" font-weight="700"
+          text-anchor="middle" fill="#ffffff" letter-spacing="3">TGA</text>
+    <text x="100" y="150" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="15" font-weight="600"
+          text-anchor="middle" fill="url(#gold)" letter-spacing="4">AWARDS</text>
+  </g>
+
+  <!-- Bloque de texto. Las tres líneas van sueltas a propósito: <text> no hace
+       salto de línea automático, y una sola línea a este cuerpo se salía del
+       lienzo por la derecha. -->
+  <text x="410" y="268" font-family="Cinzel, Georgia, 'Times New Roman', serif" font-size="86" font-weight="900"
+        fill="#ede7db" letter-spacing="2">TGA BALLOT</text>
+
+  <rect x="412" y="304" width="108" height="6" rx="3" fill="url(#gold)"/>
+
+  <text x="410" y="378" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="42" font-weight="600"
+        fill="#e8b15b">La porra de The Game Awards</text>
+
+  <text x="410" y="442" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="32" font-weight="400"
+        fill="#d8ccb9">Vota categoría a categoría, compara</text>
+  <text x="410" y="486" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="32" font-weight="400"
+        fill="#d8ccb9">tus aciertos y pelea por el primer puesto.</text>
+
+  <!-- El dominio cierra la composición por abajo: sin él quedaban 150px muertos
+       bajo el texto y la tarjeta se leía descolgada hacia arriba. -->
+  <text x="410" y="556" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="25" font-weight="600"
+        fill="#8c7f6c" letter-spacing="2">tga-ballot.pages.dev</text>
+</svg>

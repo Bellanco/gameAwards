@@ -69,5 +69,17 @@ export default [
     },
   },
 
+  // Scripts de utilidad (.mjs): corren en Node, pero alguno evalúa código dentro
+  // del navegador que conduce Playwright, así que necesitan los dos entornos.
+  // No entran en el bloque principal porque ese solo casa `.js` y `.jsx`.
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
+
   prettier,
 ];

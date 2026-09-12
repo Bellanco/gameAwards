@@ -85,6 +85,7 @@ En macOS y Windows hay lanzadores de doble clic: `TGA.command` y `TGA.bat`.
 | `npm run dev` | Servidor de desarrollo en el puerto 5173 |
 | `npm run build` | Build de producción en `dist/` (minificado, sin `console.*`) |
 | `npm run preview` | Sirve el build para comprobarlo antes de desplegar |
+| `npm run share-card` | Regenera `public/share-card.jpg` (la imagen que sale al compartir el enlace) desde `public/share-card.svg` |
 | `npm test` | Tests unitarios (Vitest, una pasada) |
 | `npm run test:watch` | Tests en modo watch |
 | `npm run test:rules` | Tests de `firestore.rules` contra el emulador (**necesita Java**) |

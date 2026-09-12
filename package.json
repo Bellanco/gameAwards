@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "share-card": "node scripts/build-share-card.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rules": "npx --yes firebase-tools@15 emulators:exec --only firestore \"vitest run --config vitest.rules.config.js\"",

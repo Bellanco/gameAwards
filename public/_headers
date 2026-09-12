@@ -59,3 +59,9 @@
 # un contenido para siempre.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# La tarjeta de compartir NO lleva hash en el nombre (los metadatos apuntan a una
+# URL fija), así que no puede ser inmutable: al regenerarla habría que esperar un
+# año para que WhatsApp o Slack dejaran de servir la anterior. Un día basta.
+/share-card.jpg
+  Cache-Control: public, max-age=86400

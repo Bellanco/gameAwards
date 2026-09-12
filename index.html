@@ -7,6 +7,34 @@
     <title>TGA Ballot - The Game Awards Voting</title>
     <meta name="description" content="Participa en la porra de The Game Awards. Vota una única vez y comparte tus predicciones." />
     <meta name="theme-color" content="#d8cfbb" />
+
+    <!-- Previsualización al compartir el enlace (Open Graph + Twitter Cards).
+         Sin esto, pegar la URL en WhatsApp, Slack o X mostraba solo el enlace
+         pelado, sin título ni imagen.
+
+         La tarjeta es JPEG, NO el SVG: ninguna de esas plataformas rasteriza
+         SVG en `og:image`, así que apuntar al .svg equivale a no tener imagen.
+         La fuente editable es `public/share-card.svg` y el JPEG se regenera con
+         `npm run share-card`.
+
+         Las URLs son ABSOLUTAS a propósito: los scrapers no resuelven rutas
+         relativas, porque leen el HTML fuera del contexto de la página. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://tga-ballot.pages.dev/" />
+    <meta property="og:site_name" content="TGA Ballot" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:title" content="TGA Ballot — La porra de The Game Awards" />
+    <meta property="og:description" content="Vota categoría a categoría, compara tus aciertos y pelea por el primer puesto." />
+    <meta property="og:image" content="https://tga-ballot.pages.dev/share-card.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="TGA Ballot — la porra de The Game Awards" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="TGA Ballot — La porra de The Game Awards" />
+    <meta name="twitter:description" content="Vota categoría a categoría, compara tus aciertos y pelea por el primer puesto." />
+    <meta name="twitter:image" content="https://tga-ballot.pages.dev/share-card.jpg" />
+    <meta name="twitter:image:alt" content="TGA Ballot — la porra de The Game Awards" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
