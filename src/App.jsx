@@ -1,14 +1,17 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { auth, googleProvider, db } from './firebase';
-import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import { auth } from './firebase';
 import { useTranslation } from './data/literals';
 import { loadAndSortCategories } from './services/categoriesService';
-import { useTheme, useVotingConfig, useStepHistory } from './hooks';
+import { useTheme, useVotingConfig, useVotingFlow, useAuthSession } from './hooks';
 import logger from './services/loggerService';
 import { hasTitle, getCategoryTitle } from './utils/localize';
 import { resolveRoute, FALLBACK_ROUTE } from './utils/routes';
+import { AppProvider } from './context/AppContext';
+import { LoadingSpinner } from './components/ui';
+import { LOGIN_STEP, SUCCESS_STEP } from './hooks/useVotingFlow';
 import { sanitizeUserText } from './utils/sanitize';
+import { submitBallot as submitVote } from './services/ballotService';
+import { trackBallotSubmitted, trackLanguageChanged } from './services/analyticsService';
 
 // Componentes modulares
 import VoteScreen from './components/VoteScreen';
@@ -38,26 +41,52 @@ function App() {
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
 
-  // ============ Estado de Autenticación ============
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-
-  // ============ Bloqueo de re-voto ============
-  // hasVoted: el usuario ya tiene un ballot en Firestore (un voto por persona).
-  // voteChecked: ya hemos comprobado Firestore para el usuario actual.
-  const [hasVoted, setHasVoted] = useState(false);
-  const [voteChecked, setVoteChecked] = useState(false);
+  // Categorías que de verdad se votan: ni placeholders ni títulos vacíos.
+  // Se declara AQUÍ, por encima de los manejadores que la leen. Antes vivía en
+  // mitad del render, después de varios returns tempranos: funcionaba de
+  // milagro (los manejadores son closures que solo se invocan tras el render
+  // completo), pero cualquier refactor que la llamara antes habría lanzado un
+  // ReferenceError por TDZ.
+  const validCategories = useMemo(
+    () => categories.filter(cat => !cat.isPlaceholder && hasTitle(cat)),
+    [categories]
+  );
 
   // ============ Flujo de Pantallas ============
-  // -1: Login
-  // 0-n: Votación (categoría n)
-  // categories.length: Revisión
-  // 99: Éxito
-  const [currentStep, setCurrentStep] = useState(-1);
-  // Paso al que volver tras pasar por login al reabrir la app. Se rellena con el
-  // progreso guardado, pero NO se aplica a currentStep hasta que el usuario
-  // continúa desde la pantalla de login (así la app siempre arranca en login).
-  const [resumeStep, setResumeStep] = useState(0);
+  // Pasos, votos, persistencia del progreso y botón "atrás" (ver useVotingFlow).
+  const {
+    currentStep,
+    setCurrentStep,
+    resumeStep,
+    userVotes,
+    selectOption,
+    goToPreviousStep,
+    goToNextStep,
+    finishVoting,
+    restoreProgress,
+    clearProgress,
+    progressPercentage,
+    reviewStep,
+  } = useVotingFlow({
+    validCategories,
+    hasSession: Boolean(currentUser),
+    historyEnabled: route === 'home',
+  });
+
+  // ============ Sesión, login y bloqueo de re-voto ============
+  const {
+    currentUser,
+    isLoadingAuth,
+    isSigningIn,
+    authError,
+    setAuthError,
+    hasVoted,
+    setHasVoted,
+    voteChecked,
+    signIn,
+    signOut: signOutUser,
+  } = useAuthSession(t, handleSignedIn);
+
 
   // ============ Datos del Usuario ============
   // `userDisplayName` es el ÚNICO nombre editable y la única fuente de verdad de
@@ -66,7 +95,6 @@ function App() {
   // vaciaba sin que ninguna pantalla ofreciera forma de rellenarlo, y eso dejaba
   // el envío bloqueado para siempre.
   const [userDisplayName, setUserDisplayName] = useState('');
-  const [userVotes, setUserVotes] = useState({});
 
   // ============ Control de Deadline ============
   // La votación está cerrada si el admin la cierra (isOpen=false) O si ya pasó
@@ -77,6 +105,15 @@ function App() {
   const daysRemaining = closesAt
     ? Math.max(0, Math.ceil((new Date(closesAt).getTime() - Date.now()) / (1000 * 3600 * 24)))
     : null;
+
+  /**
+   * Al confirmarse la sesión: nombre inicial y progreso guardado.
+   * useCallback porque useAuthSession lo tiene como dependencia de su efecto.
+   */
+  const handleSignedIn = useCallback((user) => {
+    setUserDisplayName(user.displayName || '');
+    restoreProgress();
+  }, [restoreProgress]);
 
   // ============ Estado de UI ============
   const [isLoading, setIsLoading] = useState(false);
@@ -92,14 +129,6 @@ function App() {
       window.history.replaceState(null, '', FALLBACK_ROUTE);
     }
   }, [route]);
-
-  // ============ Botón "atrás" del navegador ============
-  // Retrocede dentro del flujo de votación en vez de salir de la app.
-  useStepHistory({
-    currentStep,
-    onNavigateBack: setCurrentStep,
-    enabled: route === 'home',
-  });
 
   // ============ Idioma del documento ============
   // Sin esto, <html lang="es"> se quedaba fijo aunque la interfaz estuviera en
@@ -130,234 +159,44 @@ function App() {
   }, []);
 
   /**
-   * useEffect: Verifica deadline, configura autenticación, e inicializa progreso
-   */
-  useEffect(() => {
-    // Listener de autenticación de Firebase
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      try {
-        if (user) {
-          setCurrentUser(user);
-          setUserDisplayName(user.displayName || ''); // Inicializar con displayName del usuario
-
-          // Recuperar progreso previo de localStorage. Restauramos los votos, pero
-          // el paso solo se recuerda (resumeStep): al reabrir la app siempre se
-          // muestra primero la pantalla de login, y al continuar se retoma ahí.
-          // El parseo va protegido: un valor corrupto (extensión, escritura a
-          // medias, cambio de formato) lanzaba aquí dentro y dejaba la app
-          // colgada en «Cargando», porque nunca se alcanzaba isLoadingAuth=false.
-          const savedProgress = localStorage.getItem('votingProgress');
-          if (savedProgress) {
-            try {
-              const progress = JSON.parse(savedProgress);
-              setUserVotes(progress?.votes || {});
-              setResumeStep(progress?.step > 0 ? progress.step : 0);
-            } catch (error) {
-              logger.error('Progreso guardado corrupto, se descarta:', error);
-              localStorage.removeItem('votingProgress');
-            }
-          }
-        }
-      } finally {
-        // Pase lo que pase, la app debe salir de la pantalla de carga.
-        setIsLoadingAuth(false);
-      }
-    });
-
-    // Cleanup
-    return () => unsubscribe();
-  }, []);
-
-  /**
-   * useEffect: comprueba si el usuario actual ya tiene un voto registrado.
-   * Bloqueo de re-voto (un voto por persona). Si hay error de lectura, no bloquea.
-   */
-  useEffect(() => {
-    if (!currentUser) {
-      setHasVoted(false);
-      setVoteChecked(false);
-      return;
-    }
-    let cancelled = false;
-    setVoteChecked(false);
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, 'ballots', currentUser.uid));
-        if (!cancelled) setHasVoted(snap.exists());
-      } catch (error) {
-        if (!cancelled) setHasVoted(false); // ante error de lectura, no bloquear
-        logger.error('Error comprobando voto existente:', error);
-      } finally {
-        if (!cancelled) setVoteChecked(true);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [currentUser]);
-
-  /**
-   * useEffect: Sincroniza localStorage cuando userVotes o currentStep cambian
-   * Esto evita carreras de condición en selectOption
-   */
-  useEffect(() => {
-    // Calcular validCategories localmente para evitar referencia antes de declaración
-    const validCats = categories.filter(cat => !cat.isPlaceholder && hasTitle(cat));
-    
-    // Si estamos en pantalla de éxito, limpiar localStorage
-    if (currentStep === 99) {
-      localStorage.removeItem('votingProgress');
-    }
-    // Solo guardar en pasos reales de votación (>= 0). En la pantalla de login
-    // (-1) NO se persiste, para no machacar el paso guardado al reabrir.
-    else if (currentUser && currentStep >= 0 && currentStep < validCats.length + 1) {
-      const progress = { votes: userVotes, step: currentStep };
-      localStorage.setItem('votingProgress', JSON.stringify(progress));
-    }
-  }, [userVotes, currentStep, currentUser, categories]);
-
-  /**
    * Cambia el idioma de la aplicación
    */
   const toggleLanguage = () => {
     const newLanguage = language === 'es' ? 'en' : 'es';
     setLanguage(newLanguage);
     localStorage.setItem('appLanguage', newLanguage);
+    trackLanguageChanged(newLanguage);
   };
 
   /**
-   * Maneja el login con Google (o simula en DEMO_MODE)
+   * Login con Google. Al volver, continúa donde lo dejó (resumeStep).
    */
   const handleLogin = async () => {
-    try {
-      setIsLoading(true);
-      setErrorMessage('');
-      
-      // Usa Firebase Google Auth
-      // Validar que Firebase está configurado
-      if (!auth || auth.currentUser === undefined) {
-        setErrorMessage('Firebase no está configurado. Verifica src/firebase.js');
-        logger.error('Firebase Auth not initialized');
-        setIsLoading(false);
-        return;
-      }
-
-      // Reapertura con sesión de Firebase aún válida: no relanzar el popup de
-      // Google, continuar directamente donde se quedó (resumeStep).
-      if (auth.currentUser) {
-        setCurrentUser(auth.currentUser);
-        setCurrentStep(resumeStep);
-        setIsLoading(false);
-        return;
-      }
-
-      const result = await signInWithPopup(auth, googleProvider);
-      setCurrentUser(result.user);
-      setCurrentStep(resumeStep); // Continuar donde lo dejó (0 si es nuevo)
-    } catch (error) {
-      logger.error('Auth Error:', error.code, error.message);
-      
-      // Mapear códigos de error a mensajes claros
-      const errorMessages = {
-        'auth/popup-blocked': 'El popup fue bloqueado. Habilita popups en tu navegador.',
-        'auth/popup-closed-by-user': 'Cerraste la ventana de inicio de sesión.',
-        'auth/internal-error': 'Error interno de Firebase. Verifica las credenciales en src/firebase.js',
-        'auth/invalid-api-key': 'API Key de Firebase inválida. Actualiza src/firebase.js',
-        'auth/network-request-failed': 'Error de conexión. Verifica tu internet.',
-        'auth/operation-not-supported-in-this-environment': 'Popup auth no soportado. Intenta en https.',
-        'auth/unauthorized-domain': 'Dominio no autorizado en Firebase Console. Agrega localhost:5173 a "Authorized domains"',
-      };
-
-      const errorMsg = errorMessages[error.code] || `Error: ${error.message}`;
-      setErrorMessage(errorMsg);
-    } finally {
-      setIsLoading(false);
-    }
+    const user = await signIn();
+    if (user) setCurrentStep(resumeStep);
   };
 
   /**
-   * Maneja el logout
+   * Cierra sesión y devuelve la app a su estado inicial.
    */
   const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      setCurrentUser(null);
-      setCurrentStep(-1);
-      setResumeStep(0);
-      setUserVotes({});
-      setUserDisplayName('');
-      localStorage.removeItem('votingProgress');
-    } catch (error) {
-      logger.error('Logout Error:', error);
-    }
+    await signOutUser();
+    setCurrentStep(LOGIN_STEP);
+    setUserDisplayName('');
+    clearProgress();
   };
 
   /**
    * Volver al inicio sin cerrar sesión (limpia votos pero mantiene sesión)
    */
   const handleReturnToHome = () => {
-    setCurrentStep(-1); // Volver a login
-    setResumeStep(0); // Olvidar el progreso recordado
-    setUserVotes({}); // Limpiar votos
+    setCurrentStep(LOGIN_STEP); // Volver a login
+    clearProgress(); // Olvidar votos y progreso recordado
     // El nombre vuelve al de la cuenta de Google, NO a vacío: la sesión sigue
     // abierta y ReviewScreen debe encontrar un nombre válido al volver a entrar.
     setUserDisplayName(auth.currentUser?.displayName || '');
-    setErrorMessage(''); // Limpiar errores
-    localStorage.removeItem('votingProgress');
-  };
-
-  /**
-   * Selecciona una opción de voto
-   * La sincronización con localStorage se maneja en useEffect (ver más abajo)
-   */
-  const selectOption = (categoryId, option) => {
-    // option = { id: optionId, name: optionName }
-    const updatedVotes = { ...userVotes, [categoryId]: option };
-    setUserVotes(updatedVotes);
-    
-    // No avanzar automáticamente desde aquí - dejar que VoteScreen maneje la navegación
-    // El useEffect sincronizará automáticamente con localStorage
-  };
-
-  /**
-   * Navega a la categoría anterior, o a una específica si se proporciona el índice
-   */
-  const goToPreviousStep = (stepIndex = null) => {
-    if (stepIndex !== null && stepIndex >= 0) {
-      // Ir a un paso específico (desde allVotes)
-      setCurrentStep(stepIndex);
-    } else if (currentStep > 0) {
-      // Ir al paso anterior
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  /**
-   * Navega a la siguiente categoría o revisión
-   */
-  const goToNextStep = () => {
-    if (currentStep < validCategories.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      setCurrentStep(validCategories.length); // Ir a revisión
-    }
-  };
-
-  /**
-   * Finaliza la votación: guarda el voto actual y va a ReviewScreen
-   */
-  const finishVoting = () => {
-    // Guardar el progreso actual (incluyendo el voto de la categoría en la que estamos)
-    const progress = { votes: userVotes, step: currentStep };
-    localStorage.setItem('votingProgress', JSON.stringify(progress));
-    
-    // Ir directamente a ReviewScreen
-    setCurrentStep(validCategories.length);
-  };
-
-  /**
-   * Salta categoría sin votar
-   */
-  const skipCategory = () => {
-    goToNextStep();
+    setErrorMessage('');
+    setAuthError('');
   };
 
   /**
@@ -400,36 +239,18 @@ function App() {
       setIsLoading(true);
       setErrorMessage('');
 
-      // Guardar el optionId estable (NO el nombre): independiente del idioma y
-      // robusto frente a cambios de texto. El nombre se resuelve al mostrar.
-      const selections = {};
-      Object.entries(userVotes).forEach(([categoryId, vote]) => {
-        selections[categoryId] = vote.id;
+      const { selectionCount } = await submitVote({
+        currentUser,
+        userVotes,
+        displayName,
+        season,
       });
-
-      // Preparar datos (estructura validada por firestore.rules)
-      // userNickname = nombre de la cuenta de Google (no editable); se lee de
-      // currentUser, no de estado, para que no pueda quedar vacío.
-      // uid y email van SIN valor por defecto: las reglas exigen que coincidan
-      // con el token, así que un 'demo-user' solo produciría un rechazo opaco.
-      const ballotData = {
-        userId: currentUser.uid,
-        userEmail: currentUser.email,
-        userNickname: sanitizeUserText(currentUser.displayName) || displayName,
-        userDisplayName: displayName,
-        selections: selections, // { categoryId: optionId }
-        season: Math.trunc(season), // las reglas exigen un entero
-        submittedAt: new Date().toISOString(),
-        isActive: true
-      };
-
-      // Guardado en Firebase
-      await setDoc(doc(db, "ballots", currentUser.uid), ballotData);
 
       // Marcar como votado (bloquea el re-voto si vuelve a entrar)
       setHasVoted(true);
+      trackBallotSubmitted(selectionCount);
 
-      setCurrentStep(99); // Pantalla de éxito - useEffect limpiará localStorage automáticamente
+      setCurrentStep(SUCCESS_STEP); // el hook limpia el progreso guardado
     } catch (error) {
       logger.error('Ballot Submit Error:', error);
       setErrorMessage(t('errorSavingVote'));
@@ -438,198 +259,144 @@ function App() {
     }
   };
 
-  /**
-   * Calcula el progreso del voting
-   */
-  const getProgressPercentage = () => {
-    if (currentStep < 0) return 0;
-    if (currentStep >= validCategories.length) return 100;
-    return Math.round(((currentStep + 1) / validCategories.length) * 100);
-  };
-
   // ============ RENDERING ============
+  // Toda la cascada de pantallas va dentro de renderScreen para poder
+  // envolverla en un único AppProvider: idioma y tema dejan de viajar por
+  // props (eran 4 props x 9 pantallas para dos valores globales).
+  const renderScreen = () => {
 
-  // Loading inicial (autenticación)
-  if (isLoadingAuth) {
-    return (
-      <div className="min-h-screen theme-gradient-primary flex items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4 flex justify-center">
-            <div className="w-12 h-12 border-4 theme-border-primary border-t-blue-500 rounded-full animate-spin"></div>
+    // Pantallas de carga: el mismo primitivo en los tres casos (antes eran tres
+    // spinners escritos a mano, con colores distintos entre sí sin motivo).
+    if (isLoadingAuth) return <LoadingSpinner text={t('loadingApp')} fullScreen />;
+    if (categoriesLoading) return <LoadingSpinner text={t('loadingCategories')} fullScreen />;
+
+    // Panel de Admin - Ruta oculta /admin (SIEMPRE accesible, incluso sin categorías).
+    // Quién puede entrar lo decide AdminPanel (custom claim admin) y, en última
+    // instancia, las reglas de Firestore.
+    if (route === 'admin') {
+      return (
+        <Suspense fallback={
+          <div className="min-h-screen theme-gradient-primary flex items-center justify-center">
+            <div className="w-12 h-12 border-4 theme-border-primary border-t-blue-500 rounded-full animate-spin" />
           </div>
-          <p className="theme-text-tertiary">{t('loadingApp')}</p>
-        </div>
-      </div>
-    );
-  }
+        }>
+          <AdminPanel />
+        </Suspense>
+      );
+    }
 
-  // Loading de categorías
-  if (categoriesLoading) {
-    return (
-      <div className="min-h-screen theme-gradient-primary flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="mb-4 flex justify-center">
-            <div className="w-12 h-12 border-4 theme-border-primary border-t-emerald-500 rounded-full animate-spin"></div>
+    // Sin categorías válidas todavía (el admin aún no las ha cargado).
+    if (validCategories.length === 0) {
+      return (
+        <div className="min-h-screen theme-gradient-primary flex items-center justify-center p-4">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold theme-text-primary mb-2">
+              {t('noCategoriesAvailable')}
+            </h1>
+            <p className="theme-text-tertiary">{t('errorTryAgain')}</p>
           </div>
-          <p className="theme-text-tertiary">{t('loadingCategories')}</p>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  // Filtrar solo categorías válidas (no placeholders vacíos)
-  // - Si tiene isPlaceholder, es solo para mantener la tabla en Firestore
-  // - Si tiene title vacío, también es un placeholder
-  const validCategories = categories.filter(cat => !cat.isPlaceholder && hasTitle(cat));
+    // Deadline alcanzado
+    if (isDeadlineReached) {
+      return <DeadlineScreen />;
+    }
 
-  // Panel de Admin - Ruta oculta /admin (SIEMPRE accesible, incluso sin categorías).
-  // Quién puede entrar lo decide AdminPanel (custom claim admin) y, en última
-  // instancia, las reglas de Firestore.
-  if (route === 'admin') {
-    return (
-      <Suspense fallback={
-        <div className="min-h-screen theme-gradient-primary flex items-center justify-center">
-          <div className="w-12 h-12 border-4 theme-border-primary border-t-blue-500 rounded-full animate-spin" />
-        </div>
-      }>
-        <AdminPanel language={language} onToggleLanguage={toggleLanguage} theme={theme} onToggleTheme={toggleTheme} />
-      </Suspense>
-    );
-  }
+    // Comprobando en Firestore si el usuario ya votó (evita parpadeo)
+    if (currentUser && !voteChecked && currentStep !== SUCCESS_STEP) {
+      return <LoadingSpinner fullScreen />;
+    }
 
-  // Sin categorías válidas - mostrar mensaje solo para público
-  if (validCategories.length === 0 && !isLoadingAuth && !categoriesLoading) {
-    return (
-      <div className="min-h-screen theme-gradient-primary flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="text-5xl mb-4">📋</div>
-          <h1 className="text-2xl font-bold theme-text-primary mb-2">No hay categorías disponibles</h1>
-          <p className="theme-text-tertiary">{t('errorTryAgain')}</p>
-          {categories.length > 0 && (
-            <p className="text-sm theme-text-secondary mt-4">
-              (Admin: {categories.length} categoría(s) en base de datos, pero vacías)
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  }
+    // Bloqueo de re-voto: si ya votó, mostrar pantalla de "ya has votado"
+    // (salvo en la pantalla de éxito recién enviada, currentStep === 99)
+    if (currentUser && hasVoted && currentStep !== SUCCESS_STEP) {
+      return (
+        <AlreadyVotedScreen
+          userNickname={userDisplayName}
+          onLogout={handleLogout}
+        />
+      );
+    }
 
-  // Deadline alcanzado
-  if (isDeadlineReached) {
-    return <DeadlineScreen language={language} onToggleLanguage={toggleLanguage} theme={theme} onToggleTheme={toggleTheme} />;
-  }
+    // Pantalla de login
+    if (currentStep === LOGIN_STEP || !currentUser) {
+      return (
+        <LoginScreen
+          onLogin={handleLogin}
+          isLoading={isSigningIn}
+          errorMessage={authError}
+          daysRemaining={daysRemaining}
+        />
+      );
+    }
 
-  // Comprobando en Firestore si el usuario ya votó (evita parpadeo)
-  if (currentUser && !voteChecked && currentStep !== 99) {
-    return (
-      <div className="min-h-screen theme-gradient-primary flex items-center justify-center">
-        <div className="w-12 h-12 border-4 theme-border-primary border-t-blue-500 rounded-full animate-spin" />
-      </div>
-    );
-  }
+    // Pantalla de votación
+    if (currentStep >= 0 && currentStep < validCategories.length) {
+      return (
+        <VoteScreen
+          category={validCategories[currentStep]}
+          currentStep={currentStep}
+          totalSteps={validCategories.length}
+          userVotes={userVotes}
+          onSelectOption={selectOption}
+          onPrevious={goToPreviousStep}
+          onNext={goToNextStep}
+                    onFinish={finishVoting}
+          progressPercentage={progressPercentage}
+        />
+      );
+    }
 
-  // Bloqueo de re-voto: si ya votó, mostrar pantalla de "ya has votado"
-  // (salvo en la pantalla de éxito recién enviada, currentStep === 99)
-  if (currentUser && hasVoted && currentStep !== 99) {
-    return (
-      <AlreadyVotedScreen
-        userNickname={userDisplayName}
-        onLogout={handleLogout}
-        language={language}
-        onToggleLanguage={toggleLanguage}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
-    );
-  }
+    // Pantalla de revisión - Solo si hay categorías válidas cargadas
+    if (currentStep === reviewStep && validCategories.length > 0) {
+      return (
+        <ReviewScreen
+          categories={validCategories}
+          userVotes={userVotes}
+          userDisplayName={userDisplayName}
+          onDisplayNameChange={setUserDisplayName}
+          onSubmit={submitBallot}
+          onPrevious={goToPreviousStep}
+          onReturnHome={handleReturnToHome}
+          isLoading={isLoading}
+          errorMessage={errorMessage}
+        />
+      );
+    }
 
-  // Pantalla de login
-  if (currentStep === -1 || !currentUser) {
+    // Pantalla de éxito
+    if (currentStep === SUCCESS_STEP) {
+      return (
+        <SuccessScreen
+          userNickname={userDisplayName}
+          onLogout={handleLogout}
+          onReturnHome={handleReturnToHome}
+        />
+      );
+    }
+
+    // Fallback - Si ninguna condición anterior se cumple, mostrar LoginScreen como último recurso
     return (
       <LoginScreen
         onLogin={handleLogin}
-        isLoading={isLoading}
-        errorMessage={errorMessage}
+        isLoading={isSigningIn}
+        errorMessage={authError}
         daysRemaining={daysRemaining}
-        language={language}
-        onToggleLanguage={toggleLanguage}
-        theme={theme}
-        onToggleTheme={toggleTheme}
       />
     );
-  }
+  };
 
-  // Pantalla de votación
-  if (currentStep >= 0 && currentStep < validCategories.length) {
-    return (
-      <VoteScreen
-        category={validCategories[currentStep]}
-        currentStep={currentStep}
-        totalSteps={validCategories.length}
-        userVotes={userVotes}
-        onSelectOption={selectOption}
-        onPrevious={goToPreviousStep}
-        onNext={goToNextStep}
-        onSkip={skipCategory}
-        onFinish={finishVoting}
-        progressPercentage={getProgressPercentage()}
-        language={language}
-        onToggleLanguage={toggleLanguage}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
-    );
-  }
-
-  // Pantalla de revisión - Solo si hay categorías válidas cargadas
-  if (currentStep === validCategories.length && validCategories.length > 0) {
-    return (
-      <ReviewScreen
-        categories={validCategories}
-        userVotes={userVotes}
-        userDisplayName={userDisplayName}
-        onDisplayNameChange={setUserDisplayName}
-        onSubmit={submitBallot}
-        onPrevious={goToPreviousStep}
-        onReturnHome={handleReturnToHome}
-        isLoading={isLoading}
-        errorMessage={errorMessage}
-        language={language}
-        onToggleLanguage={toggleLanguage}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
-    );
-  }
-
-  // Pantalla de éxito
-  if (currentStep === 99) {
-    return (
-      <SuccessScreen
-        userNickname={userDisplayName}
-        onLogout={handleLogout}
-        onReturnHome={handleReturnToHome}
-        language={language}
-        onToggleLanguage={toggleLanguage}
-        theme={theme}
-        onToggleTheme={toggleTheme}
-      />
-    );
-  }
-
-  // Fallback - Si ninguna condición anterior se cumple, mostrar LoginScreen como último recurso
   return (
-    <LoginScreen
-      onLogin={handleLogin}
-      isLoading={isLoading}
-      errorMessage={errorMessage}
-      daysRemaining={daysRemaining}
+    <AppProvider
       language={language}
       onToggleLanguage={toggleLanguage}
       theme={theme}
       onToggleTheme={toggleTheme}
-    />
+    >
+      {renderScreen()}
+    </AppProvider>
   );
 }
 

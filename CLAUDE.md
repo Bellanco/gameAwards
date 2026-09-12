@@ -38,22 +38,36 @@ npm run test:rules # tests de firestore.rules contra el emulador (necesita Java)
 
 ```
 src/
-├── App.jsx                  # Orquestador: todo el estado de la app y el flujo de pantallas
+├── App.jsx                  # Orquestador: estado de la app y cascada de pantallas
 ├── main.jsx                 # Entry point de React DOM
 ├── firebase.js              # Config Firebase (lee de import.meta.env) + lazy Analytics
 ├── index.css                # Directivas Tailwind
-├── components/              # Pantallas (VoteScreen, ReviewScreen, AdminPanel, etc.)
-│   ├── ui/                  # Primitivos reutilizables (Button, Modal, Card, Table…) + index.js
-│   ├── form/                # Inputs de formulario (TextInput, Select, Checkbox…) + index.js
+├── context/AppContext.jsx   # Idioma y tema (evita el prop-drilling por 9 pantallas)
+├── components/              # Pantallas (VoteScreen, ReviewScreen, AdminPanel…)
+│   ├── admin/               # Pestañas y sub-paneles del AdminPanel
+│   ├── ui/                  # Primitivos (Button, Card, Alert, ThemeLanguageControls…)
+│   ├── form/                # Inputs de formulario (TextInput) + index.js
 │   └── layouts/             # ScreenLayout, ControlBar
 ├── hooks/                   # Hooks custom, reexportados desde hooks/index.js
-├── services/               # Lógica sin UI (Firestore, analytics, errores, logger)
+├── services/                # Lógica sin UI: TODA escritura a Firestore vive aquí
 ├── data/
 │   ├── literals.js          # índice i18n → useTranslation(language)
 │   └── i18n/{es,en}.js      # textos (mismas claves en ambos)
-├── styles/themes.css        # variables de tema
+├── styles/                  # theme-tokens.css + theme-semantic.css + theme-motion.css
 └── utils/                   # helpers puros
 ```
+
+### Dónde va cada cosa
+
+- **Escrituras a Firestore → `services/`**, nunca en un componente. Ya existen
+  `categoriesService` (cargar/guardar/borrar/reordenar), `ballotService` (enviar y comprobar
+  voto), `winnersService` (ganadores en lote) y `seasonService` (temporada y reinicio anual).
+  Así se pueden probar sin renderizar.
+- **Lógica de estado con ciclo de vida → `hooks/`**: `useVotingFlow` (pasos, votos, progreso),
+  `useAuthSession` (sesión y bloqueo de re-voto), `useViewport`, `useStepHistory`.
+- **Cálculo puro → `utils/`**: `gridDensity`, `closingDate`, `options`, `sanitize`, `scoring`,
+  `localize`, `routes`.
+- **Idioma y tema NO se pasan por props**: `useAppContext()`.
 
 ### Flujo de pantallas (controlado por `currentStep` en `App.jsx`)
 - `-1` → Login
@@ -102,7 +116,10 @@ No se usa router; la navegación entre categorías es estado de React.
    - Objetivo táctil mínimo **44×44 px** en controles de usuario (`min-h-[44px] min-w-[44px]`).
    - Los botones de tema/idioma NO se escriben a mano: usa `<ThemeLanguageControls>` de
      `components/ui` (estaban copiados en cuatro sitios, con `aria-label` en solo dos).
-6. **Componentes < 300 líneas.** Si crece, divídelo.
+6. **Componentes < 300 líneas.** Si crece, divídelo: saca la lógica a un servicio o a un hook
+   antes que trocear el JSX. Ninguno supera hoy el límite; comprueba con:
+   `for f in $(find src -name "*.jsx" -o -name "*.js" | grep -v test); do ...` o simplemente
+   revisando que lo que crece sea JSX y no lógica.
 7. **async/await**, no cadenas `.then().then()`.
 8. **Logging**: usa `import logger from 'services/loggerService'` (silencia en producción), no
    `console.*` directo. Errores de dominio → `logError(ERROR_TYPES.X, err, {context})` de

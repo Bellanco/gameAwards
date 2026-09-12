@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../data/literals';
+import { useAppContext } from '../context/AppContext';
+import { useViewport } from '../hooks/useViewport';
 import { getRandomGradients } from '../utils/gradients';
+import { getGridColumns } from '../utils/gridDensity';
 import { tField, getCategoryTitle, getOptionId, getOptionLabel } from '../utils/localize';
 import GameCard from './GameCard';
 import { ScreenLayout } from './layouts';
 import { Header, Footer } from './ui';
+import { trackCategoryViewed } from '../services/analyticsService';
 
 /**
  * Pausa tras seleccionar un nominado, para que el check llegue a verse antes de
@@ -27,18 +31,15 @@ export default function VoteScreen({
   onNext,
   onFinish,
   progressPercentage,
-  language,
-  onToggleLanguage,
-  theme,
-  onToggleTheme
 }) {
+  const { language } = useAppContext();
   const t = useTranslation(language);
+  const viewportInfo = useViewport();
   const [gameGradients, setGameGradients] = useState({});
   const [loadingImages, setLoadingImages] = useState(true);
   const [hasVerticalScroll, setHasVerticalScroll] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [viewportInfo, setViewportInfo] = useState({ isMobile: false, isLandscape: false, width: 0 });
   const scrollContainerRef = useRef(null);
 
   // Bloqueo de navegación contra doble pulsación (ghost clicks).
@@ -137,31 +138,15 @@ export default function VoteScreen({
     };
   }, [category?.id, category?.options]);
 
+  // Métrica de embudo: en qué categoría abandona la gente. Va en su propio
+  // efecto para no acoplar la analítica al ciclo de los degradados.
+  useEffect(() => {
+    if (category?.id) trackCategoryViewed(category.id, currentStep + 1, totalSteps);
+  }, [category?.id, currentStep, totalSteps]);
+
   // El temporizador de la selección debe morir con el componente: si no, al
   // salir rápido de la pantalla dispara un setState sobre un árbol desmontado.
   useEffect(() => () => clearTimeout(selectionTimer.current), []);
-
-  // Mantener metadata de viewport para responder a orientación y ancho real
-  useEffect(() => {
-    const updateViewportInfo = () => {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
-      setViewportInfo({
-        isMobile: width < 768,
-        isLandscape: width > height,
-        width
-      });
-    };
-
-    updateViewportInfo();
-    window.addEventListener('resize', updateViewportInfo);
-    window.addEventListener('orientationchange', updateViewportInfo);
-
-    return () => {
-      window.removeEventListener('resize', updateViewportInfo);
-      window.removeEventListener('orientationchange', updateViewportInfo);
-    };
-  }, []);
 
   // Validación defensiva (tras los hooks, para no alterar su orden entre renders).
   if (!category || !category.options || category.options.length === 0) {
@@ -175,56 +160,13 @@ export default function VoteScreen({
     );
   }
 
-  // Calibración fina de densidad visual por rango de viewport + cantidad de opciones.
-  const gridDensityConfig = (() => {
-    const width = viewportInfo.width || 320;
-
-    if (isMobilePortrait) {
-      // Evitar saltos bruscos (5 opciones en 2 cols y 6 en 3 cols) en móviles tipo Pixel.
-      // En anchos <= 430px mantenemos densidad estable con máximo 2 columnas hasta 8 opciones.
-      if (width <= 430) {
-        if (optionCount <= 3) return { minCardWidthPx: 180, maxColumns: 2 };
-        return { minCardWidthPx: 150, maxColumns: 2 };
-      }
-
-      if (optionCount <= 3) return { minCardWidthPx: 190, maxColumns: 2 };
-      if (optionCount <= 6) return { minCardWidthPx: 160, maxColumns: 2 };
-      return { minCardWidthPx: 145, maxColumns: 3 };
-    }
-
-    if (viewportInfo.isMobile && viewportInfo.isLandscape) {
-      if (optionCount <= 4) return { minCardWidthPx: 170, maxColumns: 4 };
-      if (optionCount <= 8) return { minCardWidthPx: 190, maxColumns: 3 };
-      return { minCardWidthPx: 170, maxColumns: 4 };
-    }
-
-    if (width < 900) {
-      return { minCardWidthPx: viewportInfo.isMobile ? 200 : 220, maxColumns: 2 };
-    }
-
-    if (width < 1280) {
-      if (optionCount <= 4) return { minCardWidthPx: 260, maxColumns: 2 };
-      if (optionCount <= 8) return { minCardWidthPx: 240, maxColumns: 3 };
-      return { minCardWidthPx: 220, maxColumns: 4 };
-    }
-
-    if (width < 1600) {
-      if (optionCount <= 4) return { minCardWidthPx: 280, maxColumns: 4 };
-      if (optionCount <= 8) return { minCardWidthPx: 260, maxColumns: 4 };
-      return { minCardWidthPx: 240, maxColumns: 5 };
-    }
-
-    if (optionCount <= 4) return { minCardWidthPx: 320, maxColumns: 4 };
-    if (optionCount <= 8) return { minCardWidthPx: 290, maxColumns: 5 };
-    return { minCardWidthPx: 260, maxColumns: 6 };
-  })();
-
-  const safeViewportWidth = Math.max(320, (viewportInfo.width || 320) - 24);
-  const columnsByWidth = Math.max(1, Math.floor(safeViewportWidth / gridDensityConfig.minCardWidthPx));
-  const gridColumns = Math.max(
-    1,
-    Math.min(optionCount, gridDensityConfig.maxColumns, columnsByWidth)
-  );
+  // Columnas de la rejilla según ancho y nº de nominados (ver utils/gridDensity).
+  const gridColumns = getGridColumns({
+    width: viewportInfo.width,
+    optionCount,
+    isMobile: viewportInfo.isMobile,
+    isLandscape: viewportInfo.isLandscape,
+  });
 
   const denseLandscapeClass = viewportInfo.isMobile && viewportInfo.isLandscape && optionCount >= 6
     ? 'gap-1.5 sm:gap-2 md:gap-3'
@@ -270,10 +212,6 @@ export default function VoteScreen({
       subtitle={isVoted
         ? `${t('yourSelection')}: ${getOptionLabel(category, selectedOption?.id, language)}`
         : t('chooseYourFavorite')}
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
     />
   );
 
@@ -319,10 +257,6 @@ export default function VoteScreen({
 
   return (
     <ScreenLayout
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
       header={headerContent}
       footer={<Footer>{footerContent}</Footer>}
       backgroundImage=""

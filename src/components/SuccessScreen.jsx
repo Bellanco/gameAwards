@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../data/literals';
+import { useAppContext } from '../context/AppContext';
 import { StarIcon } from './Icons';
 import { ScreenLayout } from './layouts';
 import { Header } from './ui';
@@ -10,11 +11,8 @@ import { Header } from './ui';
  */
 export default function SuccessScreen({
   userNickname,
-  language,
-  onToggleLanguage,
-  theme,
-  onToggleTheme
 }) {
+  const { language } = useAppContext();
   const t = useTranslation(language);
 
   // Header con controles
@@ -22,19 +20,11 @@ export default function SuccessScreen({
     <Header
       title={t('ballotSubmitted')}
       subtitle={`${t('thankYou')}, ${userNickname}`}
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
     />
   );
 
   return (
     <ScreenLayout
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
       header={headerContent}
       showControlBar={false}
     >

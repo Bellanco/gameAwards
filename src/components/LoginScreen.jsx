@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../data/literals';
+import { useAppContext } from '../context/AppContext';
 import { ScreenLayout } from './layouts';
 
 /**
@@ -11,19 +12,12 @@ export default function LoginScreen({
   isLoading,
   errorMessage,
   daysRemaining,
-  language,
-  onToggleLanguage,
-  theme,
-  onToggleTheme
 }) {
+  const { language } = useAppContext();
   const t = useTranslation(language);
 
   return (
     <ScreenLayout
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
     >
       {/* Fondo decorativo */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">

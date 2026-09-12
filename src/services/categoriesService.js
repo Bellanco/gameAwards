@@ -3,11 +3,12 @@
  * Evita duplicación de código en App.jsx, hooks y componentes
  */
 
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc, setDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { logError, ERROR_TYPES } from './errorService';
 import logger from './loggerService';
 import { tField, hasTitle } from '../utils/localize';
+import { buildStableOptions, generateUUID } from '../utils/options';
 
 /**
  * Carga todas las categorías desde Firestore.
@@ -141,4 +142,126 @@ export function sortCategoriesByOrder(categories) {
     const indexB = typeof b.orderIndex === 'number' ? b.orderIndex : 0;
     return indexA - indexB;
   });
+}
+
+/**
+ * Guarda una categoría (nueva o existente).
+ *
+ * Los ids de opción se construyen con `buildStableOptions`: las opciones que ya
+ * existían conservan el suyo (los votos emitidos siguen apuntando a ellas) y las
+ * nuevas reciben uno irrepetible.
+ *
+ * `merge: true` SIEMPRE. Al editar NO se incluyen orderIndex/createdAt/isActive,
+ * así se preservan (con merge:false se borraban y la categoría perdía su orden).
+ *
+ * @param {Object} params
+ * @param {string|null} params.docId - ID existente, o null para crear
+ * @param {string} params.titleEs - Título en español (obligatorio)
+ * @param {string} params.titleEn - Título en inglés (cae al español si va vacío)
+ * @param {Array<{id?: string|null, value: string}>} params.options - Nominados
+ * @param {number} params.weight - Ponderación
+ * @param {number} [params.orderIndex] - Solo para categorías nuevas
+ * @returns {Promise<{docId: string, isNew: boolean}>}
+ */
+export async function saveCategory({ docId, titleEs, titleEn, options, weight, orderIndex }) {
+  const isNew = !docId;
+  const id = docId || generateUUID();
+
+  try {
+    const builtOptions = buildStableOptions(options, id);
+
+    await setDoc(
+      doc(db, 'categories', id),
+      {
+        title: {
+          es: titleEs.trim(),
+          en: titleEn.trim() || titleEs.trim(),
+        },
+        options: builtOptions,
+        // Espejo plano de los ids, por compatibilidad de lectura.
+        optionIds: builtOptions.map((option) => option.id),
+        weight,
+        updatedAt: new Date().toISOString(),
+        ...(isNew
+          ? { orderIndex, createdAt: new Date().toISOString(), isActive: true }
+          : {}),
+      },
+      { merge: true }
+    );
+
+    return { docId: id, isNew };
+  } catch (error) {
+    logError(ERROR_TYPES.FIRESTORE_ERROR, error, {
+      context: 'categoriesService - saveCategory',
+      docId: id,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Borra una categoría.
+ *
+ * Si es la ÚLTIMA con título, en vez de borrar el documento se convierte en un
+ * placeholder vacío: así la colección `categories` nunca desaparece de Firestore
+ * (una colección sin documentos deja de existir, y con ella las reglas y el
+ * histórico de la consola).
+ *
+ * @param {string} docId - Documento a borrar
+ * @param {boolean} isLastWithTitle - Si es la última categoría con título
+ * @returns {Promise<{kept: boolean}>} kept=true si quedó como placeholder
+ */
+export async function deleteCategory(docId, isLastWithTitle) {
+  try {
+    if (isLastWithTitle) {
+      await setDoc(doc(db, 'categories', docId), {
+        title: { es: '', en: '' },
+        options: [],
+        optionIds: [],
+        weight: 1,
+        isPlaceholder: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      return { kept: true };
+    }
+
+    await deleteDoc(doc(db, 'categories', docId));
+    return { kept: false };
+  } catch (error) {
+    logError(ERROR_TYPES.FIRESTORE_ERROR, error, {
+      context: 'categoriesService - deleteCategory',
+      docId,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Reasigna `orderIndex` contiguo (0..n-1) a las categorías dadas, en un único
+ * lote. Garantiza una secuencia limpia, sin huecos ni duplicados.
+ *
+ * @param {Array<{docId: string}>} orderedCategories - En el orden deseado
+ * @returns {Promise<{reordered: number}>}
+ */
+export async function reorderCategories(orderedCategories) {
+  try {
+    const updatedAt = new Date().toISOString();
+    const batch = writeBatch(db);
+
+    orderedCategories.forEach((category, index) => {
+      batch.update(doc(db, 'categories', category.docId), {
+        orderIndex: index,
+        updatedAt,
+      });
+    });
+
+    await batch.commit();
+    return { reordered: orderedCategories.length };
+  } catch (error) {
+    logError(ERROR_TYPES.FIRESTORE_ERROR, error, {
+      context: 'categoriesService - reorderCategories',
+    });
+    throw error;
+  }
 }

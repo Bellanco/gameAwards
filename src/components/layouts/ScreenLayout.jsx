@@ -7,10 +7,6 @@ import ControlBar from './ControlBar';
  * 
  * @component
  * @param {React.ReactNode} children - Contenido principal
- * @param {string} language - Idioma actual
- * @param {Function} onToggleLanguage - Callback para cambiar idioma
- * @param {string} theme - Tema actual
- * @param {Function} onToggleTheme - Callback para cambiar tema
  * @param {React.ReactNode} header - Componente de encabezado (opcional)
  * @param {React.ReactNode} footer - Componente de pie (opcional)
  * @param {string} backgroundImage - URL de imagen de fondo para header (opcional)
@@ -20,10 +16,6 @@ import ControlBar from './ControlBar';
  */
 export default function ScreenLayout({
   children,
-  language,
-  onToggleLanguage,
-  theme,
-  onToggleTheme,
   header = null,
   footer = null,
   backgroundImage = null,
@@ -39,14 +31,7 @@ export default function ScreenLayout({
       </div>
 
       {/* Control Bar - Idioma y Tema */}
-      {showControlBar && (
-        <ControlBar 
-          language={language} 
-          onToggleLanguage={onToggleLanguage}
-          theme={theme}
-          onToggleTheme={onToggleTheme}
-        />
-      )}
+      {showControlBar && <ControlBar />}
 
       {/* Header - Si se proporciona */}
       {header && (

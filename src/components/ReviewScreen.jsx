@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useTranslation } from '../data/literals';
+import { useAppContext } from '../context/AppContext';
 import { getRandomGradients } from '../utils/gradients';
 import { hasTitle, getCategoryTitle, getOptionLabel } from '../utils/localize';
 import GameCard from './GameCard';
 import { ScreenLayout } from './layouts';
 import { Header } from './ui';
+import { TextInput } from './form';
+import { MAX_USER_TEXT_LENGTH } from '../utils/sanitize';
 
 /**
  * ReviewScreen v5 - Refactorizado con componentes modulares
@@ -20,10 +23,6 @@ export default function ReviewScreen({
   onReturnHome,
   isLoading,
   errorMessage,
-  language,
-  onToggleLanguage,
-  theme,
-  onToggleTheme
 }) {
   // Filtrar solo categorías válidas (no placeholders, no vacías)
   const validCategories = useMemo(() =>
@@ -36,6 +35,7 @@ export default function ReviewScreen({
   const totalCategories = validCategories.length;
   const isComplete = voteCount === totalCategories;
   const missingVotes = totalCategories - voteCount;
+  const { language } = useAppContext();
   const t = useTranslation(language);
 
   // DEBUG - Verificar estado de votos
@@ -79,42 +79,30 @@ export default function ReviewScreen({
       subtitle={`${voteCount} ${t('of')} ${totalCategories} ${t('categoriesVoted')}`}
       progress={`${voteCount} / ${totalCategories}`}
       progressPercentage={totalCategories > 0 ? Math.round((voteCount / totalCategories) * 100) : 0}
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
     />
   );
 
   return (
     <ScreenLayout
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
       header={headerContent}
       footer={null}
       showControlBar={false}
     >
       {/* Contenido principal */}
       <div className="w-full max-w-7xl mx-auto px-4 md:px-6 py-8 flex flex-col">
-        {/* 1. Display Name Input */}
+        {/* 1. Nombre visible. El tope sale de utils/sanitize, que es el mismo
+            que exigen las reglas de Firestore: así el input no puede aceptar
+            algo que el servidor vaya a rechazar. */}
         <div className="theme-card theme-border-primary border rounded-lg p-6 mb-6">
-          <label htmlFor="reviewDisplayName" className="block text-sm font-bold theme-text-primary mb-3">
-            {t('displayName')}
-          </label>
-          <input
-            id="reviewDisplayName"
-            type="text"
-            maxLength="50"
+          <TextInput
+            label={t('displayName')}
+            name="reviewDisplayName"
             value={userDisplayName}
             onChange={(e) => onDisplayNameChange(e.target.value)}
             placeholder={t('enterNickname')}
-            className="w-full px-4 py-3 theme-container-secondary border-2 theme-border-primary rounded-lg theme-placeholder focus:outline-none focus:border-status-warning focus-visible:ring-2 focus-visible:ring-status-warning/40 transition-colors"
+            maxLength={MAX_USER_TEXT_LENGTH}
+            required
           />
-          <p className="text-sm theme-text-secondary mt-2">
-            {userDisplayName.length}/50
-          </p>
         </div>
 
         {/* 2. Warning if incomplete */}

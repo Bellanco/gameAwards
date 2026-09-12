@@ -52,18 +52,6 @@ export async function setVotingOpen(isOpen, extra = {}) {
 }
 
 /**
- * Fija la temporada activa (no abre ni cierra por sí misma).
- * @param {number} season
- */
-export async function setSeason(season) {
-  await setDoc(
-    VOTING_DOC,
-    { season, updatedAt: new Date().toISOString() },
-    { merge: true }
-  );
-}
-
-/**
  * Fija (o limpia) la fecha de cierre de la votación.
  *
  * Recibe el día elegido ('YYYY-MM-DD') y guarda DOS campos:

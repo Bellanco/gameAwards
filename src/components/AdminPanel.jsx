@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { auth, googleProvider } from '../firebase';
 import { signOut, signInWithPopup } from 'firebase/auth';
 import { useTranslation } from '../data/literals';
-import { MedalGoldIcon, MedalSilverIcon, MedalBronzeIcon } from './Icons';
+import { useAppContext } from '../context/AppContext';
 import { useAdminCheck, useFirestoreCategories, useFirestoreBallots, useVotingConfig, useSeasonResults } from '../hooks';
 import { sortCategoriesByOrder } from '../services/categoriesService';
 import { setVotingOpen, setClosingDate, archiveAndResetSeason } from '../services/seasonService';
@@ -16,11 +16,18 @@ import CategoryManager from './CategoryManager';
 import WinnersPanel from './WinnersPanel';
 import LoginScreen from './LoginScreen';
 
+// Pestañas del panel (una por vista)
+import OverviewTab from './admin/OverviewTab';
+import BallotsTab from './admin/BallotsTab';
+import HistoryTab from './admin/HistoryTab';
+import SeasonTab from './admin/SeasonTab';
+
 /**
  * AdminPanel v4 - Panel de administración refactorizado
  * Ahora usa hooks custom, componentes UI modulares y literales centralizados
  */
-export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 'dark', onToggleTheme }) {
+export default function AdminPanel() {
+  const { language } = useAppContext();
   const t = useTranslation(language);
   const { isAdmin, currentUser, isLoading: authLoading } = useAdminCheck();
   const { categories, isLoading: categoriesLoading } = useFirestoreCategories();
@@ -95,19 +102,21 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
   };
 
   /**
-   * Obtener ballots válidos
+   * Votos que cuentan: los que tienen al menos una selección en una categoría
+   * válida. Memoizado porque antes se recalculaba (con su Set) tres veces por
+   * render.
    */
-  const getValidBallots = () => {
+  const validBallots = useMemo(() => {
     const validCatIds = new Set(
       categories
         .filter(c => !c.isPlaceholder && hasTitle(c))
         .map(c => c.id)
     );
-    return ballots.filter(ballot => 
-      ballot.selections && 
+    return ballots.filter(ballot =>
+      ballot.selections &&
       Object.keys(ballot.selections).some(catId => validCatIds.has(catId))
     );
-  };
+  }, [categories, ballots]);
 
   /**
    * Obtener título de categoría por ID
@@ -220,10 +229,6 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
         onLogin={handleLogin}
         isLoading={authLoading}
         errorMessage={errorMessage}
-        language={language}
-        onToggleLanguage={onToggleLanguage}
-        theme={theme}
-        onToggleTheme={onToggleTheme}
       />
     );
   }
@@ -252,13 +257,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
               <p className="theme-text-secondary text-sm">{t('ballotResults')}</p>
             </div>
             <div className="flex gap-4 items-center">
-              <ThemeLanguageControls
-                language={language}
-                onToggleLanguage={onToggleLanguage}
-                theme={theme}
-                onToggleTheme={onToggleTheme}
-                className="flex gap-4 items-center"
-              />
+              <ThemeLanguageControls className="flex gap-4 items-center" />
               <button
                 onClick={handleLogout}
                 className="min-h-[44px] py-2 px-4 btn-danger border theme-border-primary rounded-lg font-semibold text-sm transition-all"
@@ -297,250 +296,58 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-8">
         {/* Overview */}
         {viewMode === 'overview' && (
-          <div className="space-y-8">
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="theme-card theme-border-primary border rounded-lg p-6">
-                <p className="text-sm theme-text-secondary uppercase mb-2">{t('totalBallots')}</p>
-                <p className="text-4xl font-black theme-accent">{getValidBallots().length}</p>
-              </div>
-              <div className="theme-card theme-border-primary border rounded-lg p-6">
-                <p className="text-sm theme-text-secondary uppercase mb-2">{t('categories')}</p>
-                <p className="text-4xl font-black theme-accent">{statsData ? Object.keys(statsData).length : 0}</p>
-              </div>
-              <div className="theme-card theme-border-primary border rounded-lg p-6">
-                <p className="text-sm theme-text-secondary uppercase mb-2">{t('participation')}</p>
-                <p className="text-4xl font-black theme-accent">100%</p>
-              </div>
-            </div>
-
-            {/* Results by Category */}
-            {statsData && (
-              <div>
-                <h2 className="text-2xl font-black theme-text-primary mb-6">{t('resultsByCategory')}</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {Object.entries(statsData).map(([category, votes]) => {
-                    return (
-                      <div key={category} className="theme-card theme-border-primary border rounded-lg p-6">
-                        <h3 className="text-lg font-bold theme-accent mb-4">{getCategoryTitle(category)}</h3>
-                        <div className="space-y-2">
-                          {Object.entries(votes).sort(([, a], [, b]) => b - a).slice(0, 3).map(([option, count], idx) => (
-                            <div key={option} className="flex justify-between items-center">
-                              <span className={`text-sm flex items-center gap-2 ${idx === 0 ? 'theme-accent font-bold' : 'theme-text-secondary'}`}>
-                                {idx === 0 && <MedalGoldIcon className="w-4 h-4" />}
-                                {idx === 1 && <MedalSilverIcon className="w-4 h-4" />}
-                                {idx === 2 && <MedalBronzeIcon className="w-4 h-4" />}
-                                {optionDisplay(category, option)}
-                              </span>
-                              <span className="font-bold">{count}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          <OverviewTab
+            validBallots={validBallots}
+            statsData={statsData}
+            getCategoryTitle={getCategoryTitle}
+            optionDisplay={optionDisplay}
+          />
         )}
 
         {/* Ballots */}
         {viewMode === 'ballots' && (
-          <div>
-            <h2 className="text-2xl font-black theme-text-primary mb-6">{t('allBallots')}</h2>
-            <div className="theme-card theme-border-primary border rounded-lg overflow-hidden overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="theme-header theme-border-primary border-b">
-                  <tr>
-                    <th className="text-left p-4 theme-text-primary">{t('email')}</th>
-                    <th className="text-left p-4 theme-text-primary">{t('nickname')}</th>
-                    <th className="text-left p-4 theme-text-primary">{t('submitted')}</th>
-                    <th className="text-left p-4 theme-text-primary">{t('votes')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {getValidBallots().map(ballot => (
-                    <tr key={ballot.userId} className="theme-border-primary border-b hover:theme-bg-overlay-light transition-colors">
-                      <td className="p-4 theme-text-secondary">{ballot.userEmail || '-'}</td>
-                      <td className="p-4 font-semibold theme-text-primary">{ballot.userDisplayName || ballot.userNickname || '-'}</td>
-                      <td className="p-4 text-sm theme-text-secondary">
-                        {ballot.submittedAt ? new Date(ballot.submittedAt).toLocaleString() : '-'}
-                      </td>
-                      <td className="p-4">
-                        <details className="cursor-pointer">
-                          <summary className="theme-accent font-semibold hover:theme-accent/80">
-                            {t('view')} ({Object.keys(ballot.selections || {}).length})
-                          </summary>
-                          <div className="mt-2 p-2 theme-container-secondary rounded text-sm font-mono theme-text-secondary">
-                            {getSortedBallotSelections(ballot).map(([cat, val]) => (
-                              <div key={cat}><span className="text-info">{getCategoryTitle(cat)}:</span> {optionDisplay(cat, val)}</div>
-                            ))}
-                          </div>
-                        </details>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <BallotsTab
+            validBallots={validBallots}
+            getSortedBallotSelections={getSortedBallotSelections}
+            getCategoryTitle={getCategoryTitle}
+            optionDisplay={optionDisplay}
+          />
         )}
 
         {/* Categories Manager */}
         {viewMode === 'categories' && (
-          <CategoryManager language={language} onClose={() => setViewMode('overview')} />
+          <CategoryManager onClose={() => setViewMode('overview')} />
         )}
 
         {/* Winners Selector */}
         {viewMode === 'winners' && (
-          <WinnersPanel mode="select" language={language} onClose={() => setViewMode('overview')} />
+          <WinnersPanel mode="select" />
         )}
 
         {/* Ranking */}
         {viewMode === 'ranking' && (
-          <WinnersPanel mode="ranking" language={language} onClose={() => setViewMode('overview')} />
+          <WinnersPanel mode="ranking" />
         )}
 
         {/* Histórico de resultados por año */}
         {viewMode === 'history' && (
-          <div className="space-y-8">
-            <div>
-              <h2 className="text-2xl font-black theme-text-primary">{t('history')}</h2>
-              <p className="theme-text-secondary text-sm">{t('historyDescription')}</p>
-            </div>
-
-            {resultsLoading ? (
-              <LoadingSpinner text={t('loadingData')} />
-            ) : seasonResults.length === 0 ? (
-              <div className="theme-card theme-border-primary border rounded-lg p-8 text-center">
-                <p className="theme-text-secondary">{t('noHistory')}</p>
-              </div>
-            ) : (
-              seasonResults.map(edition => {
-                const snap = edition.categoriesSnapshot || [];
-                const board = edition.leaderboard || [];
-                return (
-                  <div key={edition.id} className="theme-card theme-border-primary border rounded-lg overflow-hidden">
-                    <div className="theme-header theme-border-primary border-b px-6 py-4 flex justify-between items-center">
-                      <h3 className="text-2xl font-black theme-accent">{edition.season}</h3>
-                      <span className="text-sm theme-text-secondary">{edition.totalBallots || 0} {t('votes')}</span>
-                    </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-                      {/* Ganadores por categoría */}
-                      <div>
-                        <h4 className="text-sm font-bold theme-text-secondary uppercase mb-3">{t('winners')}</h4>
-                        <div className="space-y-1.5">
-                          {snap.filter(c => c.winner).map(cat => (
-                            <div key={cat.id} className="flex justify-between gap-3 text-sm">
-                              <span className="theme-text-tertiary truncate">{localizeCategoryTitle(cat, language)}</span>
-                              <span className="theme-text-primary font-semibold text-right">{getOptionLabel(cat, cat.winner, language)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      {/* Clasificación */}
-                      <div>
-                        <h4 className="text-sm font-bold theme-text-secondary uppercase mb-3">{t('ranking')}</h4>
-                        <div className="space-y-1.5">
-                          {board.slice(0, 10).map(entry => (
-                            <div key={entry.userId} className="flex justify-between gap-3 text-sm">
-                              <span className="theme-text-tertiary">
-                                {entry.rank === 1 && '🥇 '}{entry.rank === 2 && '🥈 '}{entry.rank === 3 && '🥉 '}
-                                {entry.rank > 3 && `${entry.rank}. `}{entry.nickname}
-                              </span>
-                              <span className="theme-accent font-bold">{entry.points} {t('pts')}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+          <HistoryTab seasonResults={seasonResults} resultsLoading={resultsLoading} />
         )}
 
         {/* Season / Voting control */}
         {viewMode === 'season' && (
-          <div className="max-w-2xl space-y-6">
-            <div>
-              <h2 className="text-2xl font-black theme-text-primary">{t('season')}</h2>
-              <p className="theme-text-secondary text-sm">{t('seasonDescription')}</p>
-            </div>
-
-            {seasonMessage && (
-              <div className="p-3 rounded-lg theme-card theme-border-primary border text-sm theme-text-primary">
-                {seasonMessage}
-              </div>
-            )}
-
-            {/* Estado de la votación */}
-            <div className="theme-card theme-border-primary border rounded-lg p-6">
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div>
-                  <p className="text-sm theme-text-secondary uppercase mb-1">{t('currentSeason')}</p>
-                  <p className="text-3xl font-black theme-accent">{season}</p>
-                  <p className={`text-sm font-semibold mt-1 ${isVotingOpen ? 'text-status-success' : 'text-status-error'}`}>
-                    {isVotingOpen ? t('votingOpen') : t('votingClosed')}
-                  </p>
-                </div>
-                <button
-                  onClick={handleToggleVoting}
-                  disabled={seasonBusy}
-                  className={`py-3 px-6 rounded-lg font-bold text-sm transition-all disabled:opacity-50 ${
-                    isVotingOpen
-                      ? 'btn-danger border theme-border-primary'
-                      : 'btn-success border theme-border-primary'
-                  }`}
-                >
-                  {isVotingOpen ? t('closeVoting') : t('openVoting')}
-                </button>
-              </div>
-            </div>
-
-            {/* Fecha de cierre (dinámica) */}
-            <div className="theme-card theme-border-primary border rounded-lg p-6">
-              <h3 className="text-lg font-bold theme-text-primary mb-2">{t('closingDate')}</h3>
-              <p className="theme-text-secondary text-sm mb-4">{t('closingDateHelp')}</p>
-              <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-                <input
-                  type="date"
-                  value={closeDate}
-                  min={new Date().toISOString().slice(0, 10)}
-                  onChange={(e) => setCloseDate(e.target.value)}
-                  disabled={seasonBusy}
-                  className="px-4 py-2.5 theme-container-secondary theme-border-primary border rounded theme-text-primary focus:outline-none focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40"
-                />
-                <button
-                  onClick={handleSaveClosingDate}
-                  disabled={seasonBusy}
-                  className="py-2.5 px-5 rounded-lg font-bold text-sm theme-accent-bg theme-text-inverse transition-all disabled:opacity-50"
-                >
-                  {t('save')}
-                </button>
-              </div>
-              <p className="text-sm theme-text-tertiary mt-3">
-                {closesAt
-                  ? `${t('closesOn')}: ${new Date(closesAt).toLocaleString()}`
-                  : t('noClosingDate')}
-              </p>
-            </div>
-
-            {/* Archivar y reiniciar */}
-            <div className="bg-status-error-light border border-status-error rounded-lg p-6">
-              <h3 className="text-lg font-bold text-status-error mb-2">{t('archiveAndReset')}</h3>
-              <p className="theme-text-secondary text-sm mb-4">{t('archiveAndResetDescription')}</p>
-              <button
-                onClick={handleArchiveReset}
-                disabled={seasonBusy}
-                className="py-3 px-6 rounded-lg font-bold text-sm btn-danger border theme-border-primary transition-all disabled:opacity-50"
-              >
-                {seasonBusy ? t('loadingData') : t('archiveAndReset')}
-              </button>
-            </div>
-          </div>
+          <SeasonTab
+            season={season}
+            isVotingOpen={isVotingOpen}
+            closesAt={closesAt}
+            closeDate={closeDate}
+            setCloseDate={setCloseDate}
+            seasonBusy={seasonBusy}
+            seasonMessage={seasonMessage}
+            onToggleVoting={handleToggleVoting}
+            onSaveClosingDate={handleSaveClosingDate}
+            onArchiveReset={handleArchiveReset}
+          />
         )}
       </div>
     </div>

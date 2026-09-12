@@ -10,22 +10,15 @@ export default function Header({
   progress = null,
   progressPercentage = null,
   children = null,
-  language = null,
-  onToggleLanguage = null,
-  theme = null,
-  onToggleTheme = null
+  showControls = true
 }) {
   const progressWidth = `${progressPercentage || 0}%`;
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 landscape:px-2 py-3 sm:py-4 relative">
       {/* Controles de idioma y tema - Esquina superior derecha */}
-      {(language || theme) && (
+      {showControls && (
         <ThemeLanguageControls
-          language={language}
-          onToggleLanguage={onToggleLanguage}
-          theme={theme}
-          onToggleTheme={onToggleTheme}
           showLanguageLabel={false}
           className="absolute top-4 right-4 landscape:right-2 flex gap-2 z-50"
         />
@@ -33,7 +26,7 @@ export default function Header({
 
       {/* Barra de progreso - Si se proporciona (con margen superior si hay controles) */}
       {progress !== null && (
-        <div className={`${language || theme ? 'mt-12 sm:mt-14' : ''} mb-2 sm:mb-3 landscape:mb-1`}>
+        <div className={`${showControls ? 'mt-12 sm:mt-14' : ''} mb-2 sm:mb-3 landscape:mb-1`}>
           <div className="flex justify-between items-center mb-1.5 landscape:mb-0.5 text-sm">
             <span className="font-bold theme-text-secondary uppercase">
               {progress}

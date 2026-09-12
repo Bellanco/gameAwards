@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../data/literals';
+import { useAppContext } from '../context/AppContext';
 import { CloseIcon } from './Icons';
 import { ScreenLayout } from './layouts';
 import { Header } from './ui';
@@ -8,7 +9,8 @@ import { Header } from './ui';
  * DeadlineScreen v4 - Refactorizado con Header reutilizable
  * Muestra que la votación ha finalizado
  */
-export default function DeadlineScreen({ language, onToggleLanguage, theme, onToggleTheme }) {
+export default function DeadlineScreen() {
+  const { language } = useAppContext();
   const t = useTranslation(language);
 
   // Header con controles
@@ -16,19 +18,11 @@ export default function DeadlineScreen({ language, onToggleLanguage, theme, onTo
     <Header
       title={t('votingClosed')}
       subtitle={t('votingDeadlineMessage')}
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
     />
   );
 
   return (
     <ScreenLayout
-      language={language}
-      onToggleLanguage={onToggleLanguage}
-      theme={theme}
-      onToggleTheme={onToggleTheme}
       header={headerContent}
       showControlBar={false}
     >

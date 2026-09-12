@@ -1,6 +1,7 @@
 import React from 'react';
 import { LanguageIcon, ThemeIcon } from '../Icons';
 import { useTranslation } from '../../data/literals';
+import { useAppContext } from '../../context/AppContext';
 
 /**
  * ThemeLanguageControls - El par de botones de tema e idioma.
@@ -13,21 +14,16 @@ import { useTranslation } from '../../data/literals';
  * WCAG 2.5.5 y las guías de iOS. Antes eran ~32 px (y ~26 px en apaisado), lo
  * que los hacía difíciles de acertar con el pulgar justo en el flujo de voto.
  *
- * @param {string} language - Idioma actual ('es' | 'en')
- * @param {Function} onToggleLanguage - Callback para cambiar idioma
- * @param {string} theme - Tema actual ('light' | 'dark')
- * @param {Function} onToggleTheme - Callback para cambiar tema
+ * Idioma y tema salen de AppContext: no se pasan por props.
+ *
  * @param {boolean} showLanguageLabel - Mostrar el código de idioma junto al icono
  * @param {string} className - Clases del contenedor
  */
 export default function ThemeLanguageControls({
-  language,
-  onToggleLanguage,
-  theme,
-  onToggleTheme,
   showLanguageLabel = true,
   className = 'flex gap-2'
 }) {
+  const { language, onToggleLanguage, theme, onToggleTheme } = useAppContext();
   const t = useTranslation(language || 'es');
 
   const buttonClass =
