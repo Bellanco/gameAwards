@@ -3,37 +3,35 @@
  */
 
 const GRADIENTS = [
-  // Azules
-  'bg-gradient-to-br from-blue-600/80 to-purple-600/80',
-  'bg-gradient-to-br from-indigo-600/80 to-blue-600/80',
-  'bg-gradient-to-br from-cyan-600/80 to-blue-600/80',
-  'bg-gradient-to-br from-sky-600/80 to-cyan-600/80',
-  
-  // Púrpuras y Violetas
-  'bg-gradient-to-br from-violet-600/80 to-purple-600/80',
-  'bg-gradient-to-br from-purple-600/80 to-pink-600/80',
-  'bg-gradient-to-br from-fuchsia-600/80 to-purple-600/80',
-  
-  // Rojos y Rosas
-  'bg-gradient-to-br from-pink-600/80 to-rose-600/80',
-  'bg-gradient-to-br from-rose-600/80 to-red-600/80',
-  'bg-gradient-to-br from-red-600/80 to-orange-600/80',
-  
-  // Naranjas y Amarillos
-  'bg-gradient-to-br from-amber-600/80 to-orange-600/80',
-  'bg-gradient-to-br from-orange-600/80 to-amber-600/80',
-  'bg-gradient-to-br from-yellow-600/80 to-amber-600/80',
-  
-  // Verdes
-  'bg-gradient-to-br from-emerald-600/80 to-teal-600/80',
-  'bg-gradient-to-br from-green-600/80 to-emerald-600/80',
-  'bg-gradient-to-br from-teal-600/80 to-cyan-600/80',
-  'bg-gradient-to-br from-lime-600/80 to-green-600/80',
-  
-  // Combinaciones únicas
-  'bg-gradient-to-br from-blue-700/80 to-indigo-700/80',
-  'bg-gradient-to-br from-red-700/80 to-pink-700/80',
-  'bg-gradient-to-br from-emerald-700/80 to-cyan-700/80',
+  // Acero y noche
+  'bg-gradient-to-br from-slate-900/85 to-slate-700/80',
+  'bg-gradient-to-br from-zinc-900/85 to-slate-800/80',
+  'bg-gradient-to-br from-slate-800/85 to-cyan-900/75',
+
+  // Roble, cuero y pergamino
+  'bg-gradient-to-br from-amber-900/85 to-stone-700/80',
+  'bg-gradient-to-br from-orange-900/80 to-amber-700/75',
+  'bg-gradient-to-br from-stone-800/85 to-amber-800/75',
+
+  // Brillo runico contenido
+  'bg-gradient-to-br from-cyan-900/80 to-slate-700/75',
+  'bg-gradient-to-br from-sky-900/80 to-zinc-700/75',
+  'bg-gradient-to-br from-teal-900/80 to-slate-700/75',
+
+  // Vegetacion oscura / pantano
+  'bg-gradient-to-br from-emerald-900/80 to-slate-700/75',
+  'bg-gradient-to-br from-green-900/80 to-stone-700/75',
+  'bg-gradient-to-br from-lime-900/75 to-slate-700/75',
+
+  // Sangre y acero
+  'bg-gradient-to-br from-red-900/80 to-zinc-700/75',
+  'bg-gradient-to-br from-rose-900/80 to-stone-700/75',
+  'bg-gradient-to-br from-red-950/80 to-amber-900/70',
+
+  // Variantes de contraste para listas largas
+  'bg-gradient-to-br from-slate-950/85 to-amber-900/75',
+  'bg-gradient-to-br from-zinc-900/85 to-teal-900/70',
+  'bg-gradient-to-br from-stone-900/85 to-cyan-900/70',
 ];
 
 /**

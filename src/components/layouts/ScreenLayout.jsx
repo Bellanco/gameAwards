@@ -31,7 +31,13 @@ export default function ScreenLayout({
   containerClass = 'min-h-screen theme-gradient-primary flex flex-col'
 }) {
   return (
-    <div className={containerClass}>
+    <div className={`${containerClass} relative overflow-hidden`}>
+      {/* Atmósfera global reutilizable */}
+      <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
+        <div className="absolute -top-24 -left-20 h-72 w-72 rounded-full bg-status-warning-light blur-3xl opacity-75" />
+        <div className="absolute -bottom-24 -right-16 h-72 w-72 rounded-full bg-status-info-light blur-3xl opacity-70" />
+      </div>
+
       {/* Control Bar - Idioma y Tema */}
       {showControlBar && (
         <ControlBar 
@@ -52,7 +58,7 @@ export default function ScreenLayout({
                 alt="header background"
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.target.src = 'https://via.placeholder.com/1920x400/1f2937/666666?text=Header';
+                  e.currentTarget.style.display = 'none';
                 }}
               />
             </div>

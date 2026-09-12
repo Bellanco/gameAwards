@@ -145,7 +145,7 @@ export default function VoteScreen({
     return (
       <div className="h-screen theme-gradient-primary flex items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold theme-text-primary mb-2">{t('invalidCategory')}</h1>
+          <h1 className="text-2xl font-bold theme-display uppercase theme-text-primary mb-2">{t('invalidCategory')}</h1>
           <p className="theme-text-secondary">{t('noOptions')}</p>
         </div>
       </div>
@@ -263,10 +263,10 @@ export default function VoteScreen({
         <button
           onClick={handlePrevious}
           disabled={currentStep === 0}
-          className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-semibold text-xs sm:text-sm transition transform ${
+          className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-semibold text-sm transition transform ${
             currentStep === 0
               ? 'theme-btn-secondary border cursor-not-allowed opacity-40'
-              : 'theme-btn-secondary border hover:scale-105 shadow-md'
+              : 'theme-btn-secondary border hover:scale-105 theme-shadow-md'
           }`}
         >
           {t('previous')}
@@ -275,10 +275,10 @@ export default function VoteScreen({
         <button
           onClick={handleNext}
           disabled={currentStep === totalSteps - 1}
-          className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-bold text-xs sm:text-sm transition transform ${
+          className={`flex-1 py-2 sm:py-2.5 px-3 rounded font-bold text-sm transition transform ${
             currentStep === totalSteps - 1
               ? 'theme-card theme-text-tertiary cursor-not-allowed opacity-50'
-              : 'bg-gradient-to-r from-amber-600 to-amber-700 text-white hover:from-amber-500 hover:to-amber-600 hover:scale-105'
+              : 'theme-btn-primary hover:scale-105'
           }`}
         >
           {t('next')}
@@ -288,7 +288,7 @@ export default function VoteScreen({
       {/* Fila 2: Finalizar */}
       <button
         onClick={onFinish}
-        className="flex-1 py-2 sm:py-2.5 px-3 rounded font-bold bg-gradient-to-r from-green-600 to-green-700 text-white hover:from-green-500 hover:to-green-600 text-xs sm:text-sm transition-colors"
+        className="flex-1 py-2 sm:py-2.5 px-3 rounded font-bold btn-success text-sm transition-colors"
       >
         {t('finish')}
       </button>
@@ -309,7 +309,7 @@ export default function VoteScreen({
     >
       {/* Indicador de carga */}
       {loadingImages && (
-        <div className="text-center text-xs sm:text-sm theme-text-tertiary px-4 sm:px-6 lg:px-8 py-2">
+        <div className="text-center text-sm theme-text-secondary px-4 sm:px-6 lg:px-8 py-2">
           {t('loading')}
         </div>
       )}
@@ -341,7 +341,7 @@ export default function VoteScreen({
                   key={`${category.id}_${optionId}`}
                   variant="vote"
                   gameName={optionName}
-                  gradient={gameGradients[optionId] || 'bg-gradient-to-br from-slate-900/60 to-slate-900/80'}
+                  gradient={gameGradients[optionId] || 'bg-gradient-to-br from-zinc-900/60 to-zinc-700/80'}
                   isSelected={isSelected}
                   isMobilePortrait={isMobilePortrait}
                   compact={optionCount > 4 || viewportInfo.isLandscape || gridColumns >= 4}
@@ -360,7 +360,7 @@ export default function VoteScreen({
         </div>
 
         {/* Status - Compact */}
-        <div className="mt-2 sm:mt-3 px-2 sm:px-3 py-1 sm:py-1.5 theme-card theme-border-primary border rounded text-xs flex-shrink-0">
+        <div className="mt-2 sm:mt-3 px-2 sm:px-3 py-1 sm:py-1.5 theme-card theme-border-primary border rounded text-sm flex-shrink-0">
           <span className={`font-bold ${isVoted ? 'text-status-success' : 'text-status-warning'}`}>
             {isVoted ? t('voted') : t('pending')}
           </span>
@@ -375,7 +375,7 @@ export default function VoteScreen({
             {/* Flecha animada - Clickeable */}
             <button
               onClick={scrollToBottom}
-              className="relative z-10 pb-2 animate-bounce hover:scale-125 transition-transform cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-400 p-1"
+              className="relative z-10 pb-2 animate-bounce hover:scale-125 transition-transform cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] p-1"
               aria-label="Scroll to bottom"
               title="Pulsa para ver más opciones"
             >

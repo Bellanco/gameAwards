@@ -284,13 +284,13 @@ export default function CategoryManager({ language = 'es', onClose }) {
       <div className="h-screen flex flex-col theme-gradient-primary items-center justify-center">
         <div className="relative w-24 h-24">
           <div className="absolute inset-0 rounded-full border-4 theme-border-primary"></div>
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-amber-600 border-r-amber-700 animate-spin"></div>
-          <div className="absolute inset-2 rounded-full bg-gradient-to-br from-amber-600/20 to-orange-600/20 flex items-center justify-center">
-            <div className="w-3 h-3 rounded-full bg-gradient-to-r from-amber-600 to-orange-600 animate-pulse"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[var(--color-accent)] border-r-[var(--color-secondary)] animate-spin"></div>
+          <div className="absolute inset-2 rounded-full bg-status-warning-light flex items-center justify-center">
+            <div className="w-3 h-3 rounded-full theme-accent-bg theme-flicker"></div>
           </div>
         </div>
         <div className="mt-12 text-center">
-          <p className="text-lg font-semibold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+          <p className="text-lg font-semibold theme-accent theme-display uppercase">
             {t('loadingData')}
           </p>
           <p className="text-sm theme-text-secondary mt-3">{t('preparingPanel')}</p>
@@ -305,10 +305,10 @@ export default function CategoryManager({ language = 'es', onClose }) {
       <div className="theme-container-secondary theme-border-primary border-b backdrop-blur px-4 md:px-6 py-3 flex-shrink-0 z-40">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-xl md:text-2xl font-black bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+            <h1 className="text-xl md:text-2xl font-black theme-accent theme-display uppercase">
               {t('categories')}
             </h1>
-            <p className="theme-text-secondary text-xs md:text-sm mt-0.5">{validCategories.length} {t('activeFem')}</p>
+            <p className="theme-text-secondary text-sm mt-0.5">{validCategories.length} {t('activeFem')}</p>
           </div>
           <Button variant="secondary" size="md" onClick={onClose}>
             ✕ {t('back')}
@@ -327,14 +327,14 @@ export default function CategoryManager({ language = 'es', onClose }) {
               placeholder={`${t('search')}...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 theme-container-secondary theme-border-primary border rounded theme-text-primary theme-placeholder text-sm focus:outline-none focus:border-amber-600/50"
+              className="w-full px-3 py-2 theme-container-secondary theme-border-primary border rounded theme-text-primary theme-placeholder text-sm focus:outline-none focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40"
               disabled={isSaving}
             />
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-1.5 p-3">
             {filteredCategories.length === 0 ? (
-              <p className="theme-text-tertiary text-center text-xs py-4">
+              <p className="theme-text-secondary text-center text-sm py-4">
                 {searchTerm ? t('notFound') : t('noCategories')}
               </p>
             ) : (
@@ -352,19 +352,19 @@ export default function CategoryManager({ language = 'es', onClose }) {
                   onDrop={(e) => handleDropCategory(e, category)}
                   className={`p-3 rounded border transition-all flex items-center gap-2 group ${searching ? '' : 'cursor-grab'} ${
                     draggedCategory?.docId === category.docId && isSaving
-                      ? 'bg-yellow-200/60 border-yellow-300 ring-2 ring-yellow-300 dark:bg-yellow-500/40 dark:border-yellow-400 dark:ring-yellow-400'
+                      ? 'bg-status-warning-light border-status-warning ring-2 ring-[var(--color-warning)]'
                       : draggedCategory?.docId === category.docId
                       ? 'bg-[var(--bg-tertiary)] border-[var(--border-secondary)] opacity-50 scale-95'
                       : hoveredIndex === index && draggedCategory && !isSaving
-                      ? 'bg-yellow-100/60 border-yellow-300 ring-2 ring-yellow-300/50 dark:bg-yellow-500/30 dark:border-yellow-400 dark:ring-yellow-400/50'
+                      ? 'bg-status-warning-light border-status-warning ring-2 ring-[var(--color-warning)]/50'
                       : editingId === category.docId
-                      ? 'bg-yellow-100/50 border-yellow-300/50 dark:bg-yellow-500/20 dark:border-yellow-400/50'
+                      ? 'bg-status-warning-light border-status-warning/60'
                       : 'theme-card hover:border-[var(--border-secondary)]'
                   }`}
                 >
                   {/* Nº de orden (orderIndex + 1) */}
                   <div
-                    className="flex-shrink-0 w-7 h-7 rounded-full theme-accent-bg text-white text-xs font-bold flex items-center justify-center"
+                    className="flex-shrink-0 w-8 h-8 rounded-full theme-accent-bg theme-text-inverse text-sm font-bold flex items-center justify-center"
                     title={t('order')}
                   >
                     {orderNum}
@@ -377,7 +377,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
                       className="w-full text-left mb-2 disabled:opacity-50"
                     >
                       <div className="font-semibold truncate theme-text-primary text-sm">{getCategoryTitle(category, language)}</div>
-                      <div className="flex gap-3 mt-1 text-xs theme-text-tertiary">
+                      <div className="flex gap-3 mt-1 text-sm theme-text-secondary">
                         <span>{category.options?.length || 0} {t('options').toLowerCase()}</span>
                         <span className="font-semibold theme-accent">{category.weight || 1}x</span>
                       </div>
@@ -402,7 +402,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
                       disabled={isSaving || searching || orderNum === 1}
                       title={t('moveUp')}
                       aria-label={t('moveUp')}
-                      className="w-7 h-6 rounded theme-container-secondary theme-border-primary border text-xs theme-text-secondary hover:theme-border-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="w-8 h-7 rounded theme-container-secondary theme-border-primary border text-sm theme-text-secondary hover:theme-border-secondary disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       ▲
                     </button>
@@ -412,7 +412,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
                       disabled={isSaving || searching || orderNum === orderedCategories.length}
                       title={t('moveDown')}
                       aria-label={t('moveDown')}
-                      className="w-7 h-6 rounded theme-container-secondary theme-border-primary border text-xs theme-text-secondary hover:theme-border-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="w-8 h-7 rounded theme-container-secondary theme-border-primary border text-sm theme-text-secondary hover:theme-border-secondary disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                       ▼
                     </button>
@@ -423,7 +423,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
             )}
           </div>
 
-          <div className="p-3 border-t theme-border-primary theme-text-tertiary flex-shrink-0 text-center text-xs">
+          <div className="p-3 border-t theme-border-primary theme-text-secondary flex-shrink-0 text-center text-sm">
             {filteredCategories.length} / {validCategories.length}
             {searching && <div className="mt-1 theme-accent">{t('reorderSearchHint')}</div>}
           </div>
@@ -462,7 +462,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
                       value={formData.titleEs}
                       onChange={(e) => setFormData({ ...formData, titleEs: e.target.value })}
                       placeholder="ej: Juego del Año"
-                      className="w-full px-4 py-3 theme-container-secondary theme-border-primary border rounded theme-text-primary theme-placeholder text-base focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30"
+                      className="w-full px-4 py-3 theme-container-secondary theme-border-primary border rounded theme-text-primary theme-placeholder text-base focus:outline-none focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40"
                       disabled={isSaving}
                     />
                   </div>
@@ -473,7 +473,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
                       value={formData.titleEn}
                       onChange={(e) => setFormData({ ...formData, titleEn: e.target.value })}
                       placeholder="e.g. Game of the Year"
-                      className="w-full px-4 py-3 theme-container-secondary theme-border-primary border rounded theme-text-primary theme-placeholder text-base focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30"
+                      className="w-full px-4 py-3 theme-container-secondary theme-border-primary border rounded theme-text-primary theme-placeholder text-base focus:outline-none focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40"
                       disabled={isSaving}
                     />
                   </div>
@@ -491,8 +491,8 @@ export default function CategoryManager({ language = 'es', onClose }) {
                         disabled={isSaving}
                         className={`flex-1 py-2.5 px-3 rounded text-sm font-bold transition-all ${
                           formData.weight === value
-                            ? 'theme-accent-bg text-white border border-amber-600'
-                            : 'theme-container-secondary theme-text-secondary theme-border-primary border hover:border-amber-600/50'
+                            ? 'theme-accent-bg theme-text-inverse border theme-accent-border'
+                            : 'theme-container-secondary theme-text-secondary theme-border-primary border hover:theme-border-secondary'
                         }`}
                       >
                         {value}
@@ -514,7 +514,7 @@ export default function CategoryManager({ language = 'es', onClose }) {
                           value={option.value}
                           onChange={(e) => handleOptionChange(index, e.target.value)}
                           placeholder={`${t('option')} ${index + 1}`}
-                          className="flex-1 px-3 py-2 theme-container-secondary theme-border-primary border rounded theme-text-primary text-sm theme-placeholder focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30"
+                          className="flex-1 px-3 py-2 theme-container-secondary theme-border-primary border rounded theme-text-primary text-sm theme-placeholder focus:outline-none focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40"
                           disabled={isSaving}
                         />
                         {formData.options.length > 2 && (

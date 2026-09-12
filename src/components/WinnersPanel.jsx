@@ -290,7 +290,7 @@ export default function WinnersPanel({
                               className={`
                                 p-4 rounded-lg font-semibold transition-all text-center
                                 ${isWinner
-                                  ? 'bg-yellow-600 text-white border-2 border-yellow-400'
+                                  ? 'theme-accent-bg theme-text-inverse border-2 theme-accent-border'
                                   : 'theme-btn-secondary border-2 border-transparent'
                                 }
                               `}
@@ -395,7 +395,7 @@ export default function WinnersPanel({
                 ) : (
                   <>
                     {/* Encabezados de las columnas */}
-                    <div className="grid grid-cols-3 gap-4 px-3 py-2 border-b theme-border-primary text-xs font-bold theme-text-tertiary uppercase">
+                    <div className="grid grid-cols-3 gap-4 px-3 py-2 border-b theme-border-primary text-sm font-bold theme-text-secondary uppercase">
                       <span>{t('categories')}</span>
                       <span className="text-center">{t('vote')}</span>
                       <span className="text-right">{t('points')}</span>

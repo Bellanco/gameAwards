@@ -17,8 +17,8 @@ export default function Card({ children, className = '', ...props }) {
   return (
     <div
       className={`
-        theme-card border rounded-lg
-        hover:border-yellow-500/30 transition-all
+        theme-card theme-card-hover border rounded-xl
+        hover:theme-border-secondary transition-all duration-300
         ${className}
       `}
       {...props}
@@ -30,7 +30,7 @@ export default function Card({ children, className = '', ...props }) {
 
 Card.Header = function CardHeader({ children, className = '' }) {
   return (
-    <div className={`border-b theme-border-primary p-6 ${className}`}>
+    <div className={`border-b theme-border-primary p-6 theme-metal-line ${className}`}>
       {children}
     </div>
   );
@@ -46,7 +46,7 @@ Card.Body = function CardBody({ children, className = '' }) {
 
 Card.Footer = function CardFooter({ children, className = '' }) {
   return (
-    <div className={`border-t theme-border-primary p-6 ${className}`}>
+    <div className={`border-t theme-border-primary p-6 theme-metal-line ${className}`}>
       {children}
     </div>
   );

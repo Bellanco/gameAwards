@@ -42,12 +42,12 @@ export default function AlreadyVotedScreen({
       <div className="relative z-10 flex-1 flex items-center justify-center p-4">
         <div className="text-center max-w-md">
           <div className="mb-8 flex justify-center">
-            <div className="w-24 h-24 rounded-full bg-green-500/15 flex items-center justify-center">
+            <div className="w-24 h-24 rounded-full bg-status-success-light flex items-center justify-center">
               <CheckmarkIcon className="w-14 h-14 text-status-success" />
             </div>
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight theme-text-primary mb-4">
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight theme-display uppercase theme-text-primary mb-4">
             {t('alreadyVotedTitle')}
           </h1>
 

@@ -24,7 +24,7 @@ export default function ControlBar({
   const t = useTranslation(language || 'es');
   const {
     container = 'absolute top-4 right-4 z-50 flex gap-2',
-    buttonBase = 'flex items-center gap-2 px-3 py-2 theme-card theme-border-primary border rounded-lg text-sm font-semibold transition-all hover:border-yellow-500 hover:scale-105'
+    buttonBase = 'flex items-center gap-2 px-3 py-2 theme-card theme-border-primary border rounded-lg text-sm font-semibold transition-all hover:theme-border-secondary hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]'
   } = customClass;
 
   return (

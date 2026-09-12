@@ -245,7 +245,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
           <div className="flex justify-between items-center mb-4">
             <div>
-              <h1 className="text-3xl md:text-4xl font-black theme-text-primary">{t('adminPanel')}</h1>
+              <h1 className="text-3xl md:text-4xl font-black theme-display uppercase theme-text-primary">{t('adminPanel')}</h1>
               <p className="theme-text-secondary text-sm">{t('ballotResults')}</p>
             </div>
             <div className="flex gap-4 items-center">
@@ -265,7 +265,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
               </button>
               <button
                 onClick={handleLogout}
-                className="py-2 px-4 bg-red-600 hover:bg-red-700 rounded-lg font-semibold text-sm transition-all"
+                className="py-2 px-4 btn-danger border theme-border-primary rounded-lg font-semibold text-sm transition-all"
               >
                 {t('signOut')}
               </button>
@@ -280,7 +280,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                 onClick={() => setViewMode(mode)}
                 className={`py-2 px-4 rounded-lg font-semibold text-sm transition-all whitespace-nowrap ${
                   viewMode === mode
-                    ? 'theme-accent-bg text-white'
+                    ? 'theme-accent-bg theme-text-inverse'
                     : 'theme-card theme-border-primary border theme-text-secondary hover:theme-border-secondary'
                 }`}
               >
@@ -305,15 +305,15 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
             {/* Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="theme-card theme-border-primary border rounded-lg p-6">
-                <p className="text-xs theme-text-tertiary uppercase mb-2">{t('totalBallots')}</p>
+                <p className="text-sm theme-text-secondary uppercase mb-2">{t('totalBallots')}</p>
                 <p className="text-4xl font-black theme-accent">{getValidBallots().length}</p>
               </div>
               <div className="theme-card theme-border-primary border rounded-lg p-6">
-                <p className="text-xs theme-text-tertiary uppercase mb-2">{t('categories')}</p>
+                <p className="text-sm theme-text-secondary uppercase mb-2">{t('categories')}</p>
                 <p className="text-4xl font-black theme-accent">{statsData ? Object.keys(statsData).length : 0}</p>
               </div>
               <div className="theme-card theme-border-primary border rounded-lg p-6">
-                <p className="text-xs theme-text-tertiary uppercase mb-2">{t('participation')}</p>
+                <p className="text-sm theme-text-secondary uppercase mb-2">{t('participation')}</p>
                 <p className="text-4xl font-black theme-accent">100%</p>
               </div>
             </div>
@@ -368,7 +368,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                     <tr key={ballot.userId} className="theme-border-primary border-b hover:theme-bg-overlay-light transition-colors">
                       <td className="p-4 theme-text-secondary">{ballot.userEmail || '-'}</td>
                       <td className="p-4 font-semibold theme-text-primary">{ballot.userDisplayName || ballot.userNickname || '-'}</td>
-                      <td className="p-4 text-xs theme-text-tertiary">
+                      <td className="p-4 text-sm theme-text-secondary">
                         {ballot.submittedAt ? new Date(ballot.submittedAt).toLocaleString() : '-'}
                       </td>
                       <td className="p-4">
@@ -376,7 +376,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                           <summary className="theme-accent font-semibold hover:theme-accent/80">
                             {t('view')} ({Object.keys(ballot.selections || {}).length})
                           </summary>
-                          <div className="mt-2 p-2 theme-container-secondary rounded text-xs font-mono theme-text-secondary">
+                          <div className="mt-2 p-2 theme-container-secondary rounded text-sm font-mono theme-text-secondary">
                             {getSortedBallotSelections(ballot).map(([cat, val]) => (
                               <div key={cat}><span className="text-info">{getCategoryTitle(cat)}:</span> {optionDisplay(cat, val)}</div>
                             ))}
@@ -428,7 +428,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                   <div key={edition.id} className="theme-card theme-border-primary border rounded-lg overflow-hidden">
                     <div className="theme-header theme-border-primary border-b px-6 py-4 flex justify-between items-center">
                       <h3 className="text-2xl font-black theme-accent">{edition.season}</h3>
-                      <span className="text-xs theme-text-tertiary">{edition.totalBallots || 0} {t('votes')}</span>
+                      <span className="text-sm theme-text-secondary">{edition.totalBallots || 0} {t('votes')}</span>
                     </div>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
                       {/* Ganadores por categoría */}
@@ -484,7 +484,7 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
             <div className="theme-card theme-border-primary border rounded-lg p-6">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <p className="text-xs theme-text-tertiary uppercase mb-1">{t('currentSeason')}</p>
+                  <p className="text-sm theme-text-secondary uppercase mb-1">{t('currentSeason')}</p>
                   <p className="text-3xl font-black theme-accent">{season}</p>
                   <p className={`text-sm font-semibold mt-1 ${isVotingOpen ? 'text-status-success' : 'text-status-error'}`}>
                     {isVotingOpen ? t('votingOpen') : t('votingClosed')}
@@ -495,8 +495,8 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                   disabled={seasonBusy}
                   className={`py-3 px-6 rounded-lg font-bold text-sm transition-all disabled:opacity-50 ${
                     isVotingOpen
-                      ? 'bg-red-600 hover:bg-red-700 text-white'
-                      : 'bg-green-600 hover:bg-green-700 text-white'
+                      ? 'btn-danger border theme-border-primary'
+                      : 'btn-success border theme-border-primary'
                   }`}
                 >
                   {isVotingOpen ? t('closeVoting') : t('openVoting')}
@@ -515,12 +515,12 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
                   min={new Date().toISOString().slice(0, 10)}
                   onChange={(e) => setCloseDate(e.target.value)}
                   disabled={seasonBusy}
-                  className="px-4 py-2.5 theme-container-secondary theme-border-primary border rounded theme-text-primary focus:outline-none focus:border-amber-600"
+                  className="px-4 py-2.5 theme-container-secondary theme-border-primary border rounded theme-text-primary focus:outline-none focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40"
                 />
                 <button
                   onClick={handleSaveClosingDate}
                   disabled={seasonBusy}
-                  className="py-2.5 px-5 rounded-lg font-bold text-sm theme-accent-bg text-white transition-all disabled:opacity-50"
+                  className="py-2.5 px-5 rounded-lg font-bold text-sm theme-accent-bg theme-text-inverse transition-all disabled:opacity-50"
                 >
                   {t('save')}
                 </button>
@@ -533,13 +533,13 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
             </div>
 
             {/* Archivar y reiniciar */}
-            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6">
-              <h3 className="text-lg font-bold text-red-400 mb-2">{t('archiveAndReset')}</h3>
+            <div className="bg-status-error-light border border-status-error rounded-lg p-6">
+              <h3 className="text-lg font-bold text-status-error mb-2">{t('archiveAndReset')}</h3>
               <p className="theme-text-secondary text-sm mb-4">{t('archiveAndResetDescription')}</p>
               <button
                 onClick={handleArchiveReset}
                 disabled={seasonBusy}
-                className="py-3 px-6 rounded-lg font-bold text-sm bg-red-600 hover:bg-red-700 text-white transition-all disabled:opacity-50"
+                className="py-3 px-6 rounded-lg font-bold text-sm btn-danger border theme-border-primary transition-all disabled:opacity-50"
               >
                 {seasonBusy ? t('loadingData') : t('archiveAndReset')}
               </button>

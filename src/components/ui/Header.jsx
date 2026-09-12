@@ -17,6 +17,8 @@ export default function Header({
   onToggleTheme = null
 }) {
   const t = useTranslation(language || 'es');
+  const progressWidth = `${progressPercentage || 0}%`;
+
   return (
     <div className="px-4 sm:px-6 lg:px-8 landscape:px-2 py-3 sm:py-4 relative">
       {/* Controles de idioma y tema - Esquina superior derecha */}
@@ -25,7 +27,7 @@ export default function Header({
           {theme && onToggleTheme && (
             <button
               onClick={onToggleTheme}
-              className="flex items-center gap-2 px-3 landscape:px-2 py-2 landscape:py-1 theme-card theme-border-primary border rounded-lg text-sm landscape:text-xs font-semibold transition-all hover:border-yellow-500"
+              className="flex items-center gap-2 px-3 landscape:px-2 py-2 landscape:py-1 theme-card theme-border-primary border rounded-lg text-sm font-semibold transition-all hover:theme-border-secondary hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
               title={theme === 'light' ? t('darkTheme') : t('lightTheme')}
               aria-label={t('changeTheme')}
             >
@@ -35,7 +37,7 @@ export default function Header({
           {language && onToggleLanguage && (
             <button
               onClick={onToggleLanguage}
-              className="flex items-center gap-2 px-3 landscape:px-2 py-2 landscape:py-1 theme-card theme-border-primary border rounded-lg text-sm landscape:text-xs font-semibold transition-all hover:border-yellow-500"
+              className="flex items-center gap-2 px-3 landscape:px-2 py-2 landscape:py-1 theme-card theme-border-primary border rounded-lg text-sm font-semibold transition-all hover:theme-border-secondary hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]"
               title={t('changeLanguage')}
               aria-label={t('changeLanguage')}
             >
@@ -49,7 +51,7 @@ export default function Header({
       {/* Barra de progreso - Si se proporciona (con margen superior si hay controles) */}
       {progress !== null && (
         <div className={`${language || theme ? 'mt-12 sm:mt-14' : ''} mb-2 sm:mb-3 landscape:mb-1`}>
-          <div className="flex justify-between items-center mb-1.5 landscape:mb-0.5 text-xs sm:text-sm landscape:text-xs">
+          <div className="flex justify-between items-center mb-1.5 landscape:mb-0.5 text-sm">
             <span className="font-bold theme-text-secondary uppercase">
               {progress}
             </span>
@@ -59,21 +61,24 @@ export default function Header({
           </div>
           <div className="h-1 landscape:h-0.5 theme-bg-overlay-light rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-yellow-500 to-yellow-400 transition-all duration-500"
-              style={{ width: `${progressPercentage || 0}%` }}
+              className="h-full theme-shine transition-all duration-500"
+              style={{
+                width: progressWidth,
+                backgroundImage: 'linear-gradient(90deg, color-mix(in srgb, var(--color-secondary) 78%, #000000 22%), color-mix(in srgb, var(--color-accent) 84%, #f6d399 16%), color-mix(in srgb, var(--color-secondary) 78%, #000000 22%))'
+              }}
             />
           </div>
         </div>
       )}
 
       {/* Título */}
-      <h1 className="text-2xl sm:text-4xl landscape:text-lg font-black tracking-tight theme-text-primary mb-2 landscape:mb-1">
+      <h1 className="text-2xl sm:text-4xl landscape:text-lg font-black tracking-tight theme-display uppercase theme-text-primary mb-2 landscape:mb-1">
         {title}
       </h1>
 
       {/* Subtítulo - Si se proporciona */}
       {subtitle && (
-        <p className="text-base sm:text-lg landscape:text-xs theme-text-secondary mb-4 landscape:mb-1.5">
+        <p className="text-base sm:text-lg landscape:text-sm theme-text-secondary mb-4 landscape:mb-1.5">
           {subtitle}
         </p>
       )}

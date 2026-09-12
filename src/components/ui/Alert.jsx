@@ -50,7 +50,7 @@ export default function Alert({
 
   return (
     <div className={`
-      p-4 border rounded-lg flex items-start justify-between gap-3
+      p-4 border rounded-lg flex items-start justify-between gap-3 theme-shadow-sm
       ${typeStyles[type]}
     `}>
       <div className="flex items-start gap-2">
@@ -60,7 +60,7 @@ export default function Alert({
       {onClose && (
         <button
           onClick={handleClose}
-          className="text-lg font-bold opacity-50 hover:opacity-100 transition-opacity"
+          className="text-lg font-bold opacity-60 hover:opacity-100 transition-opacity"
         >
           ✕
         </button>

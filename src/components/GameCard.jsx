@@ -45,10 +45,10 @@ export default function GameCard({
         className={`relative rounded-lg overflow-hidden border-2 ${sizeClass} w-full select-none transition-transform duration-200
           ${isTransitioning 
             ? 'pointer-events-none cursor-not-allowed' 
-            : 'focus:outline-none focus:ring-2 focus:ring-amber-600 cursor-pointer hover:scale-[1.01]'
+            : 'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] cursor-pointer hover:scale-[1.01]'
           }
           ${isSelected
-            ? 'border-amber-600 shadow-lg shadow-amber-600/50'
+            ? 'theme-accent-border shadow-lg shadow-[rgba(118,81,33,0.45)]'
             : 'theme-border-empty'
           }
           ${isTransitioning ? 'scale-100 theme-border-empty' : ''}
@@ -60,14 +60,14 @@ export default function GameCard({
         {/* Overlay de selección */}
         <div className={`absolute inset-0 transition-all ${
           isSelected
-            ? 'bg-black/20'
-            : 'bg-black/40'
+            ? 'bg-black/15'
+            : 'bg-black/35'
         }`} />
 
         {/* Checkmark - Visible en todos los tamaños */}
         {isSelected && (
-          <div className="flex absolute top-1 sm:top-2 md:top-3 right-1 sm:right-2 md:right-3 w-5 sm:w-6 md:w-8 h-5 sm:h-6 md:h-8 bg-amber-600 rounded-full items-center justify-center animate-pulse">
-            <CheckmarkIcon className="w-3 sm:w-4 md:w-5 h-3 sm:h-4 md:h-5 text-white" />
+          <div className="flex absolute top-1 sm:top-2 md:top-3 right-1 sm:right-2 md:right-3 w-5 sm:w-6 md:w-8 h-5 sm:h-6 md:h-8 theme-accent-bg rounded-full items-center justify-center theme-flicker">
+            <CheckmarkIcon className="w-3 sm:w-4 md:w-5 h-3 sm:h-4 md:h-5 theme-text-inverse" />
           </div>
         )}
 
@@ -123,8 +123,8 @@ export default function GameCard({
         role="button"
         tabIndex={0}
         aria-label={categoryTitle || gameName || translationLabel || undefined}
-        className={`group cursor-pointer overflow-hidden rounded-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-amber-600 ${
-          isVoted ? 'border-2 border-amber-600/50' : 'border-2 border-red-500/60 shadow-lg shadow-red-500/20'
+        className={`group cursor-pointer overflow-hidden rounded-lg transition-all transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] ${
+          isVoted ? 'border-2 theme-accent-border' : 'border-2 border-status-warning shadow-lg shadow-[rgba(141,79,19,0.24)]'
         }`}
         onClick={onSelect}
         onKeyDown={(e) => {
@@ -165,7 +165,7 @@ export default function GameCard({
               </AutoSizeText>
             </div>
             {categoryTitle && (
-              <p className="hidden md:block text-xs text-slate-300 mt-1 opacity-75">
+              <p className="hidden md:block text-sm theme-text-secondary mt-1 opacity-85">
                 {categoryTitle}
               </p>
             )}
@@ -173,7 +173,7 @@ export default function GameCard({
 
           {/* Status Badge */}
           {isVoted && statusBadge && (
-            <div className="hidden md:block absolute top-2 right-2 bg-green-500/80 px-2 py-1 rounded text-xs font-bold text-white">
+            <div className="hidden md:block absolute top-2 right-2 status-success px-2 py-1 rounded text-sm font-bold">
               {statusBadge}
             </div>
           )}

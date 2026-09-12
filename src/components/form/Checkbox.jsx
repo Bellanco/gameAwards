@@ -23,9 +23,10 @@ export default function Checkbox({
         className={`
           w-5 h-5 rounded
           theme-container-secondary theme-border-primary border
+          focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40
           cursor-pointer
           disabled:opacity-50 disabled:cursor-not-allowed
-          ${error ? 'border-red-500' : ''}
+          ${error ? 'border-status-error' : ''}
         `}
       />
       {label && (
@@ -34,7 +35,7 @@ export default function Checkbox({
         </label>
       )}
       {error && (
-        <p className="text-xs text-red-400 ml-auto">
+        <p className="text-sm text-status-error ml-auto">
           {error}
         </p>
       )}

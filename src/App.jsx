@@ -454,7 +454,7 @@ function App() {
           <h1 className="text-2xl font-bold theme-text-primary mb-2">No hay categorías disponibles</h1>
           <p className="theme-text-tertiary">{t('errorTryAgain')}</p>
           {categories.length > 0 && (
-            <p className="text-xs theme-text-tertiary mt-4">
+            <p className="text-sm theme-text-secondary mt-4">
               (Admin: {categories.length} categoría(s) en base de datos, pero vacías)
             </p>
           )}

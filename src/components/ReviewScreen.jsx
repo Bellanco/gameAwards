@@ -110,9 +110,9 @@ export default function ReviewScreen({
             value={userDisplayName}
             onChange={(e) => onDisplayNameChange(e.target.value)}
             placeholder={t('enterNickname')}
-            className="w-full px-4 py-3 theme-container-secondary border-2 theme-border-primary rounded-lg theme-placeholder focus:border-status-warning focus:outline-none focus:ring-1 focus:ring-status-warning transition-colors"
+            className="w-full px-4 py-3 theme-container-secondary border-2 theme-border-primary rounded-lg theme-placeholder focus:outline-none focus:border-status-warning focus-visible:ring-2 focus-visible:ring-status-warning/40 transition-colors"
           />
-          <p className="text-xs theme-text-tertiary mt-2">
+          <p className="text-sm theme-text-secondary mt-2">
             {userDisplayName.length}/50
           </p>
         </div>
@@ -120,10 +120,10 @@ export default function ReviewScreen({
         {/* 2. Warning if incomplete */}
         {!isComplete && (
           <div className="p-4 status-warning rounded-lg mb-8 border border-status-warning">
-            <p className="text-sm font-semibold text-white">
+            <p className="text-sm font-semibold">
               {t('completeVoteInCategory')} {missingVotes} {missingVotes !== 1 ? t('moreCategories') : t('moreCategory')}
             </p>
-            <p className="text-xs mt-1 opacity-90 text-white">
+            <p className="text-sm mt-1 opacity-95">
               {t('mustVoteAllBefore')}
             </p>
           </div>
@@ -136,7 +136,7 @@ export default function ReviewScreen({
             aria-live="assertive"
             className="p-4 status-error rounded-lg mb-6 border border-status-error"
           >
-            <p className="text-sm font-semibold text-white">{errorMessage}</p>
+            <p className="text-sm font-semibold">{errorMessage}</p>
           </div>
         )}
 
@@ -144,7 +144,7 @@ export default function ReviewScreen({
         <div className="flex gap-3 md:gap-4 w-full mb-8">
           <button
             onClick={handleEditVotes}
-            className="flex-1 py-3 px-4 rounded-lg font-semibold theme-card theme-border-primary border theme-text-primary transition-all hover:border-status-warning hover:bg-status-warning/10"
+            className="flex-1 py-3 px-4 rounded-lg font-semibold theme-btn-secondary border theme-text-primary transition-all hover:theme-border-secondary"
           >
             {t('editVotes')}
           </button>
@@ -153,7 +153,7 @@ export default function ReviewScreen({
             disabled={!isComplete || isLoading}
             className={`flex-1 py-3 px-4 rounded-lg font-bold transition-all ${
               isComplete && !isLoading
-                ? 'bg-gradient-to-r from-amber-700 to-amber-800 text-white hover:from-amber-600 hover:to-amber-700 hover:shadow-lg hover:shadow-amber-700/30 transform hover:scale-105'
+                ? 'theme-btn-primary transform hover:scale-105'
                 : 'theme-card theme-text-tertiary cursor-not-allowed opacity-50'
             }`}
             title={!isComplete ? t('completeAllCategories') : ''}
@@ -186,7 +186,7 @@ export default function ReviewScreen({
                   key={category.id}
                   variant="review"
                   gameName={votedName}
-                  gradient={votedGame ? gameGradients[votedGame?.id] || 'bg-gradient-to-br from-blue-600/80 to-purple-600/80' : 'bg-slate-900/80'}
+                  gradient={votedGame ? gameGradients[votedGame?.id] || 'bg-gradient-to-br from-stone-900/70 to-slate-700/70' : 'bg-zinc-900/70'}
                   isVoted={!!votedGame}
                   onSelect={() => onPrevious(categoryIndex)}
                   categoryTitle={getCategoryTitle(category, language)}
@@ -202,7 +202,7 @@ export default function ReviewScreen({
         {onReturnHome && (
           <button
             onClick={onReturnHome}
-            className="w-full py-3 px-4 rounded-lg font-semibold theme-card theme-border-primary border theme-text-primary transition-all hover:border-status-error hover:bg-status-error/10"
+            className="w-full py-3 px-4 rounded-lg font-semibold theme-btn-secondary theme-border-primary border theme-text-primary transition-all hover:theme-border-secondary"
             title={t('cancelVoting')}
           >
             {t('cancel')}
