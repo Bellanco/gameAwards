@@ -20,14 +20,19 @@ export default function Header({
       {showControls && (
         <ThemeLanguageControls
           showLanguageLabel={false}
-          className="absolute top-4 right-4 short:right-2 flex gap-2 z-50"
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 short:right-2 flex gap-2 z-50"
         />
       )}
 
-      {/* Barra de progreso - Si se proporciona (con margen superior si hay controles) */}
+      {/* Barra de progreso - Si se proporciona (con margen superior si hay controles).
+          En móvil el contador y el porcentaje van JUNTOS a la izquierda: con
+          `justify-between` el porcentaje caía justo debajo del botón de idioma
+          (los controles ocupan de 12px a 56px de alto, y este bloque empieza a
+          los 48), y se leía pegado a él. Desde `sm` sobra sitio y vuelven a los
+          extremos. */}
       {progress !== null && (
-        <div className={`${showControls ? 'mt-12 sm:mt-14' : ''} mb-2 sm:mb-3 short:mb-1`}>
-          <div className="flex justify-between items-center mb-1.5 short:mb-0.5 text-sm">
+        <div className={`${showControls ? 'mt-10 sm:mt-14' : ''} mb-2 sm:mb-3 short:mb-1`}>
+          <div className="flex justify-start sm:justify-between items-center gap-3 mb-1.5 short:mb-0.5 text-sm">
             <span className="font-bold theme-text-secondary uppercase">
               {progress}
             </span>
