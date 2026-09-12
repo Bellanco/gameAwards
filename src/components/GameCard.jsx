@@ -1,5 +1,4 @@
 import React from 'react';
-import { CheckmarkIcon } from './Icons';
 import AutoSizeText from './AutoSizeText';
 
 /**
@@ -12,9 +11,13 @@ import AutoSizeText from './AutoSizeText';
  * `maxHeightPx` (solo en "vote") es el alto que le toca a la tarjeta en la
  * rejilla: la proporción manda mientras quepa, pero en pantallas anchas y bajas
  * (portátiles, tablets apaisadas) una tarjeta de 3 columnas se iría a 200px de
- * alto y obligaría a hacer scroll para ver la última fila. El `min-h` de cada
- * tamaño sigue teniendo prioridad en CSS, así que en móvil nunca aplasta las
- * tarjetas: ahí se sigue haciendo scroll.
+ * alto y obligaría a hacer scroll para ver la última fila.
+ *
+ * `fillHeight` va un paso más allá: la tarjeta deja de fijar su alto por
+ * proporción y llena la celda que le da la rejilla. Es lo que quita el scroll en
+ * móviles pequeños (iPhone SE), donde `aspect-[4/3]` pedía más alto del que
+ * había. Se activa solo cuando el reparto deja tarjetas legibles (ver
+ * `fitsWithoutScroll` en utils/gridDensity.js).
  */
 export default function GameCard({
   gameName,
@@ -31,7 +34,8 @@ export default function GameCard({
   compact = false,
   isMobilePortrait = false,
   isTransitioning = false,
-  maxHeightPx = null
+  maxHeightPx = null,
+  fillHeight = false
 }) {
   // Variante: VOTE (selección de juegos)
   if (variant === 'vote') {
@@ -50,14 +54,15 @@ export default function GameCard({
       <button
         onClick={() => !isTransitioning && onSelect && onSelect()}
         disabled={isTransitioning}
-        style={maxHeightPx ? { maxHeight: `${maxHeightPx}px` } : undefined}
+        aria-pressed={isSelected}
+        style={!fillHeight && maxHeightPx ? { maxHeight: `${maxHeightPx}px` } : undefined}
         className={`relative rounded-lg overflow-hidden border-2 ${sizeClass} w-full select-none transition-transform duration-200
           ${isTransitioning 
             ? 'pointer-events-none cursor-not-allowed' 
             : 'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-(--color-accent) cursor-pointer hover:scale-[1.01]'
           }
           ${isSelected
-            ? 'theme-accent-border shadow-lg shadow-[rgba(118,81,33,0.45)]'
+            ? 'theme-accent-border ring-2 ring-(--color-accent)/50 shadow-lg shadow-[rgba(118,81,33,0.45)]'
             : 'theme-border-empty'
           }
           ${isTransitioning ? 'scale-100 theme-border-empty' : ''}
@@ -69,15 +74,20 @@ export default function GameCard({
         {/* Overlay de selección */}
         <div className={`absolute inset-0 transition-all ${
           isSelected
-            ? 'bg-black/15'
-            : 'bg-black/35'
+            ? 'bg-black/10'
+            : 'bg-black/40'
         }`} />
 
-        {/* Checkmark - Visible en todos los tamaños */}
+        {/* Marca de seleccionado: una franja de acento pegada al borde inferior.
+            Antes era un círculo con un check en la esquina superior derecha, que
+            en tarjetas pequeñas se montaba justo encima de la primera línea del
+            nombre («Clair Obscur:» quedaba tapado). La franja ocupa un borde,
+            nunca el área del texto. */}
         {isSelected && (
-          <div className="flex absolute top-1 sm:top-2 md:top-3 right-1 sm:right-2 md:right-3 w-5 sm:w-6 md:w-8 h-5 sm:h-6 md:h-8 theme-accent-bg rounded-full items-center justify-center theme-flicker">
-            <CheckmarkIcon className="w-3 sm:w-4 md:w-5 h-3 sm:h-4 md:h-5 theme-text-inverse" />
-          </div>
+          <span
+            aria-hidden="true"
+            className="absolute inset-x-0 bottom-0 h-1.5 theme-accent-bg theme-flicker"
+          />
         )}
 
         {/* Nombre del juego - Centrado siempre con auto-resize */}

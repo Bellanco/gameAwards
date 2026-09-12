@@ -6,6 +6,8 @@ import { getRandomGradients } from '../utils/gradients';
 import {
   getGridColumns,
   estimateCardWidth,
+  fitsWithoutScroll,
+  cardHeightFor,
   CONTENT_MAX_WIDTH_PX,
 } from '../utils/gridDensity';
 import { tField, getCategoryTitle, getOptionId, getOptionLabel } from '../utils/localize';
@@ -42,9 +44,11 @@ export default function VoteScreen({
   const [gameGradients, setGameGradients] = useState({});
   const [loadingImages, setLoadingImages] = useState(true);
   const [hasVerticalScroll, setHasVerticalScroll] = useState(false);
-  // Alto real del área de rejilla: con él se calcula cuánto puede medir cada
-  // tarjeta para que las filas quepan sin scroll cuando hay sitio.
+  // Medidas reales del área de rejilla. Con ellas se decide si las tarjetas
+  // caben con su proporción o hay que repartir el alto: estimar el ancho a
+  // partir del viewport dejaba casos al límite con unos píxeles de scroll.
   const [gridAreaHeight, setGridAreaHeight] = useState(0);
+  const [gridAreaWidth, setGridAreaWidth] = useState(0);
   const [isAtBottom, setIsAtBottom] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const scrollContainerRef = useRef(null);
@@ -100,6 +104,7 @@ export default function VoteScreen({
         const hasScroll = scrollContainerRef.current.scrollHeight > scrollContainerRef.current.clientHeight;
         setHasVerticalScroll(hasScroll);
         setGridAreaHeight(scrollContainerRef.current.clientHeight);
+        setGridAreaWidth(scrollContainerRef.current.clientWidth);
       }
     };
 
@@ -183,18 +188,62 @@ export default function VoteScreen({
   const isCompactCard = cardWidth < 230 || (viewportInfo.isMobile && viewportInfo.isLandscape);
 
   const gridRows = Math.ceil(optionCount / gridColumns);
-  const rowGapPx = viewportInfo.isMobile ? 8 : 16;
+  // Separación entre tarjetas, en píxeles y en UN solo sitio: la usan el reparto
+  // de alturas, el ancho por columna y la propia rejilla. Con clases distintas
+  // por breakpoint los tres números se desincronizaban.
+  //
+  // En móvil son 12px y no 8: con bordes de 2px, ocho píxeles hacen que los
+  // bordes de dos filas contiguas se lean como pegados. En móvil apaisado con
+  // muchos nominados se aprieta a 8, que ahí lo que falta es alto.
+  const rowGapPx = viewportInfo.isMobile && viewportInfo.isLandscape && optionCount >= 6
+    ? 8
+    : viewportInfo.isMobile
+      ? 12
+      : 16;
+  // Padding inferior propio de la rejilla (`pb-3 sm:pb-4`): hay que descontarlo
+  // o el reparto se pasa justo por esos píxeles y reaparece el scroll.
+  const gridPaddingPx = viewportInfo.isMobile ? 12 : 16;
 
-  // Alto máximo por tarjeta para que las filas quepan en el área visible. Solo
-  // recorta cuando sobra ancho (pantallas anchas y bajas); el `min-h` de la
-  // tarjeta tiene prioridad en CSS, así que en móvil se sigue haciendo scroll.
-  const maxCardHeight = gridAreaHeight > 0
-    ? Math.max(56, Math.floor((gridAreaHeight - rowGapPx * (gridRows - 1) - 8) / gridRows))
+  const fitMetrics = {
+    areaHeight: gridAreaHeight,
+    rows: gridRows,
+    gapPx: rowGapPx,
+    reservedPx: gridPaddingPx,
+  };
+
+  // Alto "natural" de la tarjeta, el que pide su proporción con el ancho que le
+  // toca. Es lo que decide si hace falta intervenir: mientras quepa, la tarjeta
+  // conserva su forma.
+  const cardRatio = isMobilePortrait
+    ? (isCompactCard ? 3 / 4 : 4 / 5)
+    : (isCompactCard ? 7 / 16 : 8 / 16);
+  // Ancho real por tarjeta cuando ya hay medida; si no, la estimación.
+  const measuredCardWidth = gridAreaWidth > 0
+    ? (gridAreaWidth - rowGapPx * (gridColumns - 1) - gridPaddingPx) / gridColumns
+    : cardWidth;
+  const naturalHeight = Math.round(measuredCardWidth * cardRatio);
+  const naturalTotal = naturalHeight * gridRows + rowGapPx * (gridRows - 1) + gridPaddingPx;
+
+  // ¿Se sale la rejilla del área visible con esa forma natural? Con unos píxeles
+  // de margen: quedarse con 5px de scroll es exactamente lo que se quiere
+  // evitar, y repartir el alto en ese caso no se nota.
+  const overflowsViewport = gridAreaHeight > 0 && naturalTotal > gridAreaHeight - 8;
+  const cardHeight = cardHeightFor(fitMetrics);
+
+  // Solo cuando se sale Y el reparto deja tarjetas legibles se cambia a "llenar
+  // la celda": la rejilla reparte el alto exacto entre las filas y desaparece el
+  // scroll. Es el caso del iPhone SE, donde `aspect-[4/3]` pedía más alto del
+  // que había. Si no se sale, no se toca nada (en un monitor, una fila llenando
+  // todo el alto daría tarjetas absurdas); y si ni repartiendo se ven bien
+  // (muchos nominados en una pantalla diminuta), se prefiere el scroll.
+  const fillHeight = overflowsViewport && fitsWithoutScroll(fitMetrics);
+  const fitsInViewport = !overflowsViewport || fillHeight;
+
+  // Fuera del modo "llenar" se sigue acotando el alto, que es lo que evita el
+  // scroll en pantallas anchas y bajas (portátiles, tablets apaisadas).
+  const maxCardHeight = !fillHeight && gridAreaHeight > 0
+    ? Math.max(56, cardHeight)
     : null;
-
-  const denseLandscapeClass = viewportInfo.isMobile && viewportInfo.isLandscape && optionCount >= 6
-    ? 'gap-1.5 sm:gap-2 md:gap-3'
-    : 'gap-2 sm:gap-3 md:gap-4 lg:gap-6';
 
   const scrollToBottom = () => {
     if (scrollContainerRef.current) {
@@ -234,7 +283,7 @@ export default function VoteScreen({
       progress={`${currentStep + 1} / ${totalSteps}`}
       progressPercentage={progressPercentage}
       subtitle={isVoted
-        ? `${t('yourSelection')}: ${getOptionLabel(category, selectedOption?.id, language)}`
+        ? `${t('yourSelection')} ${getOptionLabel(category, selectedOption?.id, language)}`
         : t('chooseYourFavorite')}
     />
   );
@@ -242,8 +291,10 @@ export default function VoteScreen({
   // Footer con botones de navegación
   const footerContent = (
     <div className="flex gap-2 sm:gap-3 flex-col w-full px-2 sm:px-3 py-2 sm:py-3">
-      {/* Fila 1: Anterior y Siguiente */}
-      <div className="flex gap-2 sm:gap-3 flex-col sm:flex-row w-full">
+      {/* Fila 1: Anterior y Siguiente. En fila también en móvil: apilados se
+          comían ~45px de alto, justo los que faltaban para que la rejilla
+          cupiera sin scroll en un iPhone SE. */}
+      <div className="flex gap-2 sm:gap-3 flex-row w-full">
         <button
           onClick={handlePrevious}
           disabled={currentStep === 0}
@@ -298,16 +349,29 @@ export default function VoteScreen({
       <main className="flex-1 overflow-hidden flex flex-col px-2 sm:px-3 lg:px-4 py-2 sm:py-3 relative">
         <div 
           ref={scrollContainerRef}
-          className="flex-1 w-full overflow-y-auto px-2 md:px-3 lg:px-0"
+          className={`flex-1 w-full px-2 md:px-3 lg:px-0 ${
+            fitsInViewport ? 'overflow-hidden' : 'overflow-y-auto'
+          }`}
         >
           <div 
-            className={`grid w-full auto-rows-fr content-start px-1 sm:px-2 md:px-3 pb-3 sm:pb-4 ${denseLandscapeClass} ${
-              viewportInfo.isLandscape && !hasVerticalScroll ? 'my-auto' : ''
+            className={`grid w-full auto-rows-fr px-1 sm:px-2 md:px-3 pb-3 sm:pb-4 ${
+              fillHeight ? 'h-full content-stretch' : 'content-start'
+            } ${
+              !fillHeight && viewportInfo.isLandscape && !hasVerticalScroll ? 'my-auto' : ''
             } ${
               isTransitioning ? 'pointer-events-none' : ''
             }`}
             style={{
               gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
+              gap: `${rowGapPx}px`,
+              // La tarjeta suelta de la última fila se centra con el ancho EXACTO
+              // de una columna, que depende del gap (ver más abajo).
+              '--card-gap': `${rowGapPx}px`,
+              // Con el alto repartido, las filas son iguales y suman exactamente
+              // el área visible: es lo que garantiza que no haya scroll.
+              ...(fillHeight
+                ? { gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))` }
+                : {}),
               // Tope de ancho: en un monitor ultra-ancho, estirar cinco tarjetas
               // a 500px no mejora la lectura, solo separa el contenido.
               maxWidth: `${CONTENT_MAX_WIDTH_PX}px`,
@@ -319,22 +383,38 @@ export default function VoteScreen({
               const optionId = getOptionId(option, category.id, index);
               const optionName = tField(option, language);
               const isSelected = selectedOption?.id === optionId;
+              // Última fila con una sola tarjeta (5 nominados en 2 columnas):
+              // se centra ocupando la fila entera en vez de dejar el hueco
+              // pegado a un lado.
+              const isLoneLast =
+                index === optionCount - 1 &&
+                gridColumns > 1 &&
+                optionCount % gridColumns === 1;
 
               return (
-                <GameCard
+                <div
                   key={`${category.id}_${optionId}`}
+                  className={`h-full min-h-0 ${
+                    isLoneLast
+                      ? 'col-span-full justify-self-center w-[calc((100%-var(--card-gap))/2)]'
+                      : ''
+                  }`}
+                >
+                <GameCard
                   variant="vote"
                   gameName={optionName}
                   gradient={gameGradients[optionId] || 'bg-linear-to-br from-zinc-900/60 to-zinc-700/80'}
                   isSelected={isSelected}
                   isMobilePortrait={isMobilePortrait}
-                  compact={isCompactCard}
+                  compact={isCompactCard || (fillHeight && cardHeight < 96)}
                   maxHeightPx={maxCardHeight}
+                  fillHeight={fillHeight}
                   isTransitioning={isTransitioning}
                   onSelect={() =>
                     handleSelectOption(category.id, { id: optionId, name: optionName })
                   }
                 />
+                </div>
               );
             })}
           </div>
@@ -348,7 +428,7 @@ export default function VoteScreen({
         </div>
 
         {/* Indicador de Scroll - Sombra + Flecha (Clickeable) - Solo móvil vertical */}
-        {hasVerticalScroll && !isAtBottom && viewportInfo.isMobile && !viewportInfo.isLandscape && (
+        {!fillHeight && hasVerticalScroll && !isAtBottom && viewportInfo.isMobile && !viewportInfo.isLandscape && (
           <div className="absolute bottom-0 left-0 right-0 h-16 flex flex-col items-center justify-end">
             {/* Sombra degradada */}
             <div className="absolute bottom-0 left-0 right-0 h-16 bg-linear-to-t from-black/40 to-transparent pointer-events-none" />

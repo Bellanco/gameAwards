@@ -245,9 +245,18 @@ No se usa router; la navegación entre categorías es estado de React.
 - `estimateCardWidth()` da el ancho que le toca a cada tarjeta. **La densidad de la tarjeta
   (`compact`) se decide por ese ancho, no por el número de nominados**: cinco opciones en un
   monitor son tarjetas holgadas y las mismas cinco en una tablet, estrechas.
-- `VoteScreen` pasa a `GameCard` un `maxHeightPx` calculado con el alto real del área de
-  rejilla, para que las filas quepan sin scroll cuando hay sitio. El `min-h` de la tarjeta tiene
-  prioridad en CSS, así que en móvil no se aplasta nada: ahí se sigue haciendo scroll.
+- **Sin scroll en móviles pequeños**: si con su proporción natural la rejilla no cabe (iPhone
+  SE), `VoteScreen` deja de fijar el alto por `aspect-*` y reparte el área entre las filas
+  (`grid-template-rows: repeat(n, 1fr)` + tarjeta `h-full`, contenedor `overflow-hidden`). Solo
+  se activa cuando hace falta —si no, una fila llenaría toda la pantalla en un monitor— y solo
+  si el reparto deja tarjetas legibles (`MIN_CARD_HEIGHT_PX`); por debajo de eso se prefiere el
+  scroll. Fuera de ese modo se sigue acotando el alto con `maxHeightPx`.
+- **El gap de la rejilla va en píxeles y en un solo sitio** (`rowGapPx` en `VoteScreen`), no en
+  clases por breakpoint: lo comparten el reparto de alturas, el ancho por columna y el ancho de
+  la tarjeta centrada, y con tres fuentes distintas se desincronizaban.
+- **La selección se marca con una franja de acento en el borde inferior**, más borde y halo, no
+  con un icono flotante: el check en la esquina se montaba sobre la primera línea del nombre en
+  tarjetas pequeñas. El estado va también en `aria-pressed`.
 
 ### Modificar el propio voto (máximo 5 veces)
 

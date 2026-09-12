@@ -15,7 +15,7 @@ export default function Header({
   const progressWidth = `${progressPercentage || 0}%`;
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 short:px-2 py-3 sm:py-4 relative">
+    <div className="px-4 sm:px-6 lg:px-8 short:px-2 py-2 sm:py-4 relative">
       {/* Controles de idioma y tema - Esquina superior derecha */}
       {showControls && (
         <ThemeLanguageControls
@@ -48,13 +48,13 @@ export default function Header({
       )}
 
       {/* Título */}
-      <h1 className="text-2xl sm:text-4xl short:text-lg font-black tracking-tight theme-display uppercase theme-text-primary mb-2 short:mb-1">
+      <h1 className="text-xl sm:text-4xl short:text-lg font-black tracking-tight theme-display uppercase theme-text-primary mb-1 sm:mb-2 short:mb-1">
         {title}
       </h1>
 
       {/* Subtítulo - Si se proporciona */}
       {subtitle && (
-        <p className="text-base sm:text-lg short:text-sm theme-text-secondary mb-4 short:mb-1.5">
+        <p className="text-sm sm:text-lg short:text-sm theme-text-secondary mb-2 sm:mb-4 short:mb-1.5">
           {subtitle}
         </p>
       )}

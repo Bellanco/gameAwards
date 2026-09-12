@@ -154,3 +154,45 @@ export const estimateCardWidth = ({ width, columns }) => {
   );
   return Math.floor(usable / Math.max(1, columns));
 };
+
+/**
+ * Alto mínimo legible de una tarjeta de nominado, en px.
+ *
+ * Por debajo de esto el nombre del juego deja de leerse cómodamente (el texto se
+ * autoajusta, pero hay un suelo), así que es preferible hacer scroll a seguir
+ * comprimiendo.
+ */
+export const MIN_CARD_HEIGHT_PX = 62;
+
+/**
+ * ¿Caben todas las filas en el alto disponible sin hacer scroll?
+ *
+ * En móviles pequeños (iPhone SE) la rejilla se salía por abajo aunque hubiera
+ * sitio de sobra: la tarjeta fijaba su alto por proporción (`aspect-[4/3]`), no
+ * por el espacio real. Cuando esta función dice que sí, `VoteScreen` reparte el
+ * alto exacto entre las filas y desaparece el scroll; cuando dice que no (muchos
+ * nominados o pantalla diminuta), se mantiene el scroll antes que dejar tarjetas
+ * ilegibles.
+ *
+ * @param {Object} params
+ * @param {number} params.areaHeight - alto visible del área de rejilla (px)
+ * @param {number} params.rows - filas de la rejilla
+ * @param {number} params.gapPx - separación entre filas
+ * @param {number} [params.reservedPx] - padding vertical propio de la rejilla
+ * @returns {boolean}
+ */
+export const fitsWithoutScroll = ({ areaHeight, rows, gapPx, reservedPx = 0 }) => {
+  if (!areaHeight || rows < 1) return false;
+  return cardHeightFor({ areaHeight, rows, gapPx, reservedPx }) >= MIN_CARD_HEIGHT_PX;
+};
+
+/**
+ * Alto que le toca a cada tarjeta repartiendo el área entre las filas.
+ * @param {{areaHeight: number, rows: number, gapPx: number, reservedPx?: number}} params
+ * @returns {number} px (0 si no hay medida todavía)
+ */
+export const cardHeightFor = ({ areaHeight, rows, gapPx, reservedPx = 0 }) => {
+  if (!areaHeight || rows < 1) return 0;
+  const usable = areaHeight - gapPx * (rows - 1) - reservedPx;
+  return Math.floor(usable / rows);
+};

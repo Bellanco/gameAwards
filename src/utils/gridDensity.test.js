@@ -2,6 +2,8 @@ import {
   getGridColumns,
   balanceColumns,
   estimateCardWidth,
+  fitsWithoutScroll,
+  cardHeightFor,
   CONTENT_MAX_WIDTH_PX,
 } from './gridDensity';
 
@@ -141,5 +143,31 @@ describe('estimateCardWidth', () => {
     // En un monitor ultra-ancho, cinco tarjetas de 500px no se leen mejor.
     const ultraWide = estimateCardWidth({ width: 3440, columns: 5 });
     expect(ultraWide).toBe(Math.floor(CONTENT_MAX_WIDTH_PX / 5));
+  });
+});
+
+describe('fitsWithoutScroll / cardHeightFor', () => {
+  it('reparte el alto descontando separaciones y padding', () => {
+    // 300px de área, 3 filas, 8px de gap y 12px de padding inferior:
+    // (300 - 16 - 12) / 3 = 90
+    expect(cardHeightFor({ areaHeight: 300, rows: 3, gapPx: 8, reservedPx: 12 })).toBe(90);
+  });
+
+  it('dice que cabe cuando la tarjeta resultante sigue siendo legible', () => {
+    // iPhone SE con 5-6 nominados: 3 filas en el área que queda tras cabecera
+    // y pie. Es el caso que antes se salía por abajo.
+    expect(fitsWithoutScroll({ areaHeight: 300, rows: 3, gapPx: 8, reservedPx: 12 })).toBe(true);
+  });
+
+  it('prefiere el scroll antes que dejar tarjetas ilegibles', () => {
+    // 7 nominados en 2 columnas (4 filas) en una pantalla muy corta.
+    expect(fitsWithoutScroll({ areaHeight: 200, rows: 4, gapPx: 8, reservedPx: 12 })).toBe(false);
+  });
+
+  it('sin medida todavía no afirma que quepa', () => {
+    // Primer render: mejor scroll (comportamiento de siempre) que un reparto
+    // calculado sobre un alto de cero.
+    expect(fitsWithoutScroll({ areaHeight: 0, rows: 3, gapPx: 8 })).toBe(false);
+    expect(cardHeightFor({ areaHeight: 0, rows: 3, gapPx: 8 })).toBe(0);
   });
 });
