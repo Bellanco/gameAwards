@@ -263,6 +263,21 @@ export const en = {
   archived: "Archived",
   history: "History",
   historyDescription: "Winners and standings for every published edition.",
+  // Edition identity (Admin)
+  seasonIdentity: "Edition name",
+  seasonIdentityHelp: "Name this edition so you can tell it apart in the history. The identifier is its archive key: change it if you want a new edition in the same year (for example, \"2026-summer\") instead of overwriting the previous one.",
+  seasonNameLabel: "Name",
+  seasonNamePlaceholder: "The Game Awards 2026",
+  seasonIdLabel: "Identifier",
+  seasonIdHelp: "Letters, numbers and hyphens. Used as the key of the results archive.",
+  saveIdentity: "Save name",
+  // History
+  viewEdition: "View results",
+  backToHistory: "Back to history",
+  renameEdition: "Rename edition",
+  editionRenamed: "Edition renamed",
+  editionResults: "Edition results",
+  participantsCount: "participants",
   inProgressEdition: "In progress",
   noHistory: "No archived editions yet. Use \"Archive and reset edition\" when closing a season.",
 

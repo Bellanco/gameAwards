@@ -15,6 +15,7 @@
 import {
   doc,
   setDoc,
+  updateDoc,
   getDocs,
   collection,
   writeBatch,
@@ -23,6 +24,7 @@ import {
 import { db } from '../firebase';
 import { computeLeaderboard } from '../utils/scoring';
 import { buildScheduleFields } from '../utils/closingDate';
+import { getSeasonId, getSeasonLabel, toSeasonId } from '../utils/seasonId';
 import { logError, ERROR_TYPES } from './errorService';
 import logger from './loggerService';
 
@@ -49,6 +51,55 @@ export async function setVotingOpen(isOpen, extra = {}) {
     },
     { merge: true }
   );
+}
+
+/**
+ * Fija la identidad de la edición en curso: su nombre y su identificador.
+ *
+ * El identificador es la CLAVE del archivo (`results/{seasonId}`), que antes era
+ * el año y por eso no cabían dos ediciones en el mismo año. Se normaliza a un
+ * slug porque acaba siendo el id de un documento de Firestore.
+ *
+ * Cambiar el identificador con una edición ya publicada crea un archivo nuevo en
+ * la siguiente publicación en vez de reescribir el anterior: es lo que permite
+ * tener «Porra TGA 2026» y «Porra de verano 2026» a la vez.
+ *
+ * @param {{seasonName?: string, seasonId?: string, season?: number}} identidad
+ * @returns {Promise<{seasonId: string, seasonName: string}>}
+ */
+export async function setSeasonIdentity({ seasonName, seasonId, season }) {
+  const id = toSeasonId(seasonId) || toSeasonId(seasonName) || String(season || '');
+  if (!id) throw new Error('La edición necesita un identificador');
+
+  const nombre = (seasonName || '').trim();
+  await setDoc(
+    VOTING_DOC,
+    {
+      seasonId: id,
+      seasonName: nombre,
+      ...(typeof season === 'number' ? { season } : {}),
+      updatedAt: new Date().toISOString(),
+    },
+    { merge: true }
+  );
+  return { seasonId: id, seasonName: nombre };
+}
+
+/**
+ * Renombra una edición ya archivada.
+ *
+ * Solo el nombre: los ganadores y la clasificación son el resultado histórico y
+ * no se pueden recalcular (los votos de esa edición ya se borraron al
+ * reiniciar), así que tocarlos dejaría el archivo incoherente.
+ *
+ * @param {string} seasonId - id del documento en `results`
+ * @param {string} name
+ */
+export async function renameSeasonResult(seasonId, name) {
+  await updateDoc(doc(db, 'results', String(seasonId)), {
+    name: (name || '').trim(),
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 /**
@@ -89,7 +140,7 @@ export async function setVotingSchedule(days) {
  * @returns {{season: number, winners: Object, categoriesSnapshot: Array,
  *            leaderboard: Array, totalBallots: number}}
  */
-export function buildSeasonSnapshot({ season, categories, ballots }) {
+export function buildSeasonSnapshot({ season, categories, ballots, seasonId, seasonName }) {
   const winners = {};
   const categoriesSnapshot = (categories || []).map((cat) => {
     if (cat.winner) winners[cat.id] = cat.winner;
@@ -102,8 +153,15 @@ export function buildSeasonSnapshot({ season, categories, ballots }) {
     };
   });
 
+  const id = getSeasonId({ seasonId, season });
+
   return {
     season,
+    // Identidad de la edición: el id es además la clave del documento, y el
+    // nombre lo que se ve en el histórico. Sin nombre se cae al año, que es lo
+    // que tenían las ediciones anteriores a esta feature.
+    seasonId: id,
+    name: getSeasonLabel({ name: seasonName, season }),
     winners,
     categoriesSnapshot,
     leaderboard: computeLeaderboard(ballots || [], categories || []),
@@ -127,19 +185,20 @@ export function buildSeasonSnapshot({ season, categories, ballots }) {
  * @param {{season: number, categories: Array, ballots: Array}} params
  * @returns {Promise<{season: number, winnersCount: number, totalBallots: number}>}
  */
-export async function publishSeasonResults({ season, categories, ballots }) {
+export async function publishSeasonResults({ season, categories, ballots, seasonId, seasonName }) {
   try {
-    const snapshot = buildSeasonSnapshot({ season, categories, ballots });
+    const snapshot = buildSeasonSnapshot({ season, categories, ballots, seasonId, seasonName });
 
-    await setDoc(doc(db, 'results', String(season)), {
+    await setDoc(doc(db, 'results', snapshot.seasonId), {
       ...snapshot,
       publishedAt: serverTimestamp(),
     });
 
-    logger.log(`📣 Resultados de la temporada ${season} publicados/actualizados.`);
+    logger.log(`📣 Resultados de "${snapshot.name}" publicados/actualizados.`);
 
     return {
       season,
+      seasonId: snapshot.seasonId,
       winnersCount: Object.keys(snapshot.winners).length,
       totalBallots: snapshot.totalBallots,
     };
@@ -168,12 +227,12 @@ export async function publishSeasonResults({ season, categories, ballots }) {
  * @param {Array} params.ballots - Votos de la temporada
  * @returns {Promise<{archived: boolean, totalBallots: number, deleted: number, cleared: number}>}
  */
-export async function archiveAndResetSeason({ season, categories, ballots }) {
+export async function archiveAndResetSeason({ season, categories, ballots, seasonId, seasonName }) {
   try {
     // 1 + 2. Construir y guardar el snapshot de resultados de la temporada.
-    const snapshot = buildSeasonSnapshot({ season, categories, ballots });
+    const snapshot = buildSeasonSnapshot({ season, categories, ballots, seasonId, seasonName });
 
-    await setDoc(doc(db, 'results', String(season)), {
+    await setDoc(doc(db, 'results', snapshot.seasonId), {
       ...snapshot,
       closedAt: serverTimestamp(),
     });

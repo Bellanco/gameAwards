@@ -216,7 +216,8 @@ No se usa router; la navegación entre categorías es estado de React.
   - `ballots/{uid}` — voto del usuario. **Lectura solo dueño o admin** (no público).
   - `categories/{id}` — categorías bilingües (lectura pública, escritura admin).
   - `config/voting` — estado de la votación (lectura pública, escritura admin).
-  - `results/{year}` — archivo de resultados por temporada (lectura pública, escritura admin).
+  - `results/{seasonId}` — archivo de una edición (lectura pública, escritura admin). La clave
+    es el **identificador de la edición**, no el año: así caben varias en el mismo año.
   - `winners`/`surveyWinners` — compatibilidad legacy (lectura pública, escritura/borrado admin).
   - `admin/**` — configuración sensible (lectura y escritura solo admin).
 - Reglas en `firestore.rules`. **Escritura valida `isOwner` o `isAdmin()`**; `ballots` valida
@@ -274,8 +275,20 @@ No se usa router; la navegación entre categorías es estado de React.
   (opción `{id,es,en}` o string plano) además del formato actual `{id,name}`, y el scoring/display
   normalizan con `resolveOptionId(category, value)`. Funcionan tanto con datos nuevos (optionId)
   como antiguos (nombre/título string), sin necesidad de migrar los datos existentes.
-- **Histórico**: `useSeasonResults()` lee `results/{año}`; el AdminPanel tiene la pestaña
-  **Histórico** que muestra, por edición, ganadores por categoría y la clasificación.
+- **Identidad de la edición**: `config/voting` lleva `seasonId` (clave del archivo) y
+  `seasonName` (nombre visible). `utils/seasonId.js` los normaliza: `toSeasonId()` convierte un
+  texto en slug, `getSeasonId(config)` cae al año si no hay id y `getSeasonLabel()` cae al año
+  si no hay nombre. Las ediciones archivadas antes de esto **no necesitan migración**: su
+  documento está en `results/{año}` y se sigue leyendo igual.
+- **Histórico**: `useSeasonResults()` lee la colección `results`; la pestaña **Histórico** del
+  AdminPanel es una LISTA de ediciones y al entrar en una se abre su detalle completo
+  (`admin/HistoryDetail.jsx`): todos los ganadores y toda la clasificación.
+  - De un archivo **solo se puede cambiar el nombre** (`renameSeasonResult`). Ganadores y puntos
+    son el resultado histórico y no se pueden recalcular: los votos de esa edición se borraron
+    al reiniciarla, así que tocarlos dejaría el archivo incoherente.
+  - Cambiar el `seasonId` de la edición en curso hace que la siguiente publicación cree un
+    archivo NUEVO en vez de reescribir el anterior. Es lo que permite «Porra TGA 2026» y
+    «Porra de verano 2026» a la vez.
 
 ### Rejilla de nominados (adaptación a pantalla)
 

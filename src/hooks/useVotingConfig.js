@@ -22,6 +22,8 @@
  * @typedef {Object} VotingConfig
  * @property {boolean} isOpen - Cierre forzado del admin (false = cerrada)
  * @property {number} season - Temporada/año activo
+ * @property {string} seasonId - Identificador de la edición (clave de `results`)
+ * @property {string} seasonName - Nombre visible de la edición
  * @property {string|null} opensAt - Instante de apertura (ISO) o null
  * @property {number|null} opensAtMillis - Instante de apertura (epoch) o null
  * @property {string|null} closesAt - Instante de cierre (ISO) o null
@@ -40,6 +42,11 @@ import { logError, ERROR_TYPES } from '../services/errorService';
 const DEFAULT_CONFIG = {
   isOpen: true,
   season: new Date().getFullYear(),
+  // Identidad de la edición: el id es la clave de su archivo en `results` y el
+  // nombre lo que se muestra. Vacíos = edición "de siempre", identificada por
+  // su año (ver utils/seasonId.js).
+  seasonId: '',
+  seasonName: '',
   opensAt: null,
   opensAtMillis: null,
   closesAt: null,
@@ -76,6 +83,8 @@ export const useVotingConfig = () => {
           setConfig({
             isOpen: data.isOpen !== false, // por defecto abierto si el campo falta
             season: data.season || new Date().getFullYear(),
+            seasonId: data.seasonId || '',
+            seasonName: data.seasonName || '',
             ...readInstant(data, 'opens'),
             ...readInstant(data, 'closes'),
             ...readInstant(data, 'results'),

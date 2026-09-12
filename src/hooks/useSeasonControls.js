@@ -21,6 +21,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   setVotingOpen,
   setVotingSchedule,
+  setSeasonIdentity,
   publishSeasonResults,
   archiveAndResetSeason,
 } from '../services/seasonService';
@@ -31,6 +32,7 @@ import {
   dayInstantInVotingZone,
 } from '../utils/closingDate';
 import { validateScheduleDays } from '../utils/votingSchedule';
+import { getSeasonId } from '../utils/seasonId';
 
 /** Días del preset de prueba: se abre hoy, cierra en una semana, resultados en dos. */
 const PRESET_OFFSETS = { opens: 0, closes: 7, results: 14 };
@@ -38,9 +40,13 @@ const PRESET_OFFSETS = { opens: 0, closes: 7, results: 14 };
 const EMPTY_DAYS = { opensDay: '', closesDay: '', resultsDay: '' };
 
 export const useSeasonControls = ({ config, categories, ballots, t }) => {
-  const { season, isOpen: isVotingOpen, opensAt, closesAt, resultsAt } = config;
+  const { season, isOpen: isVotingOpen, opensAt, closesAt, resultsAt, seasonName } = config;
+  const seasonId = getSeasonId(config);
 
   const [days, setDays] = useState(EMPTY_DAYS);
+  // Identidad de la edición en edición (valga la redundancia): nombre visible e
+  // identificador, que es la clave de su archivo en `results`.
+  const [identity, setIdentity] = useState({ seasonName: '', seasonId: '' });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -55,6 +61,11 @@ export const useSeasonControls = ({ config, categories, ballots, t }) => {
     });
   }, [opensAt, closesAt, resultsAt]);
 
+  // El formulario de identidad también se sincroniza con lo guardado.
+  useEffect(() => {
+    setIdentity({ seasonName: seasonName || '', seasonId });
+  }, [seasonName, seasonId]);
+
   /** Mensaje efímero de confirmación (los errores se quedan fijos). */
   const flash = useCallback((text) => {
     setMessage(text);
@@ -63,6 +74,10 @@ export const useSeasonControls = ({ config, categories, ballots, t }) => {
 
   const setDay = useCallback((field, value) => {
     setDays((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const setIdentityField = useCallback((field, value) => {
+    setIdentity((prev) => ({ ...prev, [field]: value }));
   }, []);
 
   /**
@@ -126,10 +141,10 @@ export const useSeasonControls = ({ config, categories, ballots, t }) => {
           await setVotingOpen(true, { season });
         }
 
-        await publishSeasonResults({ season, categories, ballots });
+        await publishSeasonResults({ season, seasonId, seasonName, categories, ballots });
         return t('saved');
       }),
-    [run, days, t, season, categories, ballots, isVotingOpen]
+    [run, days, t, season, seasonId, seasonName, categories, ballots, isVotingOpen]
   );
 
   /** Cierre forzado / vuelta al calendario. */
@@ -146,29 +161,47 @@ export const useSeasonControls = ({ config, categories, ballots, t }) => {
   const publishResults = useCallback(
     () =>
       run(async () => {
-        const result = await publishSeasonResults({ season, categories, ballots });
+        const result = await publishSeasonResults({ season, seasonId, seasonName, categories, ballots });
         return `${t('resultsUpdated')}: ${result.winnersCount} ${t('winners').toLowerCase()} · ${result.totalBallots} ${t('votes')}`;
       }),
-    [run, season, categories, ballots, t]
+    [run, season, seasonId, seasonName, categories, ballots, t]
+  );
+
+  /** Guarda el nombre y el identificador de la edición en curso. */
+  const saveIdentity = useCallback(
+    () =>
+      run(async () => {
+        const saved = await setSeasonIdentity({ ...identity, season });
+        setIdentity({ seasonName: saved.seasonName, seasonId: saved.seasonId });
+        return t('saved');
+      }),
+    [run, identity, season, t]
   );
 
   /** Archiva la edición, borra los votos y deja la siguiente sin calendario. */
   const archiveReset = useCallback(() => {
     if (!window.confirm(`${t('archiveResetConfirm')} (${season})`)) return undefined;
     return run(async () => {
-      const result = await archiveAndResetSeason({ season, categories, ballots });
+      const result = await archiveAndResetSeason({ season, seasonId, seasonName, categories, ballots });
       // Nueva edición: cerrada, sin fechas heredadas (el calendario de la
       // anterior cerraría o publicaría la nueva en el momento equivocado).
       await setVotingOpen(false, { season: season + 1 });
       await setVotingSchedule(EMPTY_DAYS);
+      // La edición nueva arranca identificada por su año; el admin puede
+      // ponerle nombre propio después. Heredar el id anterior haría que la
+      // siguiente publicación sobrescribiera el archivo recién guardado.
+      await setSeasonIdentity({ season: season + 1, seasonId: String(season + 1), seasonName: '' });
       setDays(EMPTY_DAYS);
       return `${t('archived')}: ${result.deleted} ${t('votes')} · ${result.cleared} ${t('categories').toLowerCase()} · ${season} → ${season + 1}`;
     });
-  }, [run, season, categories, ballots, t]);
+  }, [run, season, seasonId, seasonName, categories, ballots, t]);
 
   return {
     days,
     setDay,
+    identity,
+    setIdentityField,
+    saveIdentity,
     applyTestPreset,
     busy,
     message,

@@ -33,7 +33,7 @@ export default function WinnersPanel({ mode = 'select' }) {
   const t = useTranslation(language);
   const { categories, isLoading: categoriesLoading, refetch: refetchCategories } = useFirestoreCategories();
   const { ballots, isLoading: ballotsLoading } = useFirestoreBallots();
-  const { season } = useVotingConfig();
+  const { season, seasonId, seasonName } = useVotingConfig();
   
   const [winners, setWinners] = useState({});
   const [userScores, setUserScores] = useState({});
@@ -134,7 +134,13 @@ export default function WinnersPanel({ mode = 'select' }) {
       // lectura pública), así que sin esto la pantalla pública seguiría
       // mostrando los ganadores anteriores cuando llegue la fecha de resultados.
       const categoriesWithWinners = categories.map(c => ({ ...c, winner: winners[c.id] || null }));
-      await publishSeasonResults({ season, categories: categoriesWithWinners, ballots });
+      await publishSeasonResults({
+        season,
+        seasonId,
+        seasonName,
+        categories: categoriesWithWinners,
+        ballots,
+      });
 
       const message = `${t('saveSuccessful')} (${saved} ${t('selected')})`;
       

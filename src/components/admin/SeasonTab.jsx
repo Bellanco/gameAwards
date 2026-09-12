@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from '../../data/literals';
 import { useAppContext } from '../../context/AppContext';
 import { getVotingState, areResultsPublished, VOTING_STATE } from '../../utils/votingSchedule';
+import { getSeasonLabel } from '../../utils/seasonId';
 
 /** Formato legible de una fecha ISO en el idioma activo. */
 const formatDate = (iso, language) =>
@@ -38,7 +39,11 @@ export default function SeasonTab({ config, controls }) {
   const t = useTranslation(language);
 
   const { season, isOpen: isVotingOpen, opensAt, closesAt, resultsAt } = config;
-  const { days, setDay, applyTestPreset, busy, message, saveSchedule, toggleVoting, publishResults, archiveReset } = controls;
+  const {
+    days, setDay, applyTestPreset,
+    identity, setIdentityField, saveIdentity,
+    busy, message, saveSchedule, toggleVoting, publishResults, archiveReset,
+  } = controls;
 
   const state = getVotingState(config);
   const resultsLive = areResultsPublished(config);
@@ -70,7 +75,10 @@ export default function SeasonTab({ config, controls }) {
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <p className="text-sm theme-text-secondary uppercase mb-1">{t('currentSeason')}</p>
-            <p className="text-3xl font-black theme-accent">{season}</p>
+            <p className="text-3xl font-black theme-accent">{getSeasonLabel(config)}</p>
+            {getSeasonLabel(config) !== String(season) && (
+              <p className="text-sm theme-text-tertiary">{season}</p>
+            )}
             <p className={`text-sm font-semibold mt-1 ${stateColor}`}>{stateLabel}</p>
           </div>
           <button
@@ -85,6 +93,47 @@ export default function SeasonTab({ config, controls }) {
             {isVotingOpen ? t('closeVoting') : t('openVoting')}
           </button>
         </div>
+      </div>
+
+      {/* Nombre e identificador de la edición */}
+      <div className="theme-card theme-border-primary border rounded-lg p-6">
+        <h3 className="text-lg font-bold theme-text-primary mb-2">{t('seasonIdentity')}</h3>
+        <p className="theme-text-secondary text-sm mb-4">{t('seasonIdentityHelp')}</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label className="text-sm font-semibold theme-text-secondary">
+            {t('seasonNameLabel')}
+            <input
+              type="text"
+              value={identity.seasonName}
+              onChange={(e) => setIdentityField('seasonName', e.target.value)}
+              placeholder={t('seasonNamePlaceholder')}
+              disabled={busy}
+              maxLength={60}
+              className="mt-1 block w-full min-h-[44px] px-4 py-2.5 theme-container-secondary theme-border-control border rounded theme-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40"
+            />
+          </label>
+          <label className="text-sm font-semibold theme-text-secondary">
+            {t('seasonIdLabel')}
+            <input
+              type="text"
+              value={identity.seasonId}
+              onChange={(e) => setIdentityField('seasonId', e.target.value)}
+              disabled={busy}
+              maxLength={40}
+              className="mt-1 block w-full min-h-[44px] px-4 py-2.5 theme-container-secondary theme-border-control border rounded theme-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40"
+            />
+            <span className="block mt-1 text-xs font-normal theme-text-tertiary">{t('seasonIdHelp')}</span>
+          </label>
+        </div>
+
+        <button
+          onClick={saveIdentity}
+          disabled={busy}
+          className="mt-5 min-h-[44px] py-2.5 px-5 rounded-lg font-bold text-sm theme-accent-bg theme-text-inverse transition-all disabled:opacity-50"
+        >
+          {t('saveIdentity')}
+        </button>
       </div>
 
       {/* Calendario: apertura, cierre y resultados */}

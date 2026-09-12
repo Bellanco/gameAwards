@@ -32,7 +32,7 @@ export default function AdminPanel() {
   const { categories, isLoading: categoriesLoading } = useFirestoreCategories();
   const { ballots, isLoading: ballotsLoading } = useFirestoreBallots();
   const votingConfig = useVotingConfig();
-  const { results: seasonResults, isLoading: resultsLoading } = useSeasonResults();
+  const { results: seasonResults, isLoading: resultsLoading, refetch: refetchResults } = useSeasonResults();
 
   // Calendario de la edición, cierre forzado, publicación y reinicio anual.
   const seasonControls = useSeasonControls({
@@ -191,15 +191,24 @@ export default function AdminPanel() {
   return (
     <div className="min-h-screen theme-gradient-primary">
       {/* Header */}
-      <div className="theme-header theme-border-primary border-b sticky top-0 z-50 backdrop-blur-sm">
+      {/*
+        La cabecera se queda fija solo a partir de `md`. En un móvil ocupa casi
+        media pantalla (título, controles y siete pestañas repartidas en varias
+        filas), así que pegada arriba tapaba los botones del contenido: en 320px
+        el de guardar el renombrado quedaba debajo y no se podía pulsar.
+      */}
+      <div className="theme-header theme-border-primary border-b md:sticky md:top-0 z-50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
-          <div className="flex justify-between items-center mb-4">
+          {/* `flex-wrap`: en 320px el título y los controles no caben en una
+              línea y, sin envolver, empujaban la página a 535px de ancho (scroll
+              horizontal en todo el panel). */}
+          <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
             <div>
               <h1 className="text-3xl md:text-4xl font-black theme-display uppercase theme-text-primary">{t('adminPanel')}</h1>
               <p className="theme-text-secondary text-sm">{t('ballotResults')}</p>
             </div>
-            <div className="flex gap-4 items-center">
-              <ThemeLanguageControls className="flex gap-4 items-center" />
+            <div className="flex gap-2 sm:gap-4 items-center">
+              <ThemeLanguageControls className="flex gap-2 sm:gap-4 items-center" />
               <button
                 onClick={handleLogout}
                 className="min-h-[44px] py-2 px-4 btn-danger border theme-border-primary rounded-lg font-semibold text-sm transition-all"
@@ -273,7 +282,11 @@ export default function AdminPanel() {
 
         {/* Histórico de resultados por año */}
         {viewMode === 'history' && (
-          <HistoryTab seasonResults={seasonResults} resultsLoading={resultsLoading} />
+          <HistoryTab
+            seasonResults={seasonResults}
+            resultsLoading={resultsLoading}
+            onRefresh={refetchResults}
+          />
         )}
 
         {/* Season / Voting control */}

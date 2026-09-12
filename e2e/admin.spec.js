@@ -101,6 +101,80 @@ test.describe('panel de administración', () => {
     expect(snapshot.winners.goty).toBe('goty_option_1');
   });
 
+  test('el admin nombra la edición y el archivo se guarda con ese id', async ({ page }) => {
+    await signInAsAdmin(page, ADMIN);
+    await page.getByRole('button', { name: /^temporada$/i }).click();
+
+    // Nombre propio e identificador distinto del año: es lo que permite tener
+    // dos ediciones en el mismo año sin pisarse.
+    await page.getByLabel(/^nombre$/i).fill('Porra de verano');
+    await page.getByLabel(/identificador/i).fill('2026-verano');
+    await page.getByRole('button', { name: /guardar nombre/i }).click();
+    await expect(page.getByText(/^guardado$/i)).toBeVisible();
+
+    const config = await readDoc('config', 'voting');
+    expect(config.seasonId).toBe('2026-verano');
+    expect(config.seasonName).toBe('Porra de verano');
+
+    // Al publicar, el archivo va a results/{seasonId}, no a results/{año}.
+    await page.getByRole('button', { name: /actualizar resultados ahora/i }).click();
+    await expect(page.getByText(/resultados actualizados/i)).toBeVisible();
+
+    const archivo = await readDoc('results', '2026-verano');
+    expect(archivo).not.toBeNull();
+    expect(archivo.name).toBe('Porra de verano');
+    expect(archivo.season).toBe(2026);
+  });
+
+  test('el histórico abre el detalle de una edición y permite renombrarla', async ({ page }) => {
+    // Una edición ya archivada, como la dejaría el reinicio anual.
+    await seedDoc('results', '2025', {
+      season: 2025,
+      seasonId: '2025',
+      name: 'Porra 2025',
+      totalBallots: 2,
+      winners: { goty: 'goty_option_0' },
+      categoriesSnapshot: [
+        {
+          id: 'goty',
+          title: { es: 'Juego del año', en: 'Game of the year' },
+          winner: 'goty_option_0',
+          weight: 1,
+          options: [
+            { id: 'goty_option_0', name: 'Clair Obscur' },
+            { id: 'goty_option_1', name: 'Hades II' },
+          ],
+        },
+      ],
+      leaderboard: [
+        { rank: 1, userId: 'u1', nickname: 'Ana', points: 3 },
+        { rank: 2, userId: 'u2', nickname: 'Bruno', points: 1 },
+      ],
+    });
+
+    await signInAsAdmin(page, ADMIN);
+    await page.getByRole('button', { name: /^histórico$/i }).click();
+
+    // La lista muestra la edición; al entrar se ven sus resultados completos.
+    await page.getByRole('button', { name: /porra 2025/i }).click();
+    await expect(page.getByText(/resultados de la edición: porra 2025/i)).toBeVisible();
+    await expect(page.getByText('Clair Obscur')).toBeVisible();
+    await expect(page.getByText(/Ana/)).toBeVisible();
+    await expect(page.getByText('3 pts')).toBeVisible();
+
+    // Y se puede renombrar (lo único editable de un archivo).
+    await page.getByLabel(/^nombre$/i).fill('Porra histórica 2025');
+    await page.getByRole('button', { name: /^guardar$/i }).click();
+    await expect(page.getByText(/edición renombrada/i)).toBeVisible();
+
+    expect((await readDoc('results', '2025')).name).toBe('Porra histórica 2025');
+
+    // Los ganadores y los puntos siguen intactos: solo cambia el nombre.
+    const archivo = await readDoc('results', '2025');
+    expect(archivo.winners.goty).toBe('goty_option_0');
+    expect(archivo.leaderboard).toHaveLength(2);
+  });
+
   test('el admin cierra la votación y el público deja de poder votar', async ({ page }) => {
     await signInAsAdmin(page, ADMIN);
     await page.getByRole('button', { name: /^temporada$/i }).click();
