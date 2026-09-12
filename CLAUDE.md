@@ -25,6 +25,10 @@ npm run test:watch # tests en modo watch
 npm run test:rules # tests de firestore.rules contra el emulador (necesita **JDK 21+**:
                    # firebase-tools 15 aborta con Java 17; descarga firebase-tools
                    # con npx, NO depende de tenerlo instalado)
+npm run test:e2e   # e2e con Playwright contra los emuladores (Auth + Firestore):
+                   # votación, resultados y accesibilidad. Necesita JDK 21+ y
+                   # `npx playwright install chromium` la primera vez.
+npm run test:e2e:ui # lo mismo, con la interfaz de Playwright para depurar
 ```
 
 ### Tests (Vitest)
@@ -36,6 +40,38 @@ npm run test:rules # tests de firestore.rules contra el emulador (necesita **JDK
   en `src/hooks/hooks.test.js`: mockea `../firebase` (db + auth), `firebase/firestore`,
   `firebase/auth` y `../services/errorService`.
 - Nombra los archivos `*.test.js` / `*.test.jsx` junto al código que prueban.
+
+### Pruebas e2e (Playwright)
+
+- Viven en `e2e/` y corren contra los **emuladores** de Firebase (Auth + Firestore), nunca
+  contra el proyecto real: `npm run test:e2e` levanta los emuladores, arranca Vite con
+  `VITE_USE_EMULATORS=true` y ejecuta Playwright. El `projectId` es de mentira
+  (`tga-ballot-e2e`), así que ninguna prueba puede tocar datos de producción.
+- `src/firebase.js` se conecta a los emuladores **solo** con esa variable; en el build de
+  producción Vite la resuelve a `false` y el bloque no llega al bundle (verificado).
+- `e2e/helpers.js` siembra Firestore por su API REST con el token `owner` (se salta las
+  reglas) y pasa por el login de Google del emulador, así que el recorrido es el real,
+  `signInWithPopup` incluido.
+- Cubren: votar de punta a punta (y **qué se guarda**: selecciones por optionId, `season`,
+  `editCount`), bloqueo de re-voto, corrección del voto con su contador, fuera de plazo,
+  edición programada y publicación de resultados. Cada prueba se ejecuta en escritorio y en
+  un viewport de 320×568.
+
+### Accesibilidad
+
+- `src/test/contrast.test.js` calcula el contraste WCAG de los **tokens reales** del tema (los
+  lee de `theme-tokens.css`) en los dos temas: texto sobre fondo, colores de estado, botón de
+  acento, borde de control y el nombre del nominado sobre su tarjeta con el velo aplicado.
+- `e2e/a11y.spec.js` pasa **axe** (WCAG 2.1 A y AA) sobre las pantallas ya pintadas —login,
+  votación, revisión, cierre y resultados— en tema claro y oscuro, exigiendo cero violaciones.
+- Reglas que salieron de esa auditoría y hay que mantener:
+  - **Un solo `<h1>` por pantalla**: `Header` solo pinta el suyo si recibe `title`, porque las
+    pantallas de cierre, éxito y voto emitido ya llevan el suyo en el contenido.
+  - **Un solo landmark `main`**: lo pone `ScreenLayout`; dentro van `<section>`.
+  - **`.theme-border-control`** (no `theme-border-primary`) en inputs y botones: WCAG 1.4.11
+    pide 3:1 y `--border-primary` se queda en 2.5.
+  - Iconos SVG con `aria-hidden="true"` (son decorativos; el nombre accesible lo da el texto o
+    el `aria-label` del botón).
 
 ## Arquitectura
 

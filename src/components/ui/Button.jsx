@@ -37,8 +37,8 @@ export default function Button({
   const variantClasses = {
     primary: 'theme-btn-primary theme-text-inverse',
     secondary: 'theme-btn-secondary border theme-text-primary',
-    success: 'btn-success border theme-border-primary',
-    danger: 'btn-danger border theme-border-primary',
+    success: 'btn-success border theme-border-control',
+    danger: 'btn-danger border theme-border-control',
     outline: 'bg-transparent border theme-border-secondary theme-text-primary hover:bg-(--bg-secondary)'
   };
 

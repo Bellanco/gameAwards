@@ -28,10 +28,7 @@ export default function SuccessScreen({
 
   // Header con controles
   const headerContent = (
-    <Header
-      title={t('ballotSubmitted')}
-      subtitle={`${t('thankYou')}, ${userNickname}`}
-    />
+    <Header />
   );
 
   return (

@@ -344,8 +344,11 @@ export default function VoteScreen({
         </div>
       )}
 
-      {/* Grid - Contenedor que crece y escala con scroll cuando es necesario */}
-      <main className="flex-1 overflow-hidden flex flex-col px-2 sm:px-3 lg:px-4 py-2 sm:py-3 relative">
+      {/* Grid - Contenedor que crece y escala con scroll cuando es necesario.
+          Va como <section> y no como <main>: ScreenLayout ya envuelve el
+          contenido en un <main>, y dos landmarks `main` anidados confunden la
+          navegación por regiones de un lector de pantalla. */}
+      <section className="flex-1 overflow-hidden flex flex-col px-2 sm:px-3 lg:px-4 py-2 sm:py-3 relative">
         <div 
           ref={scrollContainerRef}
           className={`flex-1 w-full px-2 md:px-3 lg:px-0 ${
@@ -436,8 +439,8 @@ export default function VoteScreen({
             <button
               onClick={scrollToBottom}
               className="relative z-10 pb-2 animate-bounce hover:scale-125 transition-transform cursor-pointer focus:outline-hidden focus-visible:ring-2 focus-visible:ring-(--color-accent) p-1"
-              aria-label="Scroll to bottom"
-              title="Pulsa para ver más opciones"
+              aria-label={t('scrollForMore')}
+              title={t('scrollForMore')}
             >
               <svg 
                 className="w-5 h-5 text-status-warning drop-shadow-lg"
@@ -455,7 +458,7 @@ export default function VoteScreen({
             </button>
           </div>
         )}
-      </main>
+      </section>
     </ScreenLayout>
   );
 }

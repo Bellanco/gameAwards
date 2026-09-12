@@ -28,7 +28,7 @@ export default function ThemeLanguageControls({
 
   const buttonClass =
     'inline-flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] px-3 py-2 ' +
-    'theme-card theme-border-primary border rounded-lg text-sm font-semibold transition-all ' +
+    'theme-card theme-border-control border rounded-lg text-sm font-semibold transition-all ' +
     'hover:theme-border-secondary hover:-translate-y-0.5 ' +
     'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-(--color-accent)';
 

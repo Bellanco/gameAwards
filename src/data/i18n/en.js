@@ -30,6 +30,7 @@ export const en = {
   yourSelection: "You selected:",
   chooseYourFavorite: "Choose your favorite",
   voted: "Voted",
+  scrollForMore: "See more options",
   pending: "Pending",
   previous: "Previous",
   skip: "Skip",

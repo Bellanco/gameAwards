@@ -35,10 +35,7 @@ export default function AlreadyVotedScreen({
     .replace('{max}', MAX_BALLOT_EDITS);
 
   const headerContent = (
-    <Header
-      title={t('alreadyVotedTitle')}
-      subtitle={t('alreadyVotedMessage')}
-    />
+    <Header />
   );
 
   return (

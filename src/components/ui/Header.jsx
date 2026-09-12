@@ -52,10 +52,16 @@ export default function Header({
         </div>
       )}
 
-      {/* Título */}
-      <h1 className="text-xl sm:text-4xl short:text-lg font-black tracking-tight theme-display uppercase theme-text-primary mb-1 sm:mb-2 short:mb-1">
-        {title}
-      </h1>
+      {/* Título. Condicional a propósito: hay pantallas (cierre, éxito, voto ya
+          emitido) que ya llevan su propio <h1> grande en el contenido, y pintar
+          otro aquí dejaba DOS encabezados de nivel 1 con el mismo texto en la
+          misma página: un lector de pantalla los anuncia los dos y la estructura
+          de encabezados deja de tener sentido. */}
+      {title && (
+        <h1 className="text-xl sm:text-4xl short:text-lg font-black tracking-tight theme-display uppercase theme-text-primary mb-1 sm:mb-2 short:mb-1">
+          {title}
+        </h1>
+      )}
 
       {/* Subtítulo - Si se proporciona */}
       {subtitle && (

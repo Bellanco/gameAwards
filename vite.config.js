@@ -11,9 +11,10 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.js'],
-    // Los tests de reglas necesitan el emulador de Firestore: viven aparte, en
-    // vitest.rules.config.js (`npm run test:rules`).
-    exclude: ['**/node_modules/**', '**/dist/**', '**/*.rules.test.js'],
+    // Los tests de reglas necesitan el emulador de Firestore y los e2e un
+    // navegador: viven aparte, en vitest.rules.config.js (`npm run test:rules`)
+    // y en e2e/ con Playwright (`npm run test:e2e`).
+    exclude: ['**/node_modules/**', '**/dist/**', '**/*.rules.test.js', 'e2e/**'],
   },
   define: {
     // Asegurar que import.meta.env.PROD sea true en producción

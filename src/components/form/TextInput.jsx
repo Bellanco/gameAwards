@@ -38,7 +38,7 @@ export default function TextInput({
         aria-describedby={describedBy}
         className={`
           w-full px-4 py-3 
-          theme-container-secondary theme-border-primary border rounded-lg 
+          theme-container-secondary theme-border-control border rounded-lg 
           theme-text-primary theme-placeholder 
           focus:outline-hidden focus:border-(--color-accent) focus-visible:ring-2 focus-visible:ring-(--color-accent)/40 
           transition-colors

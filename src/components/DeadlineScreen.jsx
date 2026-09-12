@@ -45,10 +45,7 @@ export default function DeadlineScreen({ isScheduled = false, opensAt = null, re
 
   // Header con controles
   const headerContent = (
-    <Header
-      title={title}
-      subtitle={subtitle}
-    />
+    <Header />
   );
 
   return (
