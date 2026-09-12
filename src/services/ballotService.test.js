@@ -73,6 +73,8 @@ describe('buildBallot', () => {
         'season',
         'selections',
         'submittedAt',
+        'updatedAt',
+        'editCount',
         'userDisplayName',
         'userEmail',
         'userId',
@@ -81,5 +83,61 @@ describe('buildBallot', () => {
     );
     expect(ballot.isActive).toBe(true);
     expect(Number.isNaN(Date.parse(ballot.submittedAt))).toBe(false);
+    expect(Number.isNaN(Date.parse(ballot.updatedAt))).toBe(false);
+  });
+
+  it('el envío inicial arranca el contador de ediciones a cero', () => {
+    // Las reglas exigen editCount == 0 en el `create`.
+    const ballot = buildBallot({ currentUser, userVotes, displayName: 'D', season: 2026 });
+
+    expect(ballot.editCount).toBe(0);
+    expect(ballot.updatedAt).toBe(ballot.submittedAt);
+  });
+});
+
+describe('buildBallot al modificar un voto ya emitido', () => {
+  const existingBallot = {
+    submittedAt: '2026-06-01T10:00:00.000Z',
+    editCount: 2,
+  };
+
+  it('avanza el contador de uno en uno', () => {
+    // Es exactamente lo que comprueban las reglas: prev + 1, nunca un salto.
+    const ballot = buildBallot({
+      currentUser,
+      userVotes,
+      displayName: 'D',
+      season: 2026,
+      existingBallot,
+    });
+
+    expect(ballot.editCount).toBe(3);
+  });
+
+  it('conserva la fecha del primer envío y sella la de la modificación', () => {
+    // `submittedAt` es inmutable en las reglas: cambiarlo tumbaría la edición.
+    const ballot = buildBallot({
+      currentUser,
+      userVotes,
+      displayName: 'D',
+      season: 2026,
+      existingBallot,
+    });
+
+    expect(ballot.submittedAt).toBe(existingBallot.submittedAt);
+    expect(ballot.updatedAt).not.toBe(existingBallot.submittedAt);
+    expect(Number.isNaN(Date.parse(ballot.updatedAt))).toBe(false);
+  });
+
+  it('trata un voto antiguo sin contador como si tuviera cero ediciones', () => {
+    const ballot = buildBallot({
+      currentUser,
+      userVotes,
+      displayName: 'D',
+      season: 2026,
+      existingBallot: { submittedAt: '2026-06-01T10:00:00.000Z' },
+    });
+
+    expect(ballot.editCount).toBe(1);
   });
 });

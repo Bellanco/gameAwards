@@ -1,17 +1,25 @@
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { auth } from './firebase';
 import { useTranslation } from './data/literals';
 import { loadAndSortCategories } from './services/categoriesService';
-import { useTheme, useVotingConfig, useVotingFlow, useAuthSession } from './hooks';
+import { useTheme, useVotingConfig, useVotingFlow, useAuthSession, useSeasonResult } from './hooks';
 import logger from './services/loggerService';
-import { hasTitle, getCategoryTitle } from './utils/localize';
+import { hasTitle, getCategoryTitle, selectionsToVotes } from './utils/localize';
 import { resolveRoute, FALLBACK_ROUTE } from './utils/routes';
+import {
+  isVotingOpenNow,
+  areResultsPublished,
+  getVotingState,
+  daysUntil,
+  VOTING_STATE,
+} from './utils/votingSchedule';
 import { AppProvider } from './context/AppContext';
 import { LoadingSpinner } from './components/ui';
 import { LOGIN_STEP, SUCCESS_STEP } from './hooks/useVotingFlow';
 import { sanitizeUserText } from './utils/sanitize';
 import { submitBallot as submitVote } from './services/ballotService';
 import { trackBallotSubmitted, trackLanguageChanged } from './services/analyticsService';
+import { getRemainingEdits, canEditBallot } from './utils/ballotEdits';
 
 // Componentes modulares
 import VoteScreen from './components/VoteScreen';
@@ -19,6 +27,7 @@ import ReviewScreen from './components/ReviewScreen';
 import LoginScreen from './components/LoginScreen';
 import SuccessScreen from './components/SuccessScreen';
 import DeadlineScreen from './components/DeadlineScreen';
+import ResultsScreen from './components/ResultsScreen';
 import AlreadyVotedScreen from './components/AlreadyVotedScreen';
 
 // AdminPanel solo se usa en la ruta /admin -> carga diferida (code-splitting)
@@ -35,7 +44,10 @@ function App() {
   const { theme, toggleTheme } = useTheme();
 
   // ============ Estado de Votación (controlado por admin en config/voting) ============
-  const { isOpen: isVotingOpen, season, closesAt, isLoading: configLoading } = useVotingConfig();
+  // El calendario (apertura / cierre / resultados) lo fija el admin en la
+  // pestaña Temporada; aquí solo se interpreta (ver utils/votingSchedule.js).
+  const votingConfig = useVotingConfig();
+  const { season, isLoading: configLoading } = votingConfig;
 
   // ============ Estado de Categorías (desde Firestore) ============
   const [categories, setCategories] = useState([]);
@@ -52,6 +64,55 @@ function App() {
     [categories]
   );
 
+  // ============ Ruta actual ============
+  // Se declara aquí arriba porque la leen los hooks del flujo. Solo hay dos
+  // rutas declaradas ('/' y '/admin'); cualquier otra cosa rebota a la
+  // principal, reescribiendo la URL sin dejar entrada en el historial.
+  const route = resolveRoute(window.location.pathname);
+
+  // ============ Datos del Usuario ============
+  // `userDisplayName` es el ÚNICO nombre editable y la única fuente de verdad de
+  // la UI. El nombre de la cuenta de Google se lee de `currentUser` al enviar,
+  // nunca de estado: antes vivía en un `userNickname` que `handleReturnToHome`
+  // vaciaba sin que ninguna pantalla ofreciera forma de rellenarlo, y eso dejaba
+  // el envío bloqueado para siempre.
+  const [userDisplayName, setUserDisplayName] = useState('');
+
+  // ============ Sesión y flujo: cómo se rompe la dependencia circular ========
+  //
+  // `useAuthSession` necesita el callback de "sesión confirmada", que restaura
+  // el progreso guardado (`restoreProgress`, de `useVotingFlow`); y
+  // `useVotingFlow` necesita saber si hay sesión (`currentUser`, de
+  // `useAuthSession`). Uno de los dos tiene que ir primero.
+  //
+  // Se resuelve con un ref: el callback es estable y llama a la última versión
+  // de `restoreProgress` a través de él. Así `useAuthSession` puede declararse
+  // antes. ANTES esto estaba al revés —`useVotingFlow` leía `currentUser` y
+  // `route` varias líneas por encima de donde se declaran— y el primer render
+  // reventaba con «Cannot access 'currentUser' before initialization».
+  const restoreProgressRef = useRef(null);
+
+  /** Al confirmarse la sesión: nombre inicial y progreso guardado. */
+  const handleSignedIn = useCallback((user) => {
+    setUserDisplayName(user.displayName || '');
+    restoreProgressRef.current?.();
+  }, []);
+
+  // ============ Sesión, login y voto ya emitido ============
+  const {
+    currentUser,
+    isLoadingAuth,
+    isSigningIn,
+    authError,
+    setAuthError,
+    hasVoted,
+    existingBallot,
+    setExistingBallot,
+    voteChecked,
+    signIn,
+    signOut: signOutUser,
+  } = useAuthSession(t, handleSignedIn);
+
   // ============ Flujo de Pantallas ============
   // Pasos, votos, persistencia del progreso y botón "atrás" (ver useVotingFlow).
   const {
@@ -65,6 +126,7 @@ function App() {
     finishVoting,
     restoreProgress,
     clearProgress,
+    loadVotes,
     progressPercentage,
     reviewStep,
   } = useVotingFlow({
@@ -73,56 +135,44 @@ function App() {
     historyEnabled: route === 'home',
   });
 
-  // ============ Sesión, login y bloqueo de re-voto ============
-  const {
-    currentUser,
-    isLoadingAuth,
-    isSigningIn,
-    authError,
-    setAuthError,
-    hasVoted,
-    setHasVoted,
-    voteChecked,
-    signIn,
-    signOut: signOutUser,
-  } = useAuthSession(t, handleSignedIn);
 
+  // El callback de sesión usa esta función a través del ref (ver arriba).
+  useEffect(() => {
+    restoreProgressRef.current = restoreProgress;
+  }, [restoreProgress]);
 
-  // ============ Datos del Usuario ============
-  // `userDisplayName` es el ÚNICO nombre editable y la única fuente de verdad de
-  // la UI. El nombre de la cuenta de Google se lee de `currentUser` al enviar,
-  // nunca de estado: antes vivía en un `userNickname` que `handleReturnToHome`
-  // vaciaba sin que ninguna pantalla ofreciera forma de rellenarlo, y eso dejaba
-  // el envío bloqueado para siempre.
-  const [userDisplayName, setUserDisplayName] = useState('');
+  // ============ Edición del propio voto ============
+  // El voto se puede corregir hasta la fecha de cierre, con un tope de
+  // MAX_BALLOT_EDITS cambios que cuenta el servidor (ver utils/ballotEdits.js).
+  // `isEditingBallot` solo dice si el usuario está ahora mismo dentro del flujo
+  // corrigiendo: es lo que le deja pasar de la pantalla de "ya has votado".
+  const [isEditingBallot, setIsEditingBallot] = useState(false);
+  const remainingEdits = getRemainingEdits(existingBallot);
+  const canEditVote = canEditBallot(existingBallot, votingConfig);
+
 
   // ============ Control de Deadline ============
-  // La votación está cerrada si el admin la cierra (isOpen=false) O si ya pasó
-  // la fecha de cierre elegida (closesAt, ese día a las 23:59).
-  const closingPassed = closesAt ? Date.now() > new Date(closesAt).getTime() : false;
-  const isDeadlineReached = !configLoading && (!isVotingOpen || closingPassed);
-  // Días restantes informativos, derivados de closesAt si el admin lo configuró.
-  const daysRemaining = closesAt
-    ? Math.max(0, Math.ceil((new Date(closesAt).getTime() - Date.now()) / (1000 * 3600 * 24)))
-    : null;
+  // La votación está abierta si estamos dentro de la ventana de fechas y el
+  // admin no ha forzado el cierre. Las fechas mandan: `isOpen: true` no abre
+  // fuera de plazo (misma regla que firestore.rules).
+  const isDeadlineReached = !configLoading && !isVotingOpenNow(votingConfig);
+  const votingState = getVotingState(votingConfig);
+  // Días restantes informativos, derivados del cierre si el admin lo configuró.
+  const daysRemaining = daysUntil(votingConfig.closesAtMillis);
 
-  /**
-   * Al confirmarse la sesión: nombre inicial y progreso guardado.
-   * useCallback porque useAuthSession lo tiene como dependencia de su efecto.
-   */
-  const handleSignedIn = useCallback((user) => {
-    setUserDisplayName(user.displayName || '');
-    restoreProgress();
-  }, [restoreProgress]);
+  // ============ Resultados públicos ============
+  // Al llegar `resultsAt` se muestra la clasificación a todo el mundo. Los datos
+  // salen del snapshot público `results/{season}` (los ballots no son de lectura
+  // pública), así que solo se lee cuando la fecha ya ha pasado.
+  const resultsArePublic = !configLoading && areResultsPublished(votingConfig);
+  const { result: seasonResult, isLoading: seasonResultLoading } = useSeasonResult(
+    season,
+    resultsArePublic
+  );
 
   // ============ Estado de UI ============
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-
-  // ============ Ruta actual ============
-  // Solo hay dos rutas declaradas ('/' y '/admin'). Cualquier otra cosa rebota a
-  // la principal, reescribiendo la URL sin dejar entrada en el historial.
-  const route = resolveRoute(window.location.pathname);
 
   useEffect(() => {
     if (route === null) {
@@ -183,6 +233,7 @@ function App() {
     await signOutUser();
     setCurrentStep(LOGIN_STEP);
     setUserDisplayName('');
+    setIsEditingBallot(false);
     clearProgress();
   };
 
@@ -191,12 +242,28 @@ function App() {
    */
   const handleReturnToHome = () => {
     setCurrentStep(LOGIN_STEP); // Volver a login
+    setIsEditingBallot(false);
     clearProgress(); // Olvidar votos y progreso recordado
     // El nombre vuelve al de la cuenta de Google, NO a vacío: la sesión sigue
     // abierta y ReviewScreen debe encontrar un nombre válido al volver a entrar.
     setUserDisplayName(auth.currentUser?.displayName || '');
     setErrorMessage('');
     setAuthError('');
+  };
+
+  /**
+   * Corregir el voto ya emitido: carga las selecciones guardadas en el flujo y
+   * entra por la pantalla de revisión, desde donde se puede saltar a cualquier
+   * categoría. Los votos vienen de Firestore (por optionId) y se reconstruyen
+   * con los nombres actuales de los nominados.
+   */
+  const handleEditBallot = () => {
+    if (!canEditVote) return;
+    loadVotes(selectionsToVotes(existingBallot.selections, validCategories, language));
+    setUserDisplayName(existingBallot.userDisplayName || auth.currentUser?.displayName || '');
+    setErrorMessage('');
+    setIsEditingBallot(true);
+    setCurrentStep(reviewStep);
   };
 
   /**
@@ -239,15 +306,20 @@ function App() {
       setIsLoading(true);
       setErrorMessage('');
 
-      const { selectionCount } = await submitVote({
+      const { selectionCount, ballot } = await submitVote({
         currentUser,
         userVotes,
         displayName,
         season,
+        // Al corregir, el servicio conserva la fecha del primer envío y avanza
+        // el contador de ediciones; las reglas rechazan cualquier otra cosa.
+        existingBallot: isEditingBallot ? existingBallot : null,
       });
 
-      // Marcar como votado (bloquea el re-voto si vuelve a entrar)
-      setHasVoted(true);
+      // El documento recién escrito pasa a ser el voto conocido: bloquea el
+      // re-voto y deja al día cuántas correcciones quedan, sin releer Firestore.
+      setExistingBallot(ballot);
+      setIsEditingBallot(false);
       trackBallotSubmitted(selectionCount);
 
       setCurrentStep(SUCCESS_STEP); // el hook limpia el progreso guardado
@@ -285,6 +357,16 @@ function App() {
       );
     }
 
+    // Resultados publicados: mandan sobre todo lo demás del flujo público (la
+    // edición ya terminó). Si aún no existe el snapshot, se sigue a la cascada
+    // normal y se muestra la pantalla de votación cerrada.
+    if (resultsArePublic) {
+      if (seasonResultLoading) return <LoadingSpinner fullScreen />;
+      if (seasonResult) {
+        return <ResultsScreen result={seasonResult} currentUserId={currentUser?.uid || null} />;
+      }
+    }
+
     // Sin categorías válidas todavía (el admin aún no las ha cargado).
     if (validCategories.length === 0) {
       return (
@@ -299,9 +381,15 @@ function App() {
       );
     }
 
-    // Deadline alcanzado
+    // Fuera de plazo: o aún no ha abierto (programada) o ya cerró.
     if (isDeadlineReached) {
-      return <DeadlineScreen />;
+      return (
+        <DeadlineScreen
+          isScheduled={votingState === VOTING_STATE.SCHEDULED}
+          opensAt={votingConfig.opensAt}
+          resultsAt={votingConfig.resultsAt}
+        />
+      );
     }
 
     // Comprobando en Firestore si el usuario ya votó (evita parpadeo)
@@ -310,12 +398,15 @@ function App() {
     }
 
     // Bloqueo de re-voto: si ya votó, mostrar pantalla de "ya has votado"
-    // (salvo en la pantalla de éxito recién enviada, currentStep === 99)
-    if (currentUser && hasVoted && currentStep !== SUCCESS_STEP) {
+    // (salvo en la pantalla de éxito recién enviada, o si está corrigiendo).
+    if (currentUser && hasVoted && !isEditingBallot && currentStep !== SUCCESS_STEP) {
       return (
         <AlreadyVotedScreen
           userNickname={userDisplayName}
           onLogout={handleLogout}
+          canEdit={canEditVote}
+          remainingEdits={remainingEdits}
+          onEdit={handleEditBallot}
         />
       );
     }
@@ -362,6 +453,8 @@ function App() {
           onReturnHome={handleReturnToHome}
           isLoading={isLoading}
           errorMessage={errorMessage}
+          isEditing={isEditingBallot}
+          remainingEdits={remainingEdits}
         />
       );
     }
@@ -373,6 +466,9 @@ function App() {
           userNickname={userDisplayName}
           onLogout={handleLogout}
           onReturnHome={handleReturnToHome}
+          canEdit={canEditVote}
+          remainingEdits={remainingEdits}
+          onEdit={handleEditBallot}
         />
       );
     }

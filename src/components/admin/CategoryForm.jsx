@@ -135,7 +135,7 @@ export default function CategoryForm({
             </Button>
           </div>
 
-          <div className="flex gap-3 flex-shrink-0 border-t theme-border-primary pt-4">
+          <div className="flex gap-3 shrink-0 border-t theme-border-primary pt-4">
             <Button variant="primary" fullWidth loading={false} type="submit">
               {editingId ? t('save') : t('create')}
             </Button>

@@ -21,9 +21,12 @@ la seguridad**.
 - `categories/{id}` — bilingüe: `title:{es,en}`, opciones `options:[{id, name}]` (nombre único,
   **no** `{es,en}`), `optionIds:[...]` (espejo plano), `winner:"<optionId>"`. Lectura pública,
   escritura solo `isAdmin()`.
-- `config/voting` `= { isOpen, season, closesAt, updatedAt }` y `results/{año}` — lectura
-  pública, escritura solo `isAdmin()`. La votación está cerrada si `isOpen=false` o si pasó
-  `closesAt`.
+- `config/voting` `= { isOpen, season, opensAt/opensAtMillis, closesAt/closesAtMillis,
+  resultsAt/resultsAtMillis, updatedAt }` y `results/{año}` — lectura pública, escritura solo
+  `isAdmin()`. **Las fechas mandan**: se puede votar entre `opensAt` y `closesAt`; `isOpen:false`
+  solo sirve para cerrar antes de tiempo (nunca abre fuera de la ventana). Los resultados se
+  publican al llegar `resultsAt`. Semántica replicada en `firestore.rules` (`votingConfigAllows`)
+  y en `utils/votingSchedule.js` (puro, usado por el cliente).
 - `winners`/`surveyWinners` — lectura pública, escritura/borrado solo `isAdmin()`.
 - `admin/**` — lectura y escritura solo `isAdmin()`.
 - `isAdmin()` = custom claim `admin:true` (verificado por el servidor); `useAdminCheck()` lo lee
@@ -43,7 +46,11 @@ la seguridad**.
    o `AUTH_ERROR` según corresponda (`services/errorService.js`).
 6. El **reinicio anual** (`seasonService.archiveAndResetSeason`) archiva en `results/{año}` y
    luego **vacía** los nominados de cada categoría (`options/optionIds/winner`) con `update`
-   (nunca `delete` de `categories`) y **borra** todos los `ballots`. No rompas ese contrato.
+   (nunca `delete` de `categories`), **borra** todos los `ballots` y limpia el calendario de
+   `config/voting` (heredarlo cerraría o publicaría la nueva edición en el momento equivocado).
+   No rompas ese contrato. `seasonService.publishSeasonResults()` hace la mitad no destructiva
+   de ese trabajo (escribe `results/{season}` sin borrar nada) y se llama también al guardar el
+   calendario o los ganadores, para que el snapshot público no quede desfasado.
 
 ## Entrega
 

@@ -96,7 +96,7 @@ export default function LoginScreen({
             >
               {isLoading ? (
                 <>
-                  <span className="inline-block w-4 h-4 rounded-full border-2 border-transparent border-t-[var(--color-accent)] border-r-[var(--color-secondary)] animate-spin" />
+                  <span className="inline-block w-4 h-4 rounded-full border-2 border-transparent border-t-(--color-accent) border-r-(--color-secondary) animate-spin" />
                   {t('connecting')}
                 </>
               ) : (

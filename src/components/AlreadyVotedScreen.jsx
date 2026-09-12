@@ -4,24 +4,38 @@ import { useAppContext } from '../context/AppContext';
 import { CheckmarkIcon } from './Icons';
 import { ScreenLayout } from './layouts';
 import { Header } from './ui';
+import { MAX_BALLOT_EDITS } from '../utils/ballotEdits';
 
 /**
  * AlreadyVotedScreen
  * Se muestra cuando el usuario autenticado YA tiene un voto registrado en esta
- * edición. Bloquea el re-voto (un voto por persona) y permite cerrar sesión.
+ * edición. Sigue bloqueando el re-voto (un voto por persona, un solo documento),
+ * pero ofrece MODIFICARLO mientras la votación esté abierta y le queden
+ * modificaciones (el tope lo cuenta el servidor, ver utils/ballotEdits.js).
+ *
+ * @param {Object} props
+ * @param {string} props.userNickname
+ * @param {Function} [props.onLogout]
+ * @param {boolean} [props.canEdit] - quedan modificaciones y la votación sigue abierta
+ * @param {number} [props.remainingEdits]
+ * @param {Function} [props.onEdit]
  */
 export default function AlreadyVotedScreen({
   userNickname,
   onLogout,
+  canEdit = false,
+  remainingEdits = 0,
+  onEdit,
 }) {
   const { language } = useAppContext();
   const t = useTranslation(language);
 
+  const editsText = t('editsRemaining')
+    .replace('{count}', remainingEdits)
+    .replace('{max}', MAX_BALLOT_EDITS);
+
   const headerContent = (
-    <Header
-      title={t('alreadyVotedTitle')}
-      subtitle={t('alreadyVotedMessage')}
-    />
+    <Header />
   );
 
   return (
@@ -47,18 +61,34 @@ export default function AlreadyVotedScreen({
 
           <div className="theme-card theme-border-primary border rounded-xl p-6 mb-8">
             <p className="theme-text-primary leading-relaxed">
-              {t('alreadyVotedNote')}
+              {canEdit ? t('alreadyVotedEditable') : t('alreadyVotedNote')}
             </p>
+            {canEdit && (
+              <p className={`mt-3 text-sm font-semibold ${remainingEdits === 1 ? 'text-status-warning' : 'theme-accent'}`}>
+                {remainingEdits === 1 ? t('lastEditWarning') : editsText}
+              </p>
+            )}
           </div>
 
-          {onLogout && (
-            <button
-              onClick={onLogout}
-              className="w-full py-4 px-6 rounded-xl font-bold text-lg theme-btn-secondary border theme-border-primary hover:shadow-lg transition-all"
-            >
-              {t('signOut')}
-            </button>
-          )}
+          <div className="space-y-3">
+            {canEdit && onEdit && (
+              <button
+                onClick={onEdit}
+                className="w-full min-h-[44px] py-4 px-6 rounded-xl font-bold text-lg theme-btn-primary hover:shadow-lg transition-all"
+              >
+                {t('editMyVote')}
+              </button>
+            )}
+
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="w-full min-h-[44px] py-4 px-6 rounded-xl font-bold text-lg theme-btn-secondary border theme-border-primary hover:shadow-lg transition-all"
+              >
+                {t('signOut')}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </ScreenLayout>

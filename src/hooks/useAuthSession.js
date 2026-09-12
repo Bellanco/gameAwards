@@ -1,8 +1,9 @@
 /**
  * Hook custom: useAuthSession
  *
- * Sesión de Google y bloqueo de re-voto: quién está conectado, si ya tiene un
- * voto registrado y los errores de inicio de sesión, ya traducidos.
+ * Sesión de Google y estado del voto: quién está conectado, qué voto tiene ya
+ * registrado (para bloquear el re-voto y para poder corregirlo) y los errores de
+ * inicio de sesión, ya traducidos.
  *
  * Los mensajes de error de Firebase estaban embebidos en español dentro de
  * App.jsx —y alguno filtraba rutas internas del proyecto al usuario— así que
@@ -12,7 +13,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth, googleProvider } from '../firebase';
-import { hasExistingBallot } from '../services/ballotService';
+import { fetchUserBallot } from '../services/ballotService';
 import { trackLogin } from '../services/analyticsService';
 import { logError, ERROR_TYPES } from '../services/errorService';
 
@@ -39,10 +40,13 @@ export const useAuthSession = (t, onSignedIn) => {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  // Bloqueo de re-voto: hasVoted = ya hay ballot en Firestore.
+  // Voto ya emitido por este usuario, o null. De esta ÚNICA lectura salen las
+  // tres cosas que necesita la app: si ya votó, qué votó (para editarlo) y
+  // cuántas ediciones le quedan (`editCount`).
   // voteChecked = ya lo hemos comprobado para este usuario (evita parpadeo).
-  const [hasVoted, setHasVoted] = useState(false);
+  const [existingBallot, setExistingBallot] = useState(null);
   const [voteChecked, setVoteChecked] = useState(false);
+  const hasVoted = existingBallot !== null;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -61,16 +65,16 @@ export const useAuthSession = (t, onSignedIn) => {
 
   useEffect(() => {
     if (!currentUser) {
-      setHasVoted(false);
+      setExistingBallot(null);
       setVoteChecked(false);
       return;
     }
     let cancelled = false;
     setVoteChecked(false);
     (async () => {
-      const voted = await hasExistingBallot(currentUser.uid);
+      const ballot = await fetchUserBallot(currentUser.uid);
       if (cancelled) return;
-      setHasVoted(voted);
+      setExistingBallot(ballot);
       setVoteChecked(true);
     })();
     return () => {
@@ -122,7 +126,11 @@ export const useAuthSession = (t, onSignedIn) => {
     authError,
     setAuthError,
     hasVoted,
-    setHasVoted,
+    existingBallot,
+    // Tras enviar o corregir el voto, App actualiza el estado con el documento
+    // que se acaba de escribir en vez de releerlo: una lectura menos y la
+    // cuenta de ediciones restantes queda al día en el acto.
+    setExistingBallot,
     voteChecked,
     signIn,
     signOut: signOutUser,

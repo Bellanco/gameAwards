@@ -4,23 +4,31 @@ import { useAppContext } from '../context/AppContext';
 import { StarIcon } from './Icons';
 import { ScreenLayout } from './layouts';
 import { Header } from './ui';
+import { MAX_BALLOT_EDITS } from '../utils/ballotEdits';
 
 /**
  * SuccessScreen v4 - Refactorizado con Header reutilizable
- * Muestra confirmación de voto exitoso con animaciones
+ * Muestra confirmación de voto exitoso con animaciones.
+ *
+ * El voto ya no es definitivo: mientras la votación siga abierta y queden
+ * modificaciones, desde aquí se puede volver a entrar a corregirlo.
+ *
+ * @param {boolean} [props.canEdit]
+ * @param {number} [props.remainingEdits]
+ * @param {Function} [props.onEdit]
  */
 export default function SuccessScreen({
   userNickname,
+  canEdit = false,
+  remainingEdits = 0,
+  onEdit,
 }) {
   const { language } = useAppContext();
   const t = useTranslation(language);
 
   // Header con controles
   const headerContent = (
-    <Header
-      title={t('ballotSubmitted')}
-      subtitle={`${t('thankYou')}, ${userNickname}`}
-    />
+    <Header />
   );
 
   return (
@@ -89,12 +97,31 @@ export default function SuccessScreen({
           <div className="bg-status-success-light border border-status-success rounded-lg p-6 mb-12 text-left">
             <p className="text-sm text-status-success uppercase font-semibold mb-4">{t('confirmation')}</p>
             <p className="text-sm theme-text-secondary mb-3">
-              <span className="font-semibold">{t('yourVoteConfirmed')}</span> {t('willNotBeAbleToChange')}
+              <span className="font-semibold">{t('yourVoteConfirmed')}</span>{' '}
+              {canEdit ? t('canStillEditNote') : t('willNotBeAbleToChange')}
             </p>
+            {canEdit && (
+              <p className="text-sm theme-accent font-semibold mb-3">
+                {remainingEdits === 1
+                  ? t('lastEditWarning')
+                  : t('editsRemaining')
+                      .replace('{count}', remainingEdits)
+                      .replace('{max}', MAX_BALLOT_EDITS)}
+              </p>
+            )}
             <p className="text-sm theme-text-secondary">
               {t('checkBackDecember')}
             </p>
           </div>
+
+          {canEdit && onEdit && (
+            <button
+              onClick={onEdit}
+              className="mt-6 w-full min-h-[44px] py-4 px-6 rounded-xl font-bold text-lg theme-btn-secondary border theme-border-primary hover:shadow-lg transition-all"
+            >
+              {t('editMyVote')}
+            </button>
+          )}
 
 
           {/* Footer message */}

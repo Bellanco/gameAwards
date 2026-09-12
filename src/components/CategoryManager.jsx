@@ -234,7 +234,7 @@ export default function CategoryManager({ onClose }) {
       <div className="h-screen flex flex-col theme-gradient-primary items-center justify-center">
         <div className="relative w-24 h-24">
           <div className="absolute inset-0 rounded-full border-4 theme-border-primary"></div>
-          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[var(--color-accent)] border-r-[var(--color-secondary)] animate-spin"></div>
+          <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-(--color-accent) border-r-(--color-secondary) animate-spin"></div>
           <div className="absolute inset-2 rounded-full bg-status-warning-light flex items-center justify-center">
             <div className="w-3 h-3 rounded-full theme-accent-bg theme-flicker"></div>
           </div>
@@ -252,7 +252,7 @@ export default function CategoryManager({ onClose }) {
   return (
     <div className="h-screen flex flex-col theme-gradient-primary overflow-hidden">
       {/* Header */}
-      <div className="theme-container-secondary theme-border-primary border-b backdrop-blur px-4 md:px-6 py-3 flex-shrink-0 z-40">
+      <div className="theme-container-secondary theme-border-primary border-b backdrop-blur-sm px-4 md:px-6 py-3 shrink-0 z-40">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-xl md:text-2xl font-black theme-accent theme-display uppercase">

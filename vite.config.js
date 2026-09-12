@@ -1,15 +1,20 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  plugins: [react()],
+  // Tailwind 4 entra como plugin de Vite, no por PostCSS: es la vía recomendada
+  // en v4, evita el aviso «PostCSS plugin did not pass the `from` option» y deja
+  // el proyecto sin postcss.config.js.
+  plugins: [react(), tailwindcss()],
   test: {
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.js'],
-    // Los tests de reglas necesitan el emulador de Firestore: viven aparte, en
-    // vitest.rules.config.js (`npm run test:rules`).
-    exclude: ['**/node_modules/**', '**/dist/**', '**/*.rules.test.js'],
+    // Los tests de reglas necesitan el emulador de Firestore y los e2e un
+    // navegador: viven aparte, en vitest.rules.config.js (`npm run test:rules`)
+    // y en e2e/ con Playwright (`npm run test:e2e`).
+    exclude: ['**/node_modules/**', '**/dist/**', '**/*.rules.test.js', 'e2e/**'],
   },
   define: {
     // Asegurar que import.meta.env.PROD sea true en producción
@@ -31,9 +36,17 @@ export default defineConfig({
       output: {
         // Separar Firebase (~la mayor parte del bundle) en su propio chunk
         // para mejorar el cacheo y el TTI del bundle principal.
-        manualChunks: {
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-        }
+        //
+        // Va como FUNCIÓN, no como objeto: desde Vite 8 el bundler es Rolldown y
+        // solo acepta esta forma ("manualChunks is not a function"). Agrupar por
+        // ruta del módulo cubre además las dependencias internas de Firebase
+        // (@firebase/*), que con la forma antigua caían en el chunk principal.
+        manualChunks(id) {
+          if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) {
+            return 'firebase';
+          }
+          return null;
+        },
       }
     }
   }

@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Instalar dependencias
@@ -54,17 +54,55 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
-      # El emulador de Firestore corre sobre la JVM.
+      # El emulador de Firestore corre sobre la JVM. firebase-tools 15 exige
+      # JDK 21 o superior: con el 17 aborta con "no longer supports Java version
+      # before 21" antes siquiera de arrancar el emulador.
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
       - name: Instalar dependencias
         run: npm ci
 
       - name: Tests de reglas contra el emulador
         run: npm run test:rules
+
+  e2e:
+    name: Pruebas e2e (navegador + emuladores)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Auth y Firestore emulados corren sobre la JVM, igual que en el job de
+      # reglas: firebase-tools 15 exige JDK 21 o superior.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar el navegador de Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Votación, resultados y accesibilidad
+        run: npm run test:e2e
+
+      - name: Guardar el informe si algo falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

@@ -16,7 +16,9 @@ Eres el desarrollador principal de **TGA Ballot** (React 18 + Vite 5 + Tailwind 
 ## Mapa rápido
 
 - **`App.jsx`** orquesta TODO el estado y el flujo por `currentStep`: `-1` login, `0..n-1`
-  votación (una categoría por paso), `n` revisión, `99` éxito; `/admin` salta el flujo.
+  votación (una categoría por paso), `n` revisión, `99` éxito; `/admin` salta el flujo. Por
+  delante de esa cascada: `ResultsScreen` (pública, cuando llega `resultsAt`) y `DeadlineScreen`
+  (fuera de la ventana `opensAt`/`closesAt`, con estado `scheduled` o cerrada).
 - Pantallas en `src/components/`; primitivos en `components/ui/` y `components/form/` (con
   `index.js` de reexport); layouts en `components/layouts/` (`ScreenLayout`, `ControlBar`).
 - Hooks en `src/hooks/` (reexportados desde `hooks/index.js`); lógica sin UI en `src/services/`.

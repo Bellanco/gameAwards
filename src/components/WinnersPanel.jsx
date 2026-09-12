@@ -17,10 +17,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../data/literals';
 import { useAppContext } from '../context/AppContext';
-import { useFirestoreCategories, useFirestoreBallots } from '../hooks';
+import { useFirestoreCategories, useFirestoreBallots, useVotingConfig } from '../hooks';
 import { logError, ERROR_TYPES } from '../services/errorService';
 import { sortCategoriesByOrder } from '../services/categoriesService';
 import { saveWinners } from '../services/winnersService';
+import { publishSeasonResults } from '../services/seasonService';
 import { getCategoryTitle, getOptionLabel, resolveOptionId } from '../utils/localize';
 import WinnersSelector from './admin/WinnersSelector';
 import RankingTable from './admin/RankingTable';
@@ -32,6 +33,7 @@ export default function WinnersPanel({ mode = 'select' }) {
   const t = useTranslation(language);
   const { categories, isLoading: categoriesLoading, refetch: refetchCategories } = useFirestoreCategories();
   const { ballots, isLoading: ballotsLoading } = useFirestoreBallots();
+  const { season, seasonId, seasonName } = useVotingConfig();
   
   const [winners, setWinners] = useState({});
   const [userScores, setUserScores] = useState({});
@@ -126,6 +128,19 @@ export default function WinnersPanel({ mode = 'select' }) {
       // por categoría en un bucle, que dejaba ganadores a medias si fallaba).
       const { saved, skipped } = await saveWinners(categories, winners);
       if (skipped > 0) logger.warn(`${skipped} categoría(s) sin nominados, omitidas.`);
+
+      // Refrescar el snapshot público de `results/{season}`: es el único origen
+      // de la clasificación para quien no es admin (los ballots no son de
+      // lectura pública), así que sin esto la pantalla pública seguiría
+      // mostrando los ganadores anteriores cuando llegue la fecha de resultados.
+      const categoriesWithWinners = categories.map(c => ({ ...c, winner: winners[c.id] || null }));
+      await publishSeasonResults({
+        season,
+        seasonId,
+        seasonName,
+        categories: categoriesWithWinners,
+        ballots,
+      });
 
       const message = `${t('saveSuccessful')} (${saved} ${t('selected')})`;
       

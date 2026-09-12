@@ -6,19 +6,46 @@ import { ScreenLayout } from './layouts';
 import { Header } from './ui';
 
 /**
- * DeadlineScreen v4 - Refactorizado con Header reutilizable
- * Muestra que la votación ha finalizado
+ * DeadlineScreen - Pantalla de "no se puede votar ahora".
+ *
+ * Cubre los dos extremos del calendario que fija el admin:
+ *  - `isScheduled`: la edición aún no ha abierto (hay `opensAt` en el futuro).
+ *  - por defecto: la votación ya cerró.
+ *
+ * Cuando hay fecha de publicación de resultados se anuncia aquí, para que quien
+ * llega tarde sepa cuándo volver (`resultsAt`).
+ *
+ * @param {Object} props
+ * @param {boolean} [props.isScheduled] - la votación todavía no ha abierto
+ * @param {string|null} [props.opensAt] - instante de apertura (ISO)
+ * @param {string|null} [props.resultsAt] - publicación de resultados (ISO)
  */
-export default function DeadlineScreen() {
+export default function DeadlineScreen({ isScheduled = false, opensAt = null, resultsAt = null }) {
   const { language } = useAppContext();
   const t = useTranslation(language);
 
+  const locale = language === 'en' ? 'en-GB' : 'es-ES';
+  const formatDate = (iso) => new Date(iso).toLocaleDateString(locale, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
+  const title = isScheduled ? t('votingNotOpenYet') : t('votingClosed');
+  const subtitle = isScheduled ? t('votingOpensSoonMessage') : t('votingDeadlineMessage');
+  const statusText = isScheduled ? t('votingScheduled') : t('closed');
+  const explanation = isScheduled
+    ? opensAt
+      ? t('votingOpensOn').replace('{date}', formatDate(opensAt))
+      : t('votesNotAcceptedYet')
+    : t('noNewVotesAccepted');
+  const resultsText = resultsAt
+    ? t('resultsAvailableOn').replace('{date}', formatDate(resultsAt))
+    : t('resultsWillBeShown');
+
   // Header con controles
   const headerContent = (
-    <Header
-      title={t('votingClosed')}
-      subtitle={t('votingDeadlineMessage')}
-    />
+    <Header />
   );
 
   return (
@@ -42,12 +69,12 @@ export default function DeadlineScreen() {
 
           {/* Título */}
           <h1 className="text-4xl md:text-5xl font-black tracking-tight theme-display uppercase theme-text-primary mb-4">
-            {t('votingClosed')}
+            {title}
           </h1>
 
           {/* Subtítulo */}
           <p className="text-xl theme-text-secondary mb-8">
-            {t('votingDeadlineMessage')}
+            {subtitle}
           </p>
 
           {/* Información principal */}
@@ -55,11 +82,11 @@ export default function DeadlineScreen() {
             <div className="flex flex-col gap-4">
               <div>
                 <p className="text-sm text-status-error uppercase font-semibold mb-2">{t('status')}</p>
-                <p className="text-2xl font-bold text-status-error">{t('closed')}</p>
+                <p className="text-2xl font-bold text-status-error">{statusText}</p>
               </div>
               <div className="border-t border-status-error/30 pt-4">
                 <p className="text-sm theme-text-primary leading-relaxed">
-                  {t('noNewVotesAccepted')}
+                  {explanation}
                 </p>
               </div>
             </div>
@@ -71,7 +98,7 @@ export default function DeadlineScreen() {
               <span className="text-2xl font-bold theme-accent">■</span>
               <div className="text-left">
                 <p className="text-sm theme-text-secondary uppercase">{t('results')}</p>
-                <p className="theme-text-primary font-semibold">{t('resultsWillBeShown')}</p>
+                <p className="theme-text-primary font-semibold">{resultsText}</p>
               </div>
             </div>
             <div className="flex items-center gap-4 p-4 theme-card theme-border-primary border rounded-lg">

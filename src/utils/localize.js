@@ -117,3 +117,32 @@ export const resolveOptionId = (category, value) => {
   if (idx >= 0) return getOptionId(opts[idx], category.id, idx);
   return value;
 };
+
+/**
+ * Convierte las `selections` de un voto guardado ({categoryId: optionId}) al
+ * formato que usa el flujo de votación en memoria ({categoryId: {id, name}}).
+ *
+ * Hace falta al CORREGIR un voto: en Firestore solo se guarda el optionId (para
+ * que el voto no dependa del idioma), pero las pantallas necesitan también el
+ * nombre para pintarlo. Se resuelve con `resolveOptionId`, así que tolera los
+ * votos antiguos guardados por nombre.
+ *
+ * Las selecciones de categorías que ya no existen se descartan: votar por una
+ * categoría borrada no tiene sentido y las reglas la rechazarían al reenviar.
+ *
+ * @param {Object} selections - { categoryId: optionId }
+ * @param {Array} categories - categorías válidas actuales
+ * @param {string} [language]
+ * @returns {Object} { categoryId: { id, name } }
+ */
+export const selectionsToVotes = (selections, categories, language = 'es') => {
+  const votes = {};
+  (categories || []).forEach((category) => {
+    const stored = selections?.[category.id];
+    if (!stored) return;
+    const optionId = resolveOptionId(category, stored);
+    if (!optionId) return;
+    votes[category.id] = { id: optionId, name: getOptionLabel(category, optionId, language) };
+  });
+  return votes;
+};

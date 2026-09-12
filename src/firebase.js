@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { getAuth, GoogleAuthProvider, connectAuthEmulator } from "firebase/auth";
 import logger from "./services/loggerService";
 
 /**
@@ -30,12 +30,35 @@ export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
+/**
+ * Emuladores locales (solo para las pruebas e2e).
+ *
+ * Se activan con VITE_USE_EMULATORS=true, que solo pone `npm run test:e2e`.
+ * En el build de producción la variable no existe, así que Vite resuelve la
+ * condición a `false` y este bloque no llega al bundle.
+ *
+ * Sin esto, un e2e tendría que hablar con el Firebase real: cuentas de Google
+ * de verdad, votos de verdad y datos que no se pueden sembrar ni borrar.
+ */
+if (import.meta.env.VITE_USE_EMULATORS === 'true') {
+  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  logger.log('🧪 Firebase apuntando a los emuladores locales');
+}
+
 // Lazy load Analytics para evitar errores de inicialización
 let analyticsInstance = null;
 let analyticsLoaded = false;
 
 export const getAnalyticsInstance = async () => {
   if (analyticsLoaded) return analyticsInstance;
+
+  // Con los emuladores no hay proyecto real detrás: Analytics solo conseguiría
+  // llenar la consola de errores de "API key not valid".
+  if (import.meta.env.VITE_USE_EMULATORS === 'true') {
+    analyticsLoaded = true;
+    return null;
+  }
   
   try {
     const { getAnalytics } = await import("firebase/analytics");

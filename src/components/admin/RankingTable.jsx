@@ -106,7 +106,7 @@ export default function RankingTable({
                   </div>
                   {/* Filas de datos */}
                   {getUserCorrectVotes(selectedUserId).map((vote, idx) => (
-                    <div key={idx} className="grid grid-cols-3 gap-4 p-3 theme-card rounded items-center">
+                    <div key={idx} className="grid grid-cols-3 gap-4 p-3 theme-card rounded-sm items-center">
                       <span className="theme-text-secondary">{vote.category}</span>
                       <span className="text-success font-semibold text-center">{vote.vote}</span>
                       <span className="theme-accent font-bold text-right">+{vote.points} {t('pts')}</span>

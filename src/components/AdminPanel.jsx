@@ -3,9 +3,8 @@ import { auth, googleProvider } from '../firebase';
 import { signOut, signInWithPopup } from 'firebase/auth';
 import { useTranslation } from '../data/literals';
 import { useAppContext } from '../context/AppContext';
-import { useAdminCheck, useFirestoreCategories, useFirestoreBallots, useVotingConfig, useSeasonResults } from '../hooks';
+import { useAdminCheck, useFirestoreCategories, useFirestoreBallots, useVotingConfig, useSeasonResults, useSeasonControls } from '../hooks';
 import { sortCategoriesByOrder } from '../services/categoriesService';
-import { setVotingOpen, setClosingDate, archiveAndResetSeason } from '../services/seasonService';
 import { getCategoryTitle as localizeCategoryTitle, getOptionLabel, hasTitle } from '../utils/localize';
 import { LoadingSpinner, ThemeLanguageControls } from './ui';
 import logger from '../services/loggerService';
@@ -32,42 +31,20 @@ export default function AdminPanel() {
   const { isAdmin, currentUser, isLoading: authLoading } = useAdminCheck();
   const { categories, isLoading: categoriesLoading } = useFirestoreCategories();
   const { ballots, isLoading: ballotsLoading } = useFirestoreBallots();
-  const { isOpen: isVotingOpen, season, closesAt } = useVotingConfig();
-  const { results: seasonResults, isLoading: resultsLoading } = useSeasonResults();
+  const votingConfig = useVotingConfig();
+  const { results: seasonResults, isLoading: resultsLoading, refetch: refetchResults } = useSeasonResults();
+
+  // Calendario de la edición, cierre forzado, publicación y reinicio anual.
+  const seasonControls = useSeasonControls({
+    config: votingConfig,
+    categories,
+    ballots,
+    t,
+  });
 
   const [statsData, setStatsData] = useState(null);
   const [viewMode, setViewMode] = useState('overview'); // 'overview' | 'ballots' | 'categories' | 'winners' | 'ranking' | 'history' | 'season'
   const [errorMessage, setErrorMessage] = useState('');
-  const [seasonBusy, setSeasonBusy] = useState(false);
-  const [seasonMessage, setSeasonMessage] = useState('');
-  const [closeDate, setCloseDate] = useState(''); // 'YYYY-MM-DD' para el input
-
-  // Calcular estadísticas cuando cambian categorías o votos
-  useEffect(() => {
-    if (categories.length > 0 && ballots.length > 0) {
-      calculateStats(ballots, categories);
-    }
-  }, [categories, ballots]);
-
-  // Guardián de la ruta: un usuario autenticado que NO es admin se va a la
-  // página principal. `replace` para no dejar /admin en el historial (el botón
-  // "atrás" no debe devolverle a un sitio donde no puede entrar).
-  useEffect(() => {
-    if (!authLoading && currentUser && !isAdmin) {
-      window.location.replace(FALLBACK_ROUTE);
-    }
-  }, [authLoading, currentUser, isAdmin]);
-
-  // Sincronizar el input de fecha de cierre con config/voting.closesAt
-  useEffect(() => {
-    if (closesAt) {
-      const d = new Date(closesAt);
-      const pad = (n) => String(n).padStart(2, '0');
-      setCloseDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
-    } else {
-      setCloseDate('');
-    }
-  }, [closesAt]);
 
   /**
    * Calcula estadísticas de los votos
@@ -100,6 +77,25 @@ export default function AdminPanel() {
 
     setStatsData(stats);
   };
+
+  // Calcular estadísticas cuando cambian categorías o votos. El efecto va
+  // DESPUÉS de `calculateStats`: declararlo antes funcionaba por la closure,
+  // pero cualquier cambio que la invocara durante el render habría reventado
+  // con un ReferenceError por TDZ.
+  useEffect(() => {
+    if (categories.length > 0 && ballots.length > 0) {
+      calculateStats(ballots, categories);
+    }
+  }, [categories, ballots]);
+
+  // Guardián de la ruta: un usuario autenticado que NO es admin se va a la
+  // página principal. `replace` para no dejar /admin en el historial (el botón
+  // "atrás" no debe devolverle a un sitio donde no puede entrar).
+  useEffect(() => {
+    if (!authLoading && currentUser && !isAdmin) {
+      window.location.replace(FALLBACK_ROUTE);
+    }
+  }, [authLoading, currentUser, isAdmin]);
 
   /**
    * Votos que cuentan: los que tienen al menos una selección en una categoría
@@ -168,60 +164,6 @@ export default function AdminPanel() {
     await signOut(auth);
   };
 
-  /**
-   * Abrir / cerrar la votación (config/voting.isOpen).
-   */
-  const handleToggleVoting = async () => {
-    try {
-      setSeasonBusy(true);
-      setSeasonMessage('');
-      await setVotingOpen(!isVotingOpen, { season });
-      setSeasonMessage(t('saved'));
-      setTimeout(() => setSeasonMessage(''), 2500);
-    } catch (err) {
-      setSeasonMessage(err.message);
-    } finally {
-      setSeasonBusy(false);
-    }
-  };
-
-  /**
-   * Guardar (o limpiar) la fecha de cierre de la votación.
-   */
-  const handleSaveClosingDate = async () => {
-    try {
-      setSeasonBusy(true);
-      setSeasonMessage('');
-      await setClosingDate(closeDate || null);
-      setSeasonMessage(t('saved'));
-      setTimeout(() => setSeasonMessage(''), 2500);
-    } catch (err) {
-      setSeasonMessage(err.message);
-    } finally {
-      setSeasonBusy(false);
-    }
-  };
-
-  /**
-   * Archivar resultados de la temporada y reiniciar la edición (borra votos).
-   */
-  const handleArchiveReset = async () => {
-    if (!window.confirm(`${t('archiveResetConfirm')} (${season})`)) return;
-    try {
-      setSeasonBusy(true);
-      setSeasonMessage('');
-      const result = await archiveAndResetSeason({ season, categories, ballots });
-      // Avanzar a la siguiente temporada: cerrada y sin fecha de cierre (se
-      // elegirá de nuevo al abrir la nueva edición).
-      await setVotingOpen(false, { season: season + 1, closesAt: null });
-      setSeasonMessage(`${t('archived')}: ${result.deleted} ${t('votes')} · ${result.cleared} ${t('categories').toLowerCase()} · ${season} → ${season + 1}`);
-    } catch (err) {
-      setSeasonMessage(err.message);
-    } finally {
-      setSeasonBusy(false);
-    }
-  };
-
   // No autenticado
   if (!authLoading && !currentUser) {
     return (
@@ -249,15 +191,24 @@ export default function AdminPanel() {
   return (
     <div className="min-h-screen theme-gradient-primary">
       {/* Header */}
-      <div className="theme-header theme-border-primary border-b sticky top-0 z-50 backdrop-blur">
+      {/*
+        La cabecera se queda fija solo a partir de `md`. En un móvil ocupa casi
+        media pantalla (título, controles y siete pestañas repartidas en varias
+        filas), así que pegada arriba tapaba los botones del contenido: en 320px
+        el de guardar el renombrado quedaba debajo y no se podía pulsar.
+      */}
+      <div className="theme-header theme-border-primary border-b md:sticky md:top-0 z-50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
-          <div className="flex justify-between items-center mb-4">
+          {/* `flex-wrap`: en 320px el título y los controles no caben en una
+              línea y, sin envolver, empujaban la página a 535px de ancho (scroll
+              horizontal en todo el panel). */}
+          <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
             <div>
               <h1 className="text-3xl md:text-4xl font-black theme-display uppercase theme-text-primary">{t('adminPanel')}</h1>
               <p className="theme-text-secondary text-sm">{t('ballotResults')}</p>
             </div>
-            <div className="flex gap-4 items-center">
-              <ThemeLanguageControls className="flex gap-4 items-center" />
+            <div className="flex gap-2 sm:gap-4 items-center">
+              <ThemeLanguageControls className="flex gap-2 sm:gap-4 items-center" />
               <button
                 onClick={handleLogout}
                 className="min-h-[44px] py-2 px-4 btn-danger border theme-border-primary rounded-lg font-semibold text-sm transition-all"
@@ -331,23 +282,16 @@ export default function AdminPanel() {
 
         {/* Histórico de resultados por año */}
         {viewMode === 'history' && (
-          <HistoryTab seasonResults={seasonResults} resultsLoading={resultsLoading} />
+          <HistoryTab
+            seasonResults={seasonResults}
+            resultsLoading={resultsLoading}
+            onRefresh={refetchResults}
+          />
         )}
 
         {/* Season / Voting control */}
         {viewMode === 'season' && (
-          <SeasonTab
-            season={season}
-            isVotingOpen={isVotingOpen}
-            closesAt={closesAt}
-            closeDate={closeDate}
-            setCloseDate={setCloseDate}
-            seasonBusy={seasonBusy}
-            seasonMessage={seasonMessage}
-            onToggleVoting={handleToggleVoting}
-            onSaveClosingDate={handleSaveClosingDate}
-            onArchiveReset={handleArchiveReset}
-          />
+          <SeasonTab config={votingConfig} controls={seasonControls} />
         )}
       </div>
     </div>

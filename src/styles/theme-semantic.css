@@ -63,6 +63,18 @@
   transition: border-color var(--motion-base) var(--motion-ease);
 }
 
+/*
+ * Borde de CONTROL: inputs y botones cuyo borde es el unico indicador visual
+ * del control. WCAG 1.4.11 (Non-text Contrast) pide 3:1 contra el fondo, y
+ * `--border-primary` se queda en 2.5 (claro) y 2.41 (oscuro); sirve para
+ * separar contenedores, no para delimitar un control.
+ * Cubierto por src/test/contrast.test.js.
+ */
+.theme-border-control {
+  border-color: var(--border-secondary);
+  transition: border-color var(--motion-base) var(--motion-ease);
+}
+
 .theme-border-empty {
   border-color: var(--border-empty);
 }

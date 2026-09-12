@@ -13,6 +13,11 @@ export default {
       },
       screens: {
         'xs': '360px', // iPhone SE y pantallas pequeñas
+        // OJO: el breakpoint por ALTURA (`short:`) NO puede vivir aquí.
+        // Tailwind 4 lee este archivo por compatibilidad (`@config`), pero
+        // traduce `{ raw: '(max-height: 500px)' }` a `@media (width >= (max-height:
+        // 500px))`, que es CSS inválido y revienta la minificación. En v4 se
+        // declara como variante en `src/index.css` (@custom-variant short).
       },
       // `h-screen` y `min-h-screen` pasan a usar unidades DINÁMICAS de viewport.
       //

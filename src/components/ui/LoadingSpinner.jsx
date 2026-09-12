@@ -22,7 +22,7 @@ export default function LoadingSpinner({
   const content = (
     <div className="flex flex-col items-center justify-center gap-4 theme-entrance" role="status" aria-live="polite">
       <div className="relative w-14 h-14 flex items-center justify-center">
-        <span className="absolute inset-0 rounded-full border-2 border-transparent border-t-[var(--color-accent)] border-r-[var(--color-secondary)] animate-spin" />
+        <span className="absolute inset-0 rounded-full border-2 border-transparent border-t-(--color-accent) border-r-(--color-secondary) animate-spin" />
         <span className="theme-display text-2xl theme-accent theme-flicker">III</span>
       </div>
       {text && <p className="theme-text-tertiary text-sm">{text}</p>}

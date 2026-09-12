@@ -8,7 +8,8 @@ App de votación interactiva para The Game Awards. Los usuarios entran con Googl
 categoría por categoría, revisan y envían su porra (un voto por usuario). Hay un panel de
 admin oculto en la ruta `/admin` para gestionar categorías, ganadores y resultados.
 
-- **Stack**: React 18 + Vite 5 + Tailwind CSS 3 + Firebase 10 (Auth + Firestore + Analytics)
+- **Stack**: React 19 + Vite 8 + Tailwind CSS 4 + Firebase 12 (Auth + Firestore + Analytics)
+- **Requisitos**: Node >= 22.12 (lo exigen Vite 8 y Vitest 5) y, solo para `test:rules`, JDK >= 21.
 - **Idioma del código y comentarios**: español (mantenerlo). Nombres de símbolos en inglés/camelCase.
 - **Deploy**: hosting estático (CloudFlare Pages). Build → `dist/`.
 
@@ -21,19 +22,64 @@ npm run build      # build de producción a dist/ (minify + drop_console)
 npm run preview    # previsualizar el build
 npm test           # tests con Vitest (una pasada)
 npm run test:watch # tests en modo watch
-npm run test:rules # tests de firestore.rules contra el emulador (necesita Java; descarga
-                   # firebase-tools con npx, NO depende de tenerlo instalado)
+npm run test:rules # tests de firestore.rules contra el emulador (necesita **JDK 21+**:
+                   # firebase-tools 15 aborta con Java 17; descarga firebase-tools
+                   # con npx, NO depende de tenerlo instalado)
+npm run test:e2e   # e2e con Playwright contra los emuladores (Auth + Firestore):
+                   # votación, resultados y accesibilidad. Necesita JDK 21+ y
+                   # `npx playwright install chromium` la primera vez.
+npm run test:e2e:ui # lo mismo, con la interfaz de Playwright para depurar
 ```
 
 ### Tests (Vitest)
 
-- Runner: **Vitest** + React Testing Library, entorno `jsdom`. Config en `vite.config.js`
+- Runner: **Vitest 5** + React Testing Library 16, entorno `jsdom`. Config en `vite.config.js`
   (clave `test`); setup global en `src/test/setup.js` (matchers de `jest-dom` + `cleanup`).
 - `describe/it/expect/vi` son **globales** (`test.globals: true`) — no hace falta importarlos.
 - Para mockear módulos usa `vi.mock('ruta', factory)` (hoisted, como en jest). Ejemplo real
   en `src/hooks/hooks.test.js`: mockea `../firebase` (db + auth), `firebase/firestore`,
   `firebase/auth` y `../services/errorService`.
 - Nombra los archivos `*.test.js` / `*.test.jsx` junto al código que prueban.
+
+### Pruebas e2e (Playwright)
+
+- Viven en `e2e/` y corren contra los **emuladores** de Firebase (Auth + Firestore), nunca
+  contra el proyecto real: `npm run test:e2e` levanta los emuladores, arranca Vite con
+  `VITE_USE_EMULATORS=true` y ejecuta Playwright. El `projectId` es de mentira
+  (`tga-ballot-e2e`), así que ninguna prueba puede tocar datos de producción.
+- `src/firebase.js` se conecta a los emuladores **solo** con esa variable; en el build de
+  producción Vite la resuelve a `false` y el bloque no llega al bundle (verificado).
+- `e2e/helpers.js` siembra Firestore por su API REST con el token `owner` (se salta las
+  reglas) y pasa por el login de Google del emulador, así que el recorrido es el real,
+  `signInWithPopup` incluido.
+- Cubren: votar de punta a punta (y **qué se guarda**: selecciones por optionId, `season`,
+  `editCount`), bloqueo de re-voto, corrección del voto con su contador, fuera de plazo,
+  edición programada y publicación de resultados. Cada prueba se ejecuta en escritorio y en
+  un viewport de 320×568.
+- **El panel de admin también** (`e2e/admin.spec.js`): que sin el claim no se entra, que con él
+  se ve el panel, y que lo que se guarda desde la pestaña Temporada (calendario con sus pares
+  ISO+epoch y snapshot de resultados) y desde Ganadores (winner por optionId en la categoría y
+  en el snapshot) llega a Firestore con la forma que espera la app pública.
+- El claim `admin:true` se pone con `grantAdminClaim()` (API del emulador, equivalente local de
+  `setCustomUserClaims`). Hacen falta **dos pasadas por el login**: el claim solo se puede poner
+  sobre una cuenta que ya exista y el token del primer login no lo lleva — igual que en
+  producción, donde hay que volver a iniciar sesión tras recibirlo.
+
+### Accesibilidad
+
+- `src/test/contrast.test.js` calcula el contraste WCAG de los **tokens reales** del tema (los
+  lee de `theme-tokens.css`) en los dos temas: texto sobre fondo, colores de estado, botón de
+  acento, borde de control y el nombre del nominado sobre su tarjeta con el velo aplicado.
+- `e2e/a11y.spec.js` pasa **axe** (WCAG 2.1 A y AA) sobre las pantallas ya pintadas —login,
+  votación, revisión, cierre y resultados— en tema claro y oscuro, exigiendo cero violaciones.
+- Reglas que salieron de esa auditoría y hay que mantener:
+  - **Un solo `<h1>` por pantalla**: `Header` solo pinta el suyo si recibe `title`, porque las
+    pantallas de cierre, éxito y voto emitido ya llevan el suyo en el contenido.
+  - **Un solo landmark `main`**: lo pone `ScreenLayout`; dentro van `<section>`.
+  - **`.theme-border-control`** (no `theme-border-primary`) en inputs y botones: WCAG 1.4.11
+    pide 3:1 y `--border-primary` se queda en 2.5.
+  - Iconos SVG con `aria-hidden="true"` (son decorativos; el nombre accesible lo da el texto o
+    el `aria-label` del botón).
 
 ## Arquitectura
 
@@ -62,12 +108,16 @@ src/
 
 - **Escrituras a Firestore → `services/`**, nunca en un componente. Ya existen
   `categoriesService` (cargar/guardar/borrar/reordenar), `ballotService` (enviar y comprobar
-  voto), `winnersService` (ganadores en lote) y `seasonService` (temporada y reinicio anual).
+  voto), `winnersService` (ganadores en lote) y `seasonService` (calendario de la edición,
+  publicación de resultados y reinicio anual).
   Así se pueden probar sin renderizar.
 - **Lógica de estado con ciclo de vida → `hooks/`**: `useVotingFlow` (pasos, votos, progreso),
-  `useAuthSession` (sesión y bloqueo de re-voto), `useViewport`, `useStepHistory`.
-- **Cálculo puro → `utils/`**: `gridDensity`, `closingDate`, `options`, `sanitize`, `scoring`,
-  `localize`, `routes`.
+  `useAuthSession` (sesión y bloqueo de re-voto), `useViewport`, `useStepHistory`,
+  `useSeasonControls` (calendario/publicación/reinicio del AdminPanel), `useSeasonResult`.
+- **Cálculo puro → `utils/`**: `gridDensity` (columnas de la rejilla de nominados: calibración
+  por ancho + reparto equilibrado, ver abajo), `closingDate` (instantes del calendario en
+  Europe/Madrid), `votingSchedule` (semántica abierto/publicado), `options`, `sanitize`,
+  `scoring`, `localize`, `routes`, `ballotEdits` (tope de modificaciones del voto).
 - **Idioma y tema NO se pasan por props**: `useAppContext()`.
 
 ### Flujo de pantallas (controlado por `currentStep` en `App.jsx`)
@@ -76,8 +126,15 @@ src/
 - `n` (= `validCategories.length`) → Revisión
 - `99` → Éxito
 - Ruta `/admin` → `AdminPanel` (salta el flujo; carga diferida con `lazy`)
-- Bloqueo de re-voto: si el usuario ya tiene ballot en Firestore → `AlreadyVotedScreen`
-- Votación cerrada (`isDeadlineReached`) → `DeadlineScreen` (antes de login y flujo)
+- Bloqueo de re-voto: si el usuario ya tiene ballot en Firestore → `AlreadyVotedScreen`, que
+  ofrece modificarlo si quedan cambios y la votación sigue abierta (`isEditingBallot` en
+  `App.jsx` es lo que salta el bloqueo)
+- Resultados publicados (llegó `resultsAt`) → `ResultsScreen` **pública**, por delante de todo
+  el flujo (no exige sesión). Si aún no existe el snapshot `results/{season}`, se sigue a la
+  cascada normal.
+- Fuera de plazo (`isDeadlineReached`) → `DeadlineScreen` (antes de login y flujo). La misma
+  pantalla cubre los dos extremos: `isScheduled` cuando la edición aún no ha abierto y cerrada
+  cuando ya pasó el cierre.
 - Sin categorías válidas → mensaje de aviso (no hay pantalla dedicada)
 
 ### Rutas
@@ -103,18 +160,40 @@ No se usa router; la navegación entre categorías es estado de React.
 
 1. **Estado en `App.jsx`** como única fuente de verdad; se pasa hacia abajo por props. No
    dispersar estado de votación en componentes hijos.
+   - **Cuidado con el ORDEN de los hooks**: `useAuthSession` va antes que `useVotingFlow`
+     (que lee `currentUser` y `route`), y la dependencia circular entre ambos —el callback de
+     sesión restaura el progreso del flujo— se rompe con un ref (`restoreProgressRef`).
+     Tenerlo al revés hacía que el primer render lanzara «Cannot access 'currentUser' before
+     initialization», con la app entera cayendo en el ErrorBoundary.
 2. **Nada de texto hardcodeado en la UI.** Toda cadena visible va en `src/data/i18n/es.js`
    **y** `en.js` (mismas claves camelCase) y se consume con `t('clave')` de `useTranslation`.
 3. **Datos de categorías** viven en Firestore (colección `categories`), no en JSX. Carga vía
    `loadAndSortCategories()` de `services/categoriesService.js`.
 4. **camelCase en todo**: variables, funciones, claves JSON de Firestore, nombres de evento.
    Componentes en PascalCase, archivos `.jsx`.
-5. **Solo Tailwind, mobile-first** (`p-4 md:p-8`, no al revés). Sin CSS custom salvo animaciones.
+5. **Solo Tailwind 4, mobile-first** (`p-4 md:p-8`, no al revés). Sin CSS custom salvo animaciones.
+   - Tailwind entra como **plugin de Vite** (`@tailwindcss/vite`), no por PostCSS: no hay
+     `postcss.config.js` ni `autoprefixer` (v4 prefija por su cuenta).
+   - La configuración **sigue en `tailwind.config.js`**, que v4 carga con `@config` desde
+     `src/index.css`. No hace falta reescribirla en CSS.
+   - Los tres CSS de tema se importan **sin `layer()`**: así las clases `.theme-*` conservan la
+     precedencia que tenían en v3 sobre las utilidades (con `layer(base)`, un `border` suelto
+     pisaba a `theme-border-primary`).
+   - **`short:` (pantallas bajas) se declara con `@custom-variant` en `src/index.css`**, no en
+     `screens`: v4 traduce mal los `screens` con `raw` del config legacy y genera
+     `@media (width >= (max-height: 500px))`, que es inválido y rompe la minificación.
    Tema oscuro por defecto (`bg-slate-900/950`, acentos azul/esmeralda/amarillo).
    - `h-screen` y `min-h-screen` están redefinidos a **`100dvh`** en `tailwind.config.js`:
      `100vh` incluye la barra de direcciones del móvil y cortaba la fila de botones. Si
      necesitas el vh estático, usa `h-[100vh]` explícitamente.
    - Objetivo táctil mínimo **44×44 px** en controles de usuario (`min-h-[44px] min-w-[44px]`).
+   - **Para compactar por falta de espacio vertical usa `short:` (max-height 500px), NUNCA
+     `landscape:`**: un monitor de escritorio también es apaisado, así que `landscape:` dejaba
+     la cabecera de cualquier escritorio con el título a 18px y 8px de margen lateral. Lo que
+     escasea en un móvil tumbado es el alto, y eso es lo que mide `short` (`tailwind.config.js`).
+   - **Ancho máximo del contenido**: `CONTENT_MAX_WIDTH_PX` (1680) en `utils/gridDensity.js`.
+     En un monitor ultra-ancho estirar cinco tarjetas a 500px no mejora la lectura; el contenido
+     se centra en vez de estirarse.
    - Los botones de tema/idioma NO se escriben a mano: usa `<ThemeLanguageControls>` de
      `components/ui` (estaban copiados en cuatro sitios, con `aria-label` en solo dos).
 6. **Componentes < 300 líneas.** Si crece, divídelo: saca la lógica a un servicio o a un hook
@@ -130,22 +209,25 @@ No se usa router; la navegación entre categorías es estado de React.
 ## Firebase / Firestore
 
 - Auth: Google (`signInWithPopup`). El **UID de Firebase es el ID del documento** → garantiza
-  un voto por usuario. Escribe con `setDoc(doc(db, "ballots", uid), data)` — solo `create`
-  (las reglas deniegan `update`: un voto por persona, no modificable).
+  un voto por usuario. Escribe con `setDoc(doc(db, "ballots", uid), data)`, tanto el envío
+  inicial (`create`) como las correcciones (`update`): siempre el mismo documento, nunca uno
+  nuevo. El voto **se puede modificar hasta el cierre, un máximo de 5 veces** (ver más abajo).
 - Colecciones:
   - `ballots/{uid}` — voto del usuario. **Lectura solo dueño o admin** (no público).
   - `categories/{id}` — categorías bilingües (lectura pública, escritura admin).
   - `config/voting` — estado de la votación (lectura pública, escritura admin).
-  - `results/{year}` — archivo de resultados por temporada (lectura pública, escritura admin).
+  - `results/{seasonId}` — archivo de una edición (lectura pública, escritura admin). La clave
+    es el **identificador de la edición**, no el año: así caben varias en el mismo año.
   - `winners`/`surveyWinners` — compatibilidad legacy (lectura pública, escritura/borrado admin).
   - `admin/**` — configuración sensible (lectura y escritura solo admin).
 - Reglas en `firestore.rules`. **Escritura valida `isOwner` o `isAdmin()`**; `ballots` valida
   esquema en el write. `delete` de ballots solo admin (reinicio anual). Si tocas el modelo de
-  datos, actualiza también las reglas **y sus tests** (`npm run test:rules`, 26 casos contra el
+  datos, actualiza también las reglas **y sus tests** (`npm run test:rules`, 37 casos contra el
   emulador). Publicar con `firebase deploy --only firestore:rules`.
 - **El plazo de votación se valida en servidor**, no solo en el navegador: `allow create` de
-  `ballots` llama a `votingIsOpen()`, que lee `config/voting`. Si `config/voting` no existe, se
-  considera abierta (estado «aún sin configurar»). El esquema exige además que
+  `ballots` llama a `votingIsOpen()`, que lee `config/voting` y comprueba `opensAtMillis` y
+  `closesAtMillis` además de `isOpen`. Si `config/voting` no existe, se considera abierta
+  (estado «aún sin configurar»). El esquema exige además que
   `userEmail == request.auth.token.email` (impide suplantar el correo de otra persona), que
   `season` sea entero y que `selections` no exceda 60 entradas.
 - **Admin por custom claims** (`admin:true`), verificado por el servidor. `useAdminCheck()` lee
@@ -170,7 +252,10 @@ No se usa router; la navegación entre categorías es estado de React.
   ```js
   { userId, userEmail, userNickname, userDisplayName,
     selections: { categoryId: "<optionId>" },
-    season: <año>, submittedAt: ISO, isActive: true }
+    season: <año>, submittedAt: ISO,   // primer envío, INMUTABLE
+    updatedAt: ISO,                    // última escritura
+    editCount: 0,                      // 0 al enviar, +1 por modificación
+    isActive: true }
   ```
   `userNickname` = nombre de la cuenta de Google, se lee de `auth.currentUser` al enviar (no
   editable, no vive en estado). `userDisplayName` = nombre editable en `ReviewScreen` y **el
@@ -190,23 +275,107 @@ No se usa router; la navegación entre categorías es estado de React.
   (opción `{id,es,en}` o string plano) además del formato actual `{id,name}`, y el scoring/display
   normalizan con `resolveOptionId(category, value)`. Funcionan tanto con datos nuevos (optionId)
   como antiguos (nombre/título string), sin necesidad de migrar los datos existentes.
-- **Histórico**: `useSeasonResults()` lee `results/{año}`; el AdminPanel tiene la pestaña
-  **Histórico** que muestra, por edición, ganadores por categoría y la clasificación.
+- **Identidad de la edición**: `config/voting` lleva `seasonId` (clave del archivo) y
+  `seasonName` (nombre visible). `utils/seasonId.js` los normaliza: `toSeasonId()` convierte un
+  texto en slug, `getSeasonId(config)` cae al año si no hay id y `getSeasonLabel()` cae al año
+  si no hay nombre. Las ediciones archivadas antes de esto **no necesitan migración**: su
+  documento está en `results/{año}` y se sigue leyendo igual.
+- **Histórico**: `useSeasonResults()` lee la colección `results`; la pestaña **Histórico** del
+  AdminPanel es una LISTA de ediciones y al entrar en una se abre su detalle completo
+  (`admin/HistoryDetail.jsx`): todos los ganadores y toda la clasificación.
+  - De un archivo **solo se puede cambiar el nombre** (`renameSeasonResult`). Ganadores y puntos
+    son el resultado histórico y no se pueden recalcular: los votos de esa edición se borraron
+    al reiniciarla, así que tocarlos dejaría el archivo incoherente.
+  - Cambiar el `seasonId` de la edición en curso hace que la siguiente publicación cree un
+    archivo NUEVO en vez de reescribir el anterior. Es lo que permite «Porra TGA 2026» y
+    «Porra de verano 2026» a la vez.
 
-### Control de votación y reset anual
+### Rejilla de nominados (adaptación a pantalla)
 
-- `config/voting = { isOpen, season, closesAt, closesAtMillis, updatedAt }`. La app lee esto con
-  `useVotingConfig()`. La votación está cerrada si `isOpen=false` **o** si ya pasó `closesAt`
-  → `DeadlineScreen`. `closesAt` es la **fecha de cierre editable** desde la pestaña Temporada
-  (`seasonService.setClosingDate('YYYY-MM-DD')`); el reinicio anual la limpia.
-- **`closesAt` y `closesAtMillis` son el mismo instante en dos formatos** y viajan siempre
-  juntos: `closesAt` (ISO) lo lee el cliente para mostrar; `closesAtMillis` (epoch) lo comparan
-  las reglas, que no saben parsear una cadena ISO. Escribir uno sin el otro deja el plazo sin
-  efecto en servidor. El instante se fija en **Europe/Madrid** (`utils/closingDate.js`), no en
-  la hora local del administrador.
-- El admin abre/cierra y reinicia desde la pestaña **Temporada** del AdminPanel. El reinicio
-  (`seasonService.archiveAndResetSeason`) archiva ganadores + clasificación en `results/{año}`
-  y luego **borra** todos los `ballots`; después avanza la temporada y deja la votación cerrada.
+- Las categorías reales tienen **4-6 nominados** (la mayoría 5) con nombres de hasta ~46
+  caracteres; `utils/gridDensity.js` está calibrado para 4-7 y funciona fuera de ese rango.
+- `getGridColumns()` combina tres cosas: la calibración por ancho (tabla por rangos), las
+  columnas que caben de verdad, y `balanceColumns()`, que **evita la fila huérfana**: con 6
+  nominados y sitio para 5 columnas se reparte 3+3, no 5+1; con 7 y sitio para 6, 4+3. Entre
+  repartos con las mismas filas gana el que deja la última fila más llena; menos filas siempre
+  gana sobre mejor reparto (ver la categoría entera de un vistazo es lo primero).
+- `estimateCardWidth()` da el ancho que le toca a cada tarjeta. **La densidad de la tarjeta
+  (`compact`) se decide por ese ancho, no por el número de nominados**: cinco opciones en un
+  monitor son tarjetas holgadas y las mismas cinco en una tablet, estrechas.
+- **Sin scroll en móviles pequeños**: si con su proporción natural la rejilla no cabe (iPhone
+  SE), `VoteScreen` deja de fijar el alto por `aspect-*` y reparte el área entre las filas
+  (`grid-template-rows: repeat(n, 1fr)` + tarjeta `h-full`, contenedor `overflow-hidden`). Solo
+  se activa cuando hace falta —si no, una fila llenaría toda la pantalla en un monitor— y solo
+  si el reparto deja tarjetas legibles (`MIN_CARD_HEIGHT_PX`); por debajo de eso se prefiere el
+  scroll. Fuera de ese modo se sigue acotando el alto con `maxHeightPx`.
+- **El gap de la rejilla va en píxeles y en un solo sitio** (`rowGapPx` en `VoteScreen`), no en
+  clases por breakpoint: lo comparten el reparto de alturas, el ancho por columna y el ancho de
+  la tarjeta centrada, y con tres fuentes distintas se desincronizaban.
+- **La selección se marca con una franja de acento en el borde inferior**, más borde y halo, no
+  con un icono flotante: el check en la esquina se montaba sobre la primera línea del nombre en
+  tarjetas pequeñas. El estado va también en `aria-pressed`.
+
+### Modificar el propio voto (máximo 5 veces)
+
+- El voto dejó de ser inmutable: se puede corregir **mientras la votación siga abierta** y
+  mientras queden modificaciones. Sigue habiendo **un voto por persona**: se reescribe el mismo
+  `ballots/{uid}`, nunca se crea otro documento.
+- El tope lo cuenta el SERVIDOR con `editCount`: `firestore.rules > isValidBallotEdit` exige que
+  el contador entrante sea **exactamente** el anterior + 1 y que no pase de `maxBallotEdits()`
+  (5). Si solo se comprobara «no pasar de 5», el cliente reenviaría siempre `editCount: 1` y
+  editaría sin fin. Al editar tampoco pueden cambiar `userId`, `season` ni `submittedAt`.
+- `src/utils/ballotEdits.js` es el espejo para la UI (`MAX_BALLOT_EDITS`, `getRemainingEdits`,
+  `canEditBallot`). **El 5 está en dos sitios** (util y reglas): si cambias uno, cambia el otro
+  y sus tests.
+- **Sin lecturas extra**: `ballotService.fetchUserBallot()` sustituye al antiguo
+  `hasExistingBallot()` y trae el documento completo en la misma única lectura por sesión que ya
+  se hacía. De ahí salen las tres cosas: si ya votó, qué votó y cuántas modificaciones le
+  quedan. Tras enviar o corregir, `App` guarda en estado el documento recién escrito
+  (`setExistingBallot`) en vez de releer.
+- Flujo: `AlreadyVotedScreen` y `SuccessScreen` ofrecen «Modificar mi voto» solo si
+  `canEditBallot(...)`; se entra por `ReviewScreen` (`isEditing`), con los votos guardados
+  recargados mediante `selectionsToVotes()` de `utils/localize.js` (resuelve optionId → nombre y
+  descarta categorías que ya no existen). `isEditingBallot` en `App.jsx` es lo que deja pasar
+  del bloqueo de re-voto.
+- Los ballots emitidos **antes** de esta feature no tienen `editCount`: cuentan como 0, así que
+  conservan sus 5 modificaciones. No hace falta migrar nada.
+
+### Calendario de la edición y reset anual
+
+- `config/voting = { isOpen, season, opensAt, opensAtMillis, closesAt, closesAtMillis,
+  resultsAt, resultsAtMillis, updatedAt }`. La app lo lee con `useVotingConfig()` y lo
+  **interpreta** en `utils/votingSchedule.js` (puro y con tests):
+  - `isVotingOpenNow(config)` → se puede votar si estamos entre `opensAt` y `closesAt` **y** el
+    admin no ha forzado el cierre. Una fecha ausente no restringe.
+  - `areResultsPublished(config)` → resultados públicos desde `resultsAt`. **Sin fecha no se
+    publica nada** (si no, la clasificación saldría al marcar el primer ganador).
+  - `getVotingState(config)` → `scheduled | open | closed`, para la UI del panel.
+- **Las fechas mandan; `isOpen` solo cierra.** El botón de la pestaña Temporada es un cierre
+  forzado: puede cerrar antes de tiempo, pero poner `isOpen: true` no habilita el voto fuera de
+  la ventana, ni en el cliente ni en las reglas. La misma regla vive en `votingConfigAllows()`
+  de `firestore.rules`; si cambias una, cambia la otra.
+- **Cada fecha viaja en DOS formatos y siempre juntos**: `<x>At` (ISO) lo lee el cliente para
+  mostrar; `<x>AtMillis` (epoch) lo comparan las reglas, que no saben parsear una cadena ISO.
+  Escribir uno sin el otro deja el plazo sin efecto en servidor. Los construye
+  `buildScheduleFields()` de `utils/closingDate.js`, que fija los instantes en **Europe/Madrid**
+  (no en la hora local del administrador): apertura a las 00:00 del día elegido, cierre y
+  resultados a las 23:59:59.999. `toVotingZoneDay()` hace el camino inverso para los inputs.
+- El admin fija el calendario en la pestaña **Temporada** (`seasonService.setVotingSchedule`),
+  con tres `<input type="date">` y un preset de prueba «hoy / +7 / +14 días» para ensayar una
+  edición completa sin depender de diciembre. Un día vacío quita esa fecha.
+- Guardar una apertura **futura** levanta un cierre forzado previo (`isOpen: true`), para que la
+  fecha elegida sirva de algo. Solo con apertura futura: editar el calendario de una edición que
+  el admin cerró antes de tiempo no la reabre (`useSeasonControls.saveSchedule`).
+- **Publicación de resultados**: `ballots` NO es de lectura pública, así que un visitante no
+  puede calcular la clasificación. `seasonService.publishSeasonResults()` escribe el snapshot
+  público `results/{season}` (ganadores + `computeLeaderboard` + foto de las categorías) sin
+  borrar nada, y se llama al **guardar el calendario** y al **guardar ganadores**. `resultsAt`
+  decide *cuándo* se muestra; el snapshot decide *qué* se muestra. Por eso la pestaña Histórico
+  también enseña la edición en curso, marcada como tal (`closedAt` solo lo escribe el archivado).
+- El reinicio (`seasonService.archiveAndResetSeason`) archiva ganadores + clasificación en
+  `results/{año}` y luego **borra** todos los `ballots`; después avanza la temporada, deja la
+  votación cerrada y **limpia el calendario** (heredarlo cerraría o publicaría la nueva edición
+  en el momento equivocado).
 
 ## Convenciones de commits
 
@@ -245,10 +414,20 @@ obsoleto a medida que la app evoluciona:
 
 ## Pendientes conocidos / cuidado
 
-- Los hooks async (`useFirestoreCategories`, `useFirestoreBallots`) emiten warnings de `act()`
-  en los tests porque actualizan estado tras el render inicial. Son inofensivos (los tests solo
-  verifican el estado inicial); si se añaden aserciones sobre el estado resuelto, usar `waitFor`.
+- Los hooks async (`useFirestoreCategories`, `useFirestoreBallots`) actualizan estado tras el
+  render inicial; si se añaden aserciones sobre el estado resuelto, usar `waitFor`.
+- **Dos dependencias están congeladas a propósito** (`npm outdated` las seguirá señalando):
+  - **ESLint 9** (hay 10): `eslint-plugin-react` admite hasta `^9.7` y `eslint-plugin-jsx-a11y`
+    hasta `^9`. Subir a 10 rompe la instalación hasta que esos plugins publiquen soporte.
+- `react-hooks/set-state-in-effect` (regla nueva del plugin 7, del React Compiler) está en
+  **warn**: la marcan los 11 hooks/pantallas que cargan datos en un efecto. Funciona, pero
+  quitarla exigiría rediseñar la carga de datos (Suspense o `useSyncExternalStore`).
 - El acceso admin requiere asignar el custom claim `admin:true` (ver comando arriba) **antes**
   de poder leer `ballots` o escribir categorías/config. Sin el claim, `/admin` redirige a `/`.
+- **El paso del tiempo no se refresca solo**: el estado (abierta / cerrada / resultados) se
+  evalúa en cada render con `Date.now()`. `config/voting` sí llega en vivo (`onSnapshot`), así
+  que un cambio del admin se ve al instante; pero si la pestaña está abierta cuando *vence* una
+  fecha, hay que recargar para ver el cambio. Suficiente con fechas por día; si algún día se
+  quiere precisión de minutos, hará falta un temporizador en `App.jsx`.
 - El bundle principal es grande (Firebase). `AdminPanel` ya se carga con `lazy()` (code-splitting).
   Si importa reducir más, valorar `manualChunks` en `vite.config.js` para separar `firebase` y `react`.
