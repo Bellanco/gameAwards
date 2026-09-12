@@ -8,7 +8,8 @@ App de votación interactiva para The Game Awards. Los usuarios entran con Googl
 categoría por categoría, revisan y envían su porra (un voto por usuario). Hay un panel de
 admin oculto en la ruta `/admin` para gestionar categorías, ganadores y resultados.
 
-- **Stack**: React 18 + Vite 5 + Tailwind CSS 3 + Firebase 10 (Auth + Firestore + Analytics)
+- **Stack**: React 19 + Vite 8 + Tailwind CSS 3 + Firebase 12 (Auth + Firestore + Analytics)
+- **Requisitos**: Node >= 22.12 (lo exigen Vite 8 y Vitest 5) y, solo para `test:rules`, JDK >= 21.
 - **Idioma del código y comentarios**: español (mantenerlo). Nombres de símbolos en inglés/camelCase.
 - **Deploy**: hosting estático (CloudFlare Pages). Build → `dist/`.
 
@@ -21,13 +22,14 @@ npm run build      # build de producción a dist/ (minify + drop_console)
 npm run preview    # previsualizar el build
 npm test           # tests con Vitest (una pasada)
 npm run test:watch # tests en modo watch
-npm run test:rules # tests de firestore.rules contra el emulador (necesita Java; descarga
-                   # firebase-tools con npx, NO depende de tenerlo instalado)
+npm run test:rules # tests de firestore.rules contra el emulador (necesita **JDK 21+**:
+                   # firebase-tools 15 aborta con Java 17; descarga firebase-tools
+                   # con npx, NO depende de tenerlo instalado)
 ```
 
 ### Tests (Vitest)
 
-- Runner: **Vitest** + React Testing Library, entorno `jsdom`. Config en `vite.config.js`
+- Runner: **Vitest 5** + React Testing Library 16, entorno `jsdom`. Config en `vite.config.js`
   (clave `test`); setup global en `src/test/setup.js` (matchers de `jest-dom` + `cleanup`).
 - `describe/it/expect/vi` son **globales** (`test.globals: true`) — no hace falta importarlos.
 - Para mockear módulos usa `vi.mock('ruta', factory)` (hoisted, como en jest). Ejemplo real
@@ -331,9 +333,18 @@ obsoleto a medida que la app evoluciona:
 
 ## Pendientes conocidos / cuidado
 
-- Los hooks async (`useFirestoreCategories`, `useFirestoreBallots`) emiten warnings de `act()`
-  en los tests porque actualizan estado tras el render inicial. Son inofensivos (los tests solo
-  verifican el estado inicial); si se añaden aserciones sobre el estado resuelto, usar `waitFor`.
+- Los hooks async (`useFirestoreCategories`, `useFirestoreBallots`) actualizan estado tras el
+  render inicial; si se añaden aserciones sobre el estado resuelto, usar `waitFor`.
+- **Dos dependencias están congeladas a propósito** (`npm outdated` las seguirá señalando):
+  - **ESLint 9** (hay 10): `eslint-plugin-react` admite hasta `^9.7` y `eslint-plugin-jsx-a11y`
+    hasta `^9`. Subir a 10 rompe la instalación hasta que esos plugins publiquen soporte.
+  - **Tailwind 3.4** (hay 4): la 4 mueve la configuración a CSS (`@theme`, `@import
+    "tailwindcss"`, `@tailwindcss/postcss`) y habría que rehacer `tailwind.config.js` entero
+    (tokens de color por variables CSS, `screens` con `raw`, `height.screen: 100dvh`). Es una
+    migración que pide verificación visual en varias pantallas, no un `npm install`.
+- `react-hooks/set-state-in-effect` (regla nueva del plugin 7, del React Compiler) está en
+  **warn**: la marcan los 11 hooks/pantallas que cargan datos en un efecto. Funciona, pero
+  quitarla exigiría rediseñar la carga de datos (Suspense o `useSyncExternalStore`).
 - El acceso admin requiere asignar el custom claim `admin:true` (ver comando arriba) **antes**
   de poder leer `ballots` o escribir categorías/config. Sin el claim, `/admin` redirige a `/`.
 - **El paso del tiempo no se refresca solo**: el estado (abierta / cerrada / resultados) se

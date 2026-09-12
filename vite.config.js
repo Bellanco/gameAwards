@@ -31,9 +31,17 @@ export default defineConfig({
       output: {
         // Separar Firebase (~la mayor parte del bundle) en su propio chunk
         // para mejorar el cacheo y el TTI del bundle principal.
-        manualChunks: {
-          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-        }
+        //
+        // Va como FUNCIÓN, no como objeto: desde Vite 8 el bundler es Rolldown y
+        // solo acepta esta forma ("manualChunks is not a function"). Agrupar por
+        // ruta del módulo cubre además las dependencias internas de Firebase
+        // (@firebase/*), que con la forma antigua caían en el chunk principal.
+        manualChunks(id) {
+          if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) {
+            return 'firebase';
+          }
+          return null;
+        },
       }
     }
   }

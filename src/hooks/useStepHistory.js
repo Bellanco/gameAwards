@@ -29,9 +29,13 @@ export const useStepHistory = ({ currentStep, onNavigateBack, enabled = true }) 
   const lastPushedStep = useRef(null);
   const isPopNavigation = useRef(false);
   // El callback se guarda en un ref para que el listener se registre UNA vez y
-  // no se re-suscriba en cada render del componente padre.
+  // no se re-suscriba en cada render del componente padre. La asignación va en
+  // su propio efecto y no en el cuerpo del render: escribir un ref mientras se
+  // renderiza rompe con render concurrente (React puede descartar ese render).
   const onNavigateBackRef = useRef(onNavigateBack);
-  onNavigateBackRef.current = onNavigateBack;
+  useEffect(() => {
+    onNavigateBackRef.current = onNavigateBack;
+  }, [onNavigateBack]);
 
   // Una entrada de historial por paso del flujo.
   useEffect(() => {

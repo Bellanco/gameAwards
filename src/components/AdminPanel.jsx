@@ -46,22 +46,6 @@ export default function AdminPanel() {
   const [viewMode, setViewMode] = useState('overview'); // 'overview' | 'ballots' | 'categories' | 'winners' | 'ranking' | 'history' | 'season'
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Calcular estadísticas cuando cambian categorías o votos
-  useEffect(() => {
-    if (categories.length > 0 && ballots.length > 0) {
-      calculateStats(ballots, categories);
-    }
-  }, [categories, ballots]);
-
-  // Guardián de la ruta: un usuario autenticado que NO es admin se va a la
-  // página principal. `replace` para no dejar /admin en el historial (el botón
-  // "atrás" no debe devolverle a un sitio donde no puede entrar).
-  useEffect(() => {
-    if (!authLoading && currentUser && !isAdmin) {
-      window.location.replace(FALLBACK_ROUTE);
-    }
-  }, [authLoading, currentUser, isAdmin]);
-
   /**
    * Calcula estadísticas de los votos
    * Mantiene el orden de categoriesList (ordenadas por orderIndex)
@@ -93,6 +77,25 @@ export default function AdminPanel() {
 
     setStatsData(stats);
   };
+
+  // Calcular estadísticas cuando cambian categorías o votos. El efecto va
+  // DESPUÉS de `calculateStats`: declararlo antes funcionaba por la closure,
+  // pero cualquier cambio que la invocara durante el render habría reventado
+  // con un ReferenceError por TDZ.
+  useEffect(() => {
+    if (categories.length > 0 && ballots.length > 0) {
+      calculateStats(ballots, categories);
+    }
+  }, [categories, ballots]);
+
+  // Guardián de la ruta: un usuario autenticado que NO es admin se va a la
+  // página principal. `replace` para no dejar /admin en el historial (el botón
+  // "atrás" no debe devolverle a un sitio donde no puede entrar).
+  useEffect(() => {
+    if (!authLoading && currentUser && !isAdmin) {
+      window.location.replace(FALLBACK_ROUTE);
+    }
+  }, [authLoading, currentUser, isAdmin]);
 
   /**
    * Votos que cuentan: los que tienen al menos una selección en una categoría

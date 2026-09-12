@@ -38,6 +38,17 @@ export default [
       // No usamos prop-types (ver mejoras pendientes: migración a TS/PropTypes).
       'react/prop-types': 'off',
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      // Regla nueva de eslint-plugin-react-hooks 7 (reglas del React Compiler).
+      //
+      // La marcan los 11 hooks y pantallas que CARGAN datos en un efecto y
+      // guardan el resultado en estado (useFirestoreCategories, useAuthSession,
+      // useSeasonResults…). Es el patrón estándar sin Suspense y funciona
+      // correctamente; quitarlo exigiría rediseñar la carga de datos entera
+      // (useSyncExternalStore o Suspense), que es un trabajo aparte.
+      //
+      // Queda como AVISO para no perderlo de vista, en lugar de como error que
+      // tumbe el CI o de un `eslint-disable` repartido por once archivos.
+      'react-hooks/set-state-in-effect': 'warn',
     },
   },
 
