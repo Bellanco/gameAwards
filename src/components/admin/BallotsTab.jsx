@@ -45,7 +45,7 @@ export default function BallotsTab({
                         <summary className="theme-accent font-semibold hover:theme-accent/80">
                           {t('view')} ({Object.keys(ballot.selections || {}).length})
                         </summary>
-                        <div className="mt-2 p-2 theme-container-secondary rounded text-sm font-mono theme-text-secondary">
+                        <div className="mt-2 p-2 theme-container-secondary rounded-sm text-sm font-mono theme-text-secondary">
                           {getSortedBallotSelections(ballot).map(([cat, val]) => (
                             <div key={cat}><span className="text-info">{getCategoryTitle(cat)}:</span> {optionDisplay(cat, val)}</div>
                           ))}

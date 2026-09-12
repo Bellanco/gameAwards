@@ -1,7 +1,55 @@
+/*
+ * Capa de tema SIN `layer()`, a propósito.
+ *
+ * El migrador a v4 propone `layer(base)`, pero eso mete las clases `.theme-*`
+ * en la capa base, por debajo de cualquier utilidad: `border` pisaría a
+ * `theme-border-primary`, y un `bg-*` suelto pisaría a `theme-card`. En v3 este
+ * CSS iba fuera de capas y ganaba a las utilidades; dejarlo igual conserva el
+ * aspecto y la regla del proyecto («los componentes consumen clases de tema»).
+ */
 @import './styles/theme-tokens.css';
 @import './styles/theme-semantic.css';
 @import './styles/theme-motion.css';
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/*
+ * La configuración sigue en JS (`tailwind.config.js`): ahí viven los tokens de
+ * color, el breakpoint `short` por altura, `height.screen: 100dvh` y las
+ * animaciones. v4 la carga con `@config`, así que no hace falta reescribirla en
+ * CSS para actualizar.
+ */
+@config '../tailwind.config.js';
+
+/*
+ * `short:` = pantallas BAJAS (móvil apaisado, ventanas reducidas): compactan
+ * cabecera y pie para que el contenido quepa.
+ *
+ * No se usa `landscape:`, porque «apaisado» no es «bajo»: un monitor de
+ * escritorio también es apaisado, y con esa variante el título de categoría se
+ * renderizaba a 18px y la cabecera con 8px de margen lateral en CUALQUIER
+ * escritorio. Lo que escasea en un móvil tumbado es el alto, y eso es lo que
+ * mide esta media query.
+ *
+ * Va aquí y no en `tailwind.config.js` porque v4 traduce mal los `screens` con
+ * `raw` del config legacy (genera `@media (width >= (max-height: 500px))`).
+ */
+@custom-variant short (@media (max-height: 500px));
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}

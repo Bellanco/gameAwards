@@ -272,7 +272,7 @@ export default function VoteScreen({
       {/* Fila 2: Finalizar */}
       <button
         onClick={onFinish}
-        className="flex-1 py-2 sm:py-2.5 px-3 rounded font-bold btn-success text-sm transition-colors"
+        className="flex-1 py-2 sm:py-2.5 px-3 rounded-sm font-bold btn-success text-sm transition-colors"
       >
         {t('finish')}
       </button>
@@ -325,7 +325,7 @@ export default function VoteScreen({
                   key={`${category.id}_${optionId}`}
                   variant="vote"
                   gameName={optionName}
-                  gradient={gameGradients[optionId] || 'bg-gradient-to-br from-zinc-900/60 to-zinc-700/80'}
+                  gradient={gameGradients[optionId] || 'bg-linear-to-br from-zinc-900/60 to-zinc-700/80'}
                   isSelected={isSelected}
                   isMobilePortrait={isMobilePortrait}
                   compact={isCompactCard}
@@ -341,7 +341,7 @@ export default function VoteScreen({
         </div>
 
         {/* Status - Compact */}
-        <div className="mt-2 sm:mt-3 px-2 sm:px-3 py-1 sm:py-1.5 theme-card theme-border-primary border rounded text-sm flex-shrink-0 w-full mx-auto" style={{ maxWidth: `${CONTENT_MAX_WIDTH_PX}px` }}>
+        <div className="mt-2 sm:mt-3 px-2 sm:px-3 py-1 sm:py-1.5 theme-card theme-border-primary border rounded-sm text-sm shrink-0 w-full mx-auto" style={{ maxWidth: `${CONTENT_MAX_WIDTH_PX}px` }}>
           <span className={`font-bold ${isVoted ? 'text-status-success' : 'text-status-warning'}`}>
             {isVoted ? t('voted') : t('pending')}
           </span>
@@ -351,12 +351,12 @@ export default function VoteScreen({
         {hasVerticalScroll && !isAtBottom && viewportInfo.isMobile && !viewportInfo.isLandscape && (
           <div className="absolute bottom-0 left-0 right-0 h-16 flex flex-col items-center justify-end">
             {/* Sombra degradada */}
-            <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+            <div className="absolute bottom-0 left-0 right-0 h-16 bg-linear-to-t from-black/40 to-transparent pointer-events-none" />
             
             {/* Flecha animada - Clickeable */}
             <button
               onClick={scrollToBottom}
-              className="relative z-10 pb-2 animate-bounce hover:scale-125 transition-transform cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] p-1"
+              className="relative z-10 pb-2 animate-bounce hover:scale-125 transition-transform cursor-pointer focus:outline-hidden focus-visible:ring-2 focus-visible:ring-(--color-accent) p-1"
               aria-label="Scroll to bottom"
               title="Pulsa para ver más opciones"
             >

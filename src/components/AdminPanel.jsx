@@ -191,7 +191,7 @@ export default function AdminPanel() {
   return (
     <div className="min-h-screen theme-gradient-primary">
       {/* Header */}
-      <div className="theme-header theme-border-primary border-b sticky top-0 z-50 backdrop-blur">
+      <div className="theme-header theme-border-primary border-b sticky top-0 z-50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-6">
           <div className="flex justify-between items-center mb-4">
             <div>

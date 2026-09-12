@@ -15,7 +15,7 @@ export default function AutoSizeText({
   minSize = 12,
   maxSize = 28,
   stepGranularity = 1,
-  className = 'block font-bold text-white text-center break-words leading-tight'
+  className = 'block font-bold text-white text-center wrap-break-word leading-tight'
 }) {
   const ref = useRef(null);
   const [fontSize, setFontSize] = useState(maxSize);

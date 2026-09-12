@@ -1,8 +1,12 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  plugins: [react()],
+  // Tailwind 4 entra como plugin de Vite, no por PostCSS: es la vía recomendada
+  // en v4, evita el aviso «PostCSS plugin did not pass the `from` option» y deja
+  // el proyecto sin postcss.config.js.
+  plugins: [react(), tailwindcss()],
   test: {
     environment: 'jsdom',
     globals: true,

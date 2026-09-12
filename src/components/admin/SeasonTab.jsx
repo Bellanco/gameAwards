@@ -18,7 +18,7 @@ function ScheduleField({ label, value, onChange, disabled, savedText }) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          className="mt-1 block w-full min-h-[44px] px-4 py-2.5 theme-container-secondary theme-border-primary border rounded theme-text-primary focus:outline-none focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40"
+          className="mt-1 block w-full min-h-[44px] px-4 py-2.5 theme-container-secondary theme-border-primary border rounded-sm theme-text-primary focus:outline-hidden focus:border-(--color-accent) focus-visible:ring-2 focus-visible:ring-(--color-accent)/40"
         />
       </label>
       <p className="text-xs theme-text-tertiary">{savedText}</p>

@@ -40,7 +40,7 @@ export default function HistoryTab({ seasonResults, resultsLoading }) {
                     <div className="flex items-center gap-3">
                       <h3 className="text-2xl font-black theme-accent">{edition.season}</h3>
                       {!edition.closedAt && (
-                        <span className="text-xs font-bold uppercase px-2 py-1 rounded theme-container-secondary theme-text-secondary">
+                        <span className="text-xs font-bold uppercase px-2 py-1 rounded-sm theme-container-secondary theme-text-secondary">
                           {t('inProgressEdition')}
                         </span>
                       )}

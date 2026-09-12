@@ -8,7 +8,7 @@ App de votación interactiva para The Game Awards. Los usuarios entran con Googl
 categoría por categoría, revisan y envían su porra (un voto por usuario). Hay un panel de
 admin oculto en la ruta `/admin` para gestionar categorías, ganadores y resultados.
 
-- **Stack**: React 19 + Vite 8 + Tailwind CSS 3 + Firebase 12 (Auth + Firestore + Analytics)
+- **Stack**: React 19 + Vite 8 + Tailwind CSS 4 + Firebase 12 (Auth + Firestore + Analytics)
 - **Requisitos**: Node >= 22.12 (lo exigen Vite 8 y Vitest 5) y, solo para `test:rules`, JDK >= 21.
 - **Idioma del código y comentarios**: español (mantenerlo). Nombres de símbolos en inglés/camelCase.
 - **Deploy**: hosting estático (CloudFlare Pages). Build → `dist/`.
@@ -116,13 +116,28 @@ No se usa router; la navegación entre categorías es estado de React.
 
 1. **Estado en `App.jsx`** como única fuente de verdad; se pasa hacia abajo por props. No
    dispersar estado de votación en componentes hijos.
+   - **Cuidado con el ORDEN de los hooks**: `useAuthSession` va antes que `useVotingFlow`
+     (que lee `currentUser` y `route`), y la dependencia circular entre ambos —el callback de
+     sesión restaura el progreso del flujo— se rompe con un ref (`restoreProgressRef`).
+     Tenerlo al revés hacía que el primer render lanzara «Cannot access 'currentUser' before
+     initialization», con la app entera cayendo en el ErrorBoundary.
 2. **Nada de texto hardcodeado en la UI.** Toda cadena visible va en `src/data/i18n/es.js`
    **y** `en.js` (mismas claves camelCase) y se consume con `t('clave')` de `useTranslation`.
 3. **Datos de categorías** viven en Firestore (colección `categories`), no en JSX. Carga vía
    `loadAndSortCategories()` de `services/categoriesService.js`.
 4. **camelCase en todo**: variables, funciones, claves JSON de Firestore, nombres de evento.
    Componentes en PascalCase, archivos `.jsx`.
-5. **Solo Tailwind, mobile-first** (`p-4 md:p-8`, no al revés). Sin CSS custom salvo animaciones.
+5. **Solo Tailwind 4, mobile-first** (`p-4 md:p-8`, no al revés). Sin CSS custom salvo animaciones.
+   - Tailwind entra como **plugin de Vite** (`@tailwindcss/vite`), no por PostCSS: no hay
+     `postcss.config.js` ni `autoprefixer` (v4 prefija por su cuenta).
+   - La configuración **sigue en `tailwind.config.js`**, que v4 carga con `@config` desde
+     `src/index.css`. No hace falta reescribirla en CSS.
+   - Los tres CSS de tema se importan **sin `layer()`**: así las clases `.theme-*` conservan la
+     precedencia que tenían en v3 sobre las utilidades (con `layer(base)`, un `border` suelto
+     pisaba a `theme-border-primary`).
+   - **`short:` (pantallas bajas) se declara con `@custom-variant` en `src/index.css`**, no en
+     `screens`: v4 traduce mal los `screens` con `raw` del config legacy y genera
+     `@media (width >= (max-height: 500px))`, que es inválido y rompe la minificación.
    Tema oscuro por defecto (`bg-slate-900/950`, acentos azul/esmeralda/amarillo).
    - `h-screen` y `min-h-screen` están redefinidos a **`100dvh`** en `tailwind.config.js`:
      `100vh` incluye la barra de direcciones del móvil y cortaba la fila de botones. Si
@@ -338,10 +353,6 @@ obsoleto a medida que la app evoluciona:
 - **Dos dependencias están congeladas a propósito** (`npm outdated` las seguirá señalando):
   - **ESLint 9** (hay 10): `eslint-plugin-react` admite hasta `^9.7` y `eslint-plugin-jsx-a11y`
     hasta `^9`. Subir a 10 rompe la instalación hasta que esos plugins publiquen soporte.
-  - **Tailwind 3.4** (hay 4): la 4 mueve la configuración a CSS (`@theme`, `@import
-    "tailwindcss"`, `@tailwindcss/postcss`) y habría que rehacer `tailwind.config.js` entero
-    (tokens de color por variables CSS, `screens` con `raw`, `height.screen: 100dvh`). Es una
-    migración que pide verificación visual en varias pantallas, no un `npm install`.
 - `react-hooks/set-state-in-effect` (regla nueva del plugin 7, del React Compiler) está en
   **warn**: la marcan los 11 hooks/pantallas que cargan datos en un efecto. Funciona, pero
   quitarla exigiría rediseñar la carga de datos (Suspense o `useSyncExternalStore`).

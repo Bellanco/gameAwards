@@ -13,15 +13,11 @@ export default {
       },
       screens: {
         'xs': '360px', // iPhone SE y pantallas pequeñas
-        // Pantallas BAJAS (móvil apaisado, ventanas reducidas): compactan
-        // cabecera y pie para que el contenido quepa.
-        //
-        // Antes esto se hacía con la variante `landscape:`, pero «apaisado» no
-        // es lo mismo que «bajo»: un monitor de escritorio también es apaisado,
-        // así que el título de categoría se renderizaba a 18px y la cabecera con
-        // 8px de margen lateral en CUALQUIER escritorio. Lo que escasea en un
-        // móvil tumbado es el alto, y eso es justo lo que mide esta media query.
-        'short': { raw: '(max-height: 500px)' },
+        // OJO: el breakpoint por ALTURA (`short:`) NO puede vivir aquí.
+        // Tailwind 4 lee este archivo por compatibilidad (`@config`), pero
+        // traduce `{ raw: '(max-height: 500px)' }` a `@media (width >= (max-height:
+        // 500px))`, que es CSS inválido y revienta la minificación. En v4 se
+        // declara como variante en `src/index.css` (@custom-variant short).
       },
       // `h-screen` y `min-h-screen` pasan a usar unidades DINÁMICAS de viewport.
       //

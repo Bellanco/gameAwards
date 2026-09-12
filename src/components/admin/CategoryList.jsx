@@ -32,13 +32,13 @@ export default function CategoryList({
 
   return (
   <Card className="md:col-span-1 flex flex-col overflow-hidden">
-    <div className="p-3 border-b theme-border-primary flex-shrink-0">
+    <div className="p-3 border-b theme-border-primary shrink-0">
       <input
         type="text"
         placeholder={`${t('search')}...`}
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
-        className="w-full px-3 py-2 theme-container-secondary theme-border-primary border rounded theme-text-primary theme-placeholder text-sm focus:outline-none focus:border-[var(--color-accent)] focus-visible:ring-2 focus-visible:ring-[var(--color-accent)]/40"
+        className="w-full px-3 py-2 theme-container-secondary theme-border-primary border rounded-sm theme-text-primary theme-placeholder text-sm focus:outline-hidden focus:border-(--color-accent) focus-visible:ring-2 focus-visible:ring-(--color-accent)/40"
         disabled={isSaving}
       />
     </div>
@@ -63,19 +63,19 @@ export default function CategoryList({
             onDrop={(e) => onDrop(e, category)}
             className={`p-3 rounded border transition-all flex items-center gap-2 group ${searching ? '' : 'cursor-grab'} ${
               draggedCategory?.docId === category.docId && isSaving
-                ? 'bg-status-warning-light border-status-warning ring-2 ring-[var(--color-warning)]'
+                ? 'bg-status-warning-light border-status-warning ring-2 ring-(--color-warning)'
                 : draggedCategory?.docId === category.docId
-                ? 'bg-[var(--bg-tertiary)] border-[var(--border-secondary)] opacity-50 scale-95'
+                ? 'bg-(--bg-tertiary) border-(--border-secondary) opacity-50 scale-95'
                 : hoveredIndex === index && draggedCategory && !isSaving
-                ? 'bg-status-warning-light border-status-warning ring-2 ring-[var(--color-warning)]/50'
+                ? 'bg-status-warning-light border-status-warning ring-2 ring-(--color-warning)/50'
                 : editingId === category.docId
                 ? 'bg-status-warning-light border-status-warning/60'
-                : 'theme-card hover:border-[var(--border-secondary)]'
+                : 'theme-card hover:border-(--border-secondary)'
             }`}
           >
             {/* Nº de orden (orderIndex + 1) */}
             <div
-              className="flex-shrink-0 w-8 h-8 rounded-full theme-accent-bg theme-text-inverse text-sm font-bold flex items-center justify-center"
+              className="shrink-0 w-8 h-8 rounded-full theme-accent-bg theme-text-inverse text-sm font-bold flex items-center justify-center"
               title={t('order')}
             >
               {orderNum}
@@ -106,14 +106,14 @@ export default function CategoryList({
             </div>
 
             {/* Subir / bajar (reasigna el nº de orden) */}
-            <div className="flex-shrink-0 flex flex-col gap-1">
+            <div className="shrink-0 flex flex-col gap-1">
               <button
                 type="button"
                 onClick={() => onMove(category.docId, 'up')}
                 disabled={isSaving || searching || orderNum === 1}
                 title={t('moveUp')}
                 aria-label={t('moveUp')}
-                className="w-8 h-7 rounded theme-container-secondary theme-border-primary border text-sm theme-text-secondary hover:theme-border-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+                className="w-8 h-7 rounded-sm theme-container-secondary theme-border-primary border text-sm theme-text-secondary hover:theme-border-secondary disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 ▲
               </button>
@@ -123,7 +123,7 @@ export default function CategoryList({
                 disabled={isSaving || searching || orderNum === orderedCategories.length}
                 title={t('moveDown')}
                 aria-label={t('moveDown')}
-                className="w-8 h-7 rounded theme-container-secondary theme-border-primary border text-sm theme-text-secondary hover:theme-border-secondary disabled:opacity-30 disabled:cursor-not-allowed"
+                className="w-8 h-7 rounded-sm theme-container-secondary theme-border-primary border text-sm theme-text-secondary hover:theme-border-secondary disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 ▼
               </button>
@@ -134,7 +134,7 @@ export default function CategoryList({
       )}
     </div>
 
-    <div className="p-3 border-t theme-border-primary theme-text-secondary flex-shrink-0 text-center text-sm">
+    <div className="p-3 border-t theme-border-primary theme-text-secondary shrink-0 text-center text-sm">
       {filteredCategories.length} / {validCategories.length}
       {searching && <div className="mt-1 theme-accent">{t('reorderSearchHint')}</div>}
     </div>

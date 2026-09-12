@@ -35,7 +35,7 @@ export default function ScreenLayout({
 
       {/* Header - Si se proporciona */}
       {header && (
-        <header className="flex-shrink-0 theme-header theme-border-primary border-b relative z-40">
+        <header className="shrink-0 theme-header theme-border-primary border-b relative z-40">
           {backgroundImage && (
             <div className="absolute inset-0 overflow-hidden opacity-30">
               <img
@@ -61,7 +61,7 @@ export default function ScreenLayout({
 
       {/* Footer - Si se proporciona */}
       {footer && (
-        <footer className="flex-shrink-0 theme-footer theme-border-primary border-t relative z-40">
+        <footer className="shrink-0 theme-footer theme-border-primary border-t relative z-40">
           {footer}
         </footer>
       )}

@@ -200,7 +200,7 @@ export default function ReviewScreen({
                   key={category.id}
                   variant="review"
                   gameName={votedName}
-                  gradient={votedGame ? gameGradients[votedGame?.id] || 'bg-gradient-to-br from-stone-900/70 to-slate-700/70' : 'bg-zinc-900/70'}
+                  gradient={votedGame ? gameGradients[votedGame?.id] || 'bg-linear-to-br from-stone-900/70 to-slate-700/70' : 'bg-zinc-900/70'}
                   isVoted={!!votedGame}
                   onSelect={() => onPrevious(categoryIndex)}
                   categoryTitle={getCategoryTitle(category, language)}

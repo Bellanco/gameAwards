@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, lazy, Suspense } from 'react';
 import { auth } from './firebase';
 import { useTranslation } from './data/literals';
 import { loadAndSortCategories } from './services/categoriesService';
@@ -64,6 +64,55 @@ function App() {
     [categories]
   );
 
+  // ============ Ruta actual ============
+  // Se declara aquí arriba porque la leen los hooks del flujo. Solo hay dos
+  // rutas declaradas ('/' y '/admin'); cualquier otra cosa rebota a la
+  // principal, reescribiendo la URL sin dejar entrada en el historial.
+  const route = resolveRoute(window.location.pathname);
+
+  // ============ Datos del Usuario ============
+  // `userDisplayName` es el ÚNICO nombre editable y la única fuente de verdad de
+  // la UI. El nombre de la cuenta de Google se lee de `currentUser` al enviar,
+  // nunca de estado: antes vivía en un `userNickname` que `handleReturnToHome`
+  // vaciaba sin que ninguna pantalla ofreciera forma de rellenarlo, y eso dejaba
+  // el envío bloqueado para siempre.
+  const [userDisplayName, setUserDisplayName] = useState('');
+
+  // ============ Sesión y flujo: cómo se rompe la dependencia circular ========
+  //
+  // `useAuthSession` necesita el callback de "sesión confirmada", que restaura
+  // el progreso guardado (`restoreProgress`, de `useVotingFlow`); y
+  // `useVotingFlow` necesita saber si hay sesión (`currentUser`, de
+  // `useAuthSession`). Uno de los dos tiene que ir primero.
+  //
+  // Se resuelve con un ref: el callback es estable y llama a la última versión
+  // de `restoreProgress` a través de él. Así `useAuthSession` puede declararse
+  // antes. ANTES esto estaba al revés —`useVotingFlow` leía `currentUser` y
+  // `route` varias líneas por encima de donde se declaran— y el primer render
+  // reventaba con «Cannot access 'currentUser' before initialization».
+  const restoreProgressRef = useRef(null);
+
+  /** Al confirmarse la sesión: nombre inicial y progreso guardado. */
+  const handleSignedIn = useCallback((user) => {
+    setUserDisplayName(user.displayName || '');
+    restoreProgressRef.current?.();
+  }, []);
+
+  // ============ Sesión, login y voto ya emitido ============
+  const {
+    currentUser,
+    isLoadingAuth,
+    isSigningIn,
+    authError,
+    setAuthError,
+    hasVoted,
+    existingBallot,
+    setExistingBallot,
+    voteChecked,
+    signIn,
+    signOut: signOutUser,
+  } = useAuthSession(t, handleSignedIn);
+
   // ============ Flujo de Pantallas ============
   // Pasos, votos, persistencia del progreso y botón "atrás" (ver useVotingFlow).
   const {
@@ -86,20 +135,11 @@ function App() {
     historyEnabled: route === 'home',
   });
 
-  // ============ Sesión, login y voto ya emitido ============
-  const {
-    currentUser,
-    isLoadingAuth,
-    isSigningIn,
-    authError,
-    setAuthError,
-    hasVoted,
-    existingBallot,
-    setExistingBallot,
-    voteChecked,
-    signIn,
-    signOut: signOutUser,
-  } = useAuthSession(t, handleSignedIn);
+
+  // El callback de sesión usa esta función a través del ref (ver arriba).
+  useEffect(() => {
+    restoreProgressRef.current = restoreProgress;
+  }, [restoreProgress]);
 
   // ============ Edición del propio voto ============
   // El voto se puede corregir hasta la fecha de cierre, con un tope de
@@ -110,14 +150,6 @@ function App() {
   const remainingEdits = getRemainingEdits(existingBallot);
   const canEditVote = canEditBallot(existingBallot, votingConfig);
 
-
-  // ============ Datos del Usuario ============
-  // `userDisplayName` es el ÚNICO nombre editable y la única fuente de verdad de
-  // la UI. El nombre de la cuenta de Google se lee de `currentUser` al enviar,
-  // nunca de estado: antes vivía en un `userNickname` que `handleReturnToHome`
-  // vaciaba sin que ninguna pantalla ofreciera forma de rellenarlo, y eso dejaba
-  // el envío bloqueado para siempre.
-  const [userDisplayName, setUserDisplayName] = useState('');
 
   // ============ Control de Deadline ============
   // La votación está abierta si estamos dentro de la ventana de fechas y el
@@ -138,23 +170,9 @@ function App() {
     resultsArePublic
   );
 
-  /**
-   * Al confirmarse la sesión: nombre inicial y progreso guardado.
-   * useCallback porque useAuthSession lo tiene como dependencia de su efecto.
-   */
-  const handleSignedIn = useCallback((user) => {
-    setUserDisplayName(user.displayName || '');
-    restoreProgress();
-  }, [restoreProgress]);
-
   // ============ Estado de UI ============
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-
-  // ============ Ruta actual ============
-  // Solo hay dos rutas declaradas ('/' y '/admin'). Cualquier otra cosa rebota a
-  // la principal, reescribiendo la URL sin dejar entrada en el historial.
-  const route = resolveRoute(window.location.pathname);
 
   useEffect(() => {
     if (route === null) {

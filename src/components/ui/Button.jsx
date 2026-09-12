@@ -1,7 +1,7 @@
 /**
  * Componente Button - Botón reutilizable con múltiples variantes
  * 
- * @typedef {'primary'|'secondary'|'success'|'danger'|'outline'} ButtonVariant
+ * @typedef {'primary'|'secondary'|'success'|'danger'|'outline-solid'} ButtonVariant
  * @typedef {'sm'|'md'|'lg'} ButtonSize
  * @typedef {Object} ButtonProps
  * @property {React.ReactNode} children - Contenido del botón
@@ -39,7 +39,7 @@ export default function Button({
     secondary: 'theme-btn-secondary border theme-text-primary',
     success: 'btn-success border theme-border-primary',
     danger: 'btn-danger border theme-border-primary',
-    outline: 'bg-transparent border theme-border-secondary theme-text-primary hover:bg-[var(--bg-secondary)]'
+    outline: 'bg-transparent border theme-border-secondary theme-text-primary hover:bg-(--bg-secondary)'
   };
 
   // Tamaños
@@ -49,7 +49,7 @@ export default function Button({
     lg: 'px-6 py-3 text-lg'
   };
 
-  const baseClasses = 'font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]';
+  const baseClasses = 'font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-hidden focus-visible:ring-2 focus-visible:ring-(--color-accent) focus-visible:ring-offset-2 focus-visible:ring-offset-(--bg-primary)';
   const widthClass = fullWidth ? 'w-full' : '';
   const stateClass = loading ? 'opacity-75 cursor-wait' : 'hover:-translate-y-0.5';
 
