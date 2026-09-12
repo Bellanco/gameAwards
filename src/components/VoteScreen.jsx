@@ -6,8 +6,8 @@ import { getRandomGradients } from '../utils/gradients';
 import {
   getGridColumns,
   estimateCardWidth,
-  fitsWithoutScroll,
   cardHeightFor,
+  MIN_CARD_HEIGHT_PX,
   CONTENT_MAX_WIDTH_PX,
 } from '../utils/gridDensity';
 import { tField, getCategoryTitle, getOptionId, getOptionLabel } from '../utils/localize';
@@ -211,39 +211,38 @@ export default function VoteScreen({
     reservedPx: gridPaddingPx,
   };
 
-  // Alto "natural" de la tarjeta, el que pide su proporción con el ancho que le
-  // toca. Es lo que decide si hace falta intervenir: mientras quepa, la tarjeta
-  // conserva su forma.
-  const cardRatio = isMobilePortrait
+  // Proporción máxima de la tarjeta: hasta dónde puede crecer en alto respecto a
+  // su ancho. En móvil vertical las tarjetas ya son casi cuadradas; en apaisado
+  // y escritorio son panorámicas, pero cuando sobra alto (un monitor con una
+  // sola fila) quedarse en 2:1 deja la pantalla medio vacía, así que se las deja
+  // engordar hasta ~0.72 del ancho.
+  const maxCardRatio = isMobilePortrait
     ? (isCompactCard ? 3 / 4 : 4 / 5)
-    : (isCompactCard ? 7 / 16 : 8 / 16);
+    : 0.72;
   // Ancho real por tarjeta cuando ya hay medida; si no, la estimación.
   const measuredCardWidth = gridAreaWidth > 0
     ? (gridAreaWidth - rowGapPx * (gridColumns - 1) - gridPaddingPx) / gridColumns
     : cardWidth;
-  const naturalHeight = Math.round(measuredCardWidth * cardRatio);
-  const naturalTotal = naturalHeight * gridRows + rowGapPx * (gridRows - 1) + gridPaddingPx;
+  const cardHeightCap = Math.round(measuredCardWidth * maxCardRatio);
 
-  // ¿Se sale la rejilla del área visible con esa forma natural? Con unos píxeles
-  // de margen: quedarse con 5px de scroll es exactamente lo que se quiere
-  // evitar, y repartir el alto en ese caso no se nota.
-  const overflowsViewport = gridAreaHeight > 0 && naturalTotal > gridAreaHeight - 8;
-  const cardHeight = cardHeightFor(fitMetrics);
+  // Alto que le toca a cada fila repartiendo el área visible.
+  const rowHeight = cardHeightFor(fitMetrics);
 
-  // Solo cuando se sale Y el reparto deja tarjetas legibles se cambia a "llenar
-  // la celda": la rejilla reparte el alto exacto entre las filas y desaparece el
-  // scroll. Es el caso del iPhone SE, donde `aspect-[4/3]` pedía más alto del
-  // que había. Si no se sale, no se toca nada (en un monitor, una fila llenando
-  // todo el alto daría tarjetas absurdas); y si ni repartiendo se ven bien
-  // (muchos nominados en una pantalla diminuta), se prefiere el scroll.
-  const fillHeight = overflowsViewport && fitsWithoutScroll(fitMetrics);
-  const fitsInViewport = !overflowsViewport || fillHeight;
-
-  // Fuera del modo "llenar" se sigue acotando el alto, que es lo que evita el
-  // scroll en pantallas anchas y bajas (portátiles, tablets apaisadas).
-  const maxCardHeight = !fillHeight && gridAreaHeight > 0
-    ? Math.max(56, cardHeight)
-    : null;
+  // UN SOLO MODO en vez de dos.
+  //
+  // Antes se elegía entre "proporción fija" y "repartir el alto" con una
+  // heurística, y cuando fallaba las tarjetas conservaban su proporción dentro
+  // de filas más bajas: se salían de su celda, se solapaban con la de abajo y
+  // quedaban cortadas por el borde inferior (se veía en escritorio con la
+  // ventana baja). Ahora la rejilla SIEMPRE reparte el alto en filas iguales y
+  // la tarjeta llena su celda hasta el tope de proporción: si falta sitio se
+  // encoge, si sobra crece hasta ese tope y se centra. No hay desbordamiento
+  // posible ni tarjetas diminutas en medio de una pantalla vacía.
+  //
+  // El scroll solo vuelve cuando ni encogiendo caben tarjetas legibles (muchos
+  // nominados en una pantalla diminuta).
+  const fitsInViewport = gridAreaHeight > 0 && rowHeight >= MIN_CARD_HEIGHT_PX;
+  const cardMaxHeight = fitsInViewport ? Math.min(cardHeightCap, rowHeight) : null;
 
   const scrollToBottom = () => {
     if (scrollContainerRef.current) {
@@ -290,7 +289,7 @@ export default function VoteScreen({
 
   // Footer con botones de navegación
   const footerContent = (
-    <div className="flex gap-2 sm:gap-3 flex-col w-full px-2 sm:px-3 py-2 sm:py-3">
+    <div className="flex gap-2 sm:gap-3 flex-col w-full max-w-2xl mx-auto px-2 sm:px-3 py-2 sm:py-3">
       {/* Fila 1: Anterior y Siguiente. En fila también en móvil: apilados se
           comían ~45px de alto, justo los que faltaban para que la rejilla
           cupiera sin scroll en un iPhone SE. */}
@@ -355,9 +354,9 @@ export default function VoteScreen({
         >
           <div 
             className={`grid w-full auto-rows-fr px-1 sm:px-2 md:px-3 pb-3 sm:pb-4 ${
-              fillHeight ? 'h-full content-stretch' : 'content-start'
+              fitsInViewport ? 'h-full content-stretch items-center' : 'content-start'
             } ${
-              !fillHeight && viewportInfo.isLandscape && !hasVerticalScroll ? 'my-auto' : ''
+              !fitsInViewport && viewportInfo.isLandscape && !hasVerticalScroll ? 'my-auto' : ''
             } ${
               isTransitioning ? 'pointer-events-none' : ''
             }`}
@@ -369,7 +368,7 @@ export default function VoteScreen({
               '--card-gap': `${rowGapPx}px`,
               // Con el alto repartido, las filas son iguales y suman exactamente
               // el área visible: es lo que garantiza que no haya scroll.
-              ...(fillHeight
+              ...(fitsInViewport
                 ? { gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))` }
                 : {}),
               // Tope de ancho: en un monitor ultra-ancho, estirar cinco tarjetas
@@ -394,7 +393,7 @@ export default function VoteScreen({
               return (
                 <div
                   key={`${category.id}_${optionId}`}
-                  className={`h-full min-h-0 ${
+                  className={`flex h-full min-h-0 items-center ${
                     isLoneLast
                       ? 'col-span-full justify-self-center w-[calc((100%-var(--card-gap))/2)]'
                       : ''
@@ -406,9 +405,9 @@ export default function VoteScreen({
                   gradient={gameGradients[optionId] || 'bg-linear-to-br from-zinc-900/60 to-zinc-700/80'}
                   isSelected={isSelected}
                   isMobilePortrait={isMobilePortrait}
-                  compact={isCompactCard || (fillHeight && cardHeight < 96)}
-                  maxHeightPx={maxCardHeight}
-                  fillHeight={fillHeight}
+                  compact={isCompactCard || (cardMaxHeight !== null && cardMaxHeight < 96)}
+                  maxHeightPx={cardMaxHeight}
+                  fillHeight={fitsInViewport}
                   isTransitioning={isTransitioning}
                   onSelect={() =>
                     handleSelectOption(category.id, { id: optionId, name: optionName })
@@ -428,7 +427,7 @@ export default function VoteScreen({
         </div>
 
         {/* Indicador de Scroll - Sombra + Flecha (Clickeable) - Solo móvil vertical */}
-        {!fillHeight && hasVerticalScroll && !isAtBottom && viewportInfo.isMobile && !viewportInfo.isLandscape && (
+        {!fitsInViewport && hasVerticalScroll && !isAtBottom && viewportInfo.isMobile && !viewportInfo.isLandscape && (
           <div className="absolute bottom-0 left-0 right-0 h-16 flex flex-col items-center justify-end">
             {/* Sombra degradada */}
             <div className="absolute bottom-0 left-0 right-0 h-16 bg-linear-to-t from-black/40 to-transparent pointer-events-none" />

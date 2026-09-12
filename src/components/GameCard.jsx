@@ -13,11 +13,11 @@ import AutoSizeText from './AutoSizeText';
  * (portátiles, tablets apaisadas) una tarjeta de 3 columnas se iría a 200px de
  * alto y obligaría a hacer scroll para ver la última fila.
  *
- * `fillHeight` va un paso más allá: la tarjeta deja de fijar su alto por
- * proporción y llena la celda que le da la rejilla. Es lo que quita el scroll en
- * móviles pequeños (iPhone SE), donde `aspect-[4/3]` pedía más alto del que
- * había. Se activa solo cuando el reparto deja tarjetas legibles (ver
- * `fitsWithoutScroll` en utils/gridDensity.js).
+ * `fillHeight` hace que la tarjeta deje de fijar su alto por proporción y llene
+ * la celda que le da la rejilla, siempre sin pasar de `maxHeightPx` (su alto
+ * natural). Así, cuando sobra sitio conserva su forma y cuando falta se encoge,
+ * en vez de salirse de la celda y solaparse con la fila de abajo. Es lo que
+ * quita el scroll en móviles pequeños y evita el recorte en ventanas bajas.
  */
 export default function GameCard({
   gameName,
@@ -55,7 +55,7 @@ export default function GameCard({
         onClick={() => !isTransitioning && onSelect && onSelect()}
         disabled={isTransitioning}
         aria-pressed={isSelected}
-        style={!fillHeight && maxHeightPx ? { maxHeight: `${maxHeightPx}px` } : undefined}
+        style={maxHeightPx ? { maxHeight: `${maxHeightPx}px` } : undefined}
         className={`relative rounded-lg overflow-hidden border-2 ${sizeClass} w-full select-none transition-transform duration-200
           ${isTransitioning 
             ? 'pointer-events-none cursor-not-allowed' 

@@ -2,8 +2,8 @@ import {
   getGridColumns,
   balanceColumns,
   estimateCardWidth,
-  fitsWithoutScroll,
   cardHeightFor,
+  MIN_CARD_HEIGHT_PX,
   CONTENT_MAX_WIDTH_PX,
 } from './gridDensity';
 
@@ -146,28 +146,27 @@ describe('estimateCardWidth', () => {
   });
 });
 
-describe('fitsWithoutScroll / cardHeightFor', () => {
+describe('cardHeightFor', () => {
   it('reparte el alto descontando separaciones y padding', () => {
-    // 300px de área, 3 filas, 8px de gap y 12px de padding inferior:
-    // (300 - 16 - 12) / 3 = 90
-    expect(cardHeightFor({ areaHeight: 300, rows: 3, gapPx: 8, reservedPx: 12 })).toBe(90);
+    // 300px de área, 3 filas, 12px de gap y 12px de padding inferior:
+    // (300 - 24 - 12) / 3 = 88
+    expect(cardHeightFor({ areaHeight: 300, rows: 3, gapPx: 12, reservedPx: 12 })).toBe(88);
   });
 
-  it('dice que cabe cuando la tarjeta resultante sigue siendo legible', () => {
-    // iPhone SE con 5-6 nominados: 3 filas en el área que queda tras cabecera
-    // y pie. Es el caso que antes se salía por abajo.
-    expect(fitsWithoutScroll({ areaHeight: 300, rows: 3, gapPx: 8, reservedPx: 12 })).toBe(true);
+  it('el alto por fila decide si se puede prescindir del scroll', () => {
+    // iPhone SE con 5-6 nominados: 3 filas en el área que queda tras cabecera y
+    // pie. La tarjeta sale legible, así que la rejilla reparte y no hay scroll.
+    const se = cardHeightFor({ areaHeight: 300, rows: 3, gapPx: 12, reservedPx: 12 });
+    expect(se).toBeGreaterThanOrEqual(MIN_CARD_HEIGHT_PX);
+
+    // 7 nominados en 2 columnas (4 filas) en una pantalla muy corta: ni
+    // encogiendo se leen, así que ahí sí toca scroll.
+    const apretado = cardHeightFor({ areaHeight: 200, rows: 4, gapPx: 12, reservedPx: 12 });
+    expect(apretado).toBeLessThan(MIN_CARD_HEIGHT_PX);
   });
 
-  it('prefiere el scroll antes que dejar tarjetas ilegibles', () => {
-    // 7 nominados en 2 columnas (4 filas) en una pantalla muy corta.
-    expect(fitsWithoutScroll({ areaHeight: 200, rows: 4, gapPx: 8, reservedPx: 12 })).toBe(false);
-  });
-
-  it('sin medida todavía no afirma que quepa', () => {
-    // Primer render: mejor scroll (comportamiento de siempre) que un reparto
-    // calculado sobre un alto de cero.
-    expect(fitsWithoutScroll({ areaHeight: 0, rows: 3, gapPx: 8 })).toBe(false);
-    expect(cardHeightFor({ areaHeight: 0, rows: 3, gapPx: 8 })).toBe(0);
+  it('sin medida todavía devuelve cero', () => {
+    // Primer render: no hay área medida, así que no se decide nada.
+    expect(cardHeightFor({ areaHeight: 0, rows: 3, gapPx: 12 })).toBe(0);
   });
 });
