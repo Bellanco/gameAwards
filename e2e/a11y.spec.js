@@ -5,6 +5,7 @@ import {
   resetEmulators,
   buildCategory,
   votingOpen,
+  seasonPublished,
   signInWithGoogle,
 } from './helpers.js';
 
@@ -92,21 +93,17 @@ test.describe('accesibilidad (axe, WCAG 2.1 AA)', () => {
     await analizarAmbosTemas(page);
   });
 
-  test('pantalla pública de resultados', async ({ page }) => {
+  test('pantalla de resultados de la última edición', async ({ page }) => {
     const ayer = Date.now() - 86_400_000;
     await seedDoc(
       'config',
       'voting',
-      votingOpen({
-        isOpen: false,
-        closesAt: new Date(ayer).toISOString(),
-        closesAtMillis: ayer,
-        resultsAt: new Date(ayer).toISOString(),
-        resultsAtMillis: ayer,
-      })
+      // Edición ya publicada: sin edición en marcha y apuntando a su archivo.
+      seasonPublished('porra-2026')
     );
-    await seedDoc('results', '2026', {
+    await seedDoc('results', 'porra-2026', {
       season: 2026,
+      closedAt: new Date(ayer).toISOString(),
       totalBallots: 2,
       winners: { goty: 'goty_option_1' },
       categoriesSnapshot: [
@@ -127,7 +124,9 @@ test.describe('accesibilidad (axe, WCAG 2.1 AA)', () => {
       ],
     });
 
+    // Los resultados exigen sesión: la clasificación lleva nombres.
     await page.goto('/');
+    await signInWithGoogle(page, { email: 'curioso@example.com', name: 'Curioso' });
     await expect(page.getByRole('heading', { name: /resultados de la edición/i })).toBeVisible();
     await analizarAmbosTemas(page);
   });

@@ -59,6 +59,10 @@ export async function readDoc(collection, id) {
     if ('integerValue' in v) return Number(v.integerValue);
     if ('doubleValue' in v) return v.doubleValue;
     if ('stringValue' in v) return v.stringValue;
+    // `serverTimestamp()` llega por REST como timestampValue. Sin esta rama,
+    // campos como `closedAt` se leían como undefined y un test podía dar por
+    // bueno un documento al que le faltaba justo lo que comprobaba.
+    if ('timestampValue' in v) return v.timestampValue;
     if ('arrayValue' in v) return (v.arrayValue.values || []).map(fromValue);
     if ('mapValue' in v) {
       return Object.fromEntries(
@@ -93,24 +97,46 @@ export function buildCategory(id, titleEs, nombres, extra = {}) {
       weight: 1,
       orderIndex: extra.orderIndex ?? 0,
       isActive: true,
-      winner: extra.winner ?? null,
     },
   };
 }
 
-/** Calendario de votación abierto y sin fecha de resultados. */
+/**
+ * Edición abierta: una sola fecha, la de cierre, y nada publicado todavía.
+ *
+ * `lastPublishedId` vacío es lo que mantiene oculta la pantalla pública de
+ * resultados; se rellena al publicar la edición (ver `seasonPublished`).
+ */
 export const votingOpen = (overrides = {}) => ({
   isOpen: true,
   season: 2026,
-  opensAt: new Date(Date.now() - 86_400_000).toISOString(),
-  opensAtMillis: Date.now() - 86_400_000,
+  seasonId: 'porra-2026',
+  seasonName: 'Porra 2026',
   closesAt: new Date(Date.now() + 86_400_000).toISOString(),
   closesAtMillis: Date.now() + 86_400_000,
+  opensAt: null,
+  opensAtMillis: null,
   resultsAt: null,
   resultsAtMillis: null,
+  lastPublishedId: '',
   updatedAt: new Date().toISOString(),
   ...overrides,
 });
+
+/**
+ * Edición ya publicada: sin fecha de cierre (no hay edición en marcha) y con el
+ * archivo publicado al que apunta la pantalla pública.
+ */
+export const seasonPublished = (publishedId, overrides = {}) =>
+  votingOpen({
+    isOpen: false,
+    seasonId: '',
+    seasonName: '',
+    closesAt: null,
+    closesAtMillis: null,
+    lastPublishedId: publishedId,
+    ...overrides,
+  });
 
 /**
  * Entra con Google a través del emulador de Auth.

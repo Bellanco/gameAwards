@@ -4,8 +4,12 @@
  * Cada documento lo escribe seasonService.archiveAndResetSeason al cerrar una edición:
  *   { season, winners:{catId:optionId}, categoriesSnapshot:[...], leaderboard:[...], totalBallots }
  *
- * Lectura pública (ver firestore.rules).
+ * Lista TODA la colección, incluida la edición en curso, así que es una lectura
+ * de admin: desde que `results` está protegido por fecha (ver firestore.rules),
+ * un no-admin haría fallar la consulta entera al toparse con el documento de la
+ * edición todavía sin publicar.
  *
+ * @param {boolean} [enabled=true] - Si false, no se pide nada a Firestore.
  * @returns {{results: Array, isLoading: boolean, error: string|null, refetch: Function}}
  */
 
@@ -14,12 +18,17 @@ import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { logError, ERROR_TYPES } from '../services/errorService';
 
-export const useSeasonResults = () => {
+export const useSeasonResults = (enabled = true) => {
   const [results, setResults] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
+    if (!enabled) {
+      setResults([]);
+      setIsLoading(false);
+      return;
+    }
     try {
       setIsLoading(true);
       setError(null);
@@ -34,7 +43,7 @@ export const useSeasonResults = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     load();

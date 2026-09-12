@@ -1,13 +1,28 @@
 import { test, expect } from '@playwright/test';
-import { seedDoc, resetEmulators, buildCategory, votingOpen } from './helpers.js';
+import {
+  seedDoc,
+  resetEmulators,
+  buildCategory,
+  votingOpen,
+  seasonPublished,
+  signInWithGoogle,
+} from './helpers.js';
 
 /**
  * Publicación de resultados.
  *
- * La pantalla es PÚBLICA (no hace falta sesión) y se alimenta del snapshot
- * `results/{season}`, porque los votos no son de lectura pública. Aquí se
- * comprueban las dos condiciones que la gobiernan: que la fecha haya llegado y
- * que el snapshot exista.
+ * La pantalla se alimenta del archivo `results/{seasonId}`, porque los votos no
+ * son de lectura pública, y muestra SOLO la última edición cerrada.
+ *
+ * Dos condiciones la gobiernan, y las dos se cumplen también en servidor
+ * (firestore.rules):
+ *
+ *  1. Que el admin haya PUBLICADO la edición: al archivarla se apunta su id en
+ *     `config/voting.lastPublishedId` y el archivo queda con `closedAt`.
+ *  2. Que quien mira TENGA SESIÓN: la clasificación lleva el nombre de cada
+ *     participante y no debe estar en internet abierto.
+ *
+ * Mientras hay una edición abierta, votar manda sobre enseñar la anterior.
  */
 
 const SNAPSHOT = {
@@ -40,32 +55,53 @@ const SNAPSHOT = {
   ],
 };
 
-/** Edición cerrada, con o sin fecha de resultados ya cumplida. */
-async function sembrarEdicionCerrada({ resultsPublicados }) {
+/** El archivo tal cual lo escribe la publicación: con `closedAt`. */
+const ARCHIVO = { ...SNAPSHOT, closedAt: new Date().toISOString() };
+
+/**
+ * Deja el emulador en un estado concreto del ciclo.
+ * @param {{publicada: boolean}} opciones - si la edición ya se publicó
+ */
+async function sembrarEdicion({ publicada }) {
   await resetEmulators();
   const ayer = Date.now() - 86_400_000;
-  const manana = Date.now() + 86_400_000;
   await seedDoc(
     'config',
     'voting',
-    votingOpen({
-      isOpen: false,
-      closesAt: new Date(ayer).toISOString(),
-      closesAtMillis: ayer,
-      resultsAt: new Date(resultsPublicados ? ayer : manana).toISOString(),
-      resultsAtMillis: resultsPublicados ? ayer : manana,
-    })
+    publicada
+      ? seasonPublished('porra-2026')
+      : // Cerrada pero SIN publicar: el admin todavía no le ha dado al botón.
+        votingOpen({ isOpen: false, closesAt: new Date(ayer).toISOString(), closesAtMillis: ayer })
   );
   const goty = buildCategory('goty', 'Juego del año', ['Clair Obscur', 'Hades II']);
   await seedDoc('categories', goty.id, goty.data);
 }
 
-test.describe('resultados públicos', () => {
-  test('al llegar la fecha se ven ganadores y clasificación sin iniciar sesión', async ({ page }) => {
-    await sembrarEdicionCerrada({ resultsPublicados: true });
-    await seedDoc('results', '2026', SNAPSHOT);
+const CURIOSO = { email: 'curioso@example.com', name: 'Curioso' };
+
+test.describe('resultados de la última edición', () => {
+  test('sin sesión no se ven: primero hay que entrar', async ({ page }) => {
+    // La clasificación lleva nombres de personas. Antes esta pantalla era
+    // pública y cualquiera con la URL veía la lista entera.
+    await sembrarEdicion({ publicada: true });
+    await seedDoc('results', 'porra-2026', ARCHIVO);
 
     await page.goto('/');
+
+    // El login, pero con el texto de resultados: quien llega aquí no viene a
+    // votar, la edición ya terminó.
+    await expect(page.getByRole('button', { name: /google/i })).toBeVisible();
+    await expect(page.getByText(/ver los ganadores y la clasificación/i)).toBeVisible();
+    await expect(page.getByText('Hades II', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Ana', { exact: true })).toHaveCount(0);
+  });
+
+  test('con sesión se ven ganadores y clasificación', async ({ page }) => {
+    await sembrarEdicion({ publicada: true });
+    await seedDoc('results', 'porra-2026', ARCHIVO);
+
+    await page.goto('/');
+    await signInWithGoogle(page, CURIOSO);
 
     await expect(page.getByRole('heading', { name: /resultados de la edición 2026/i })).toBeVisible();
 
@@ -81,29 +117,43 @@ test.describe('resultados públicos', () => {
     await expect(clasificacion.first()).toContainText('Ana');
     await expect(clasificacion.first()).toContainText('3 pts');
     await expect(clasificacion.last()).toContainText('Clara');
-
-    // Y nada de pedir sesión.
-    await expect(page.getByRole('button', { name: /google/i })).toHaveCount(0);
   });
 
-  test('antes de la fecha no se publica nada, aunque el snapshot exista', async ({ page }) => {
-    // El snapshot se escribe en cuanto el admin guarda ganadores o calendario,
-    // así que estar publicado no puede depender de que exista: manda la fecha.
-    await sembrarEdicionCerrada({ resultsPublicados: false });
-    await seedDoc('results', '2026', SNAPSHOT);
+  test('sin publicar no se enseña nada, aunque el archivo exista', async ({ page }) => {
+    // Que el documento exista no basta: hasta que el admin publica, la config no
+    // apunta a él y las reglas tampoco dejan leerlo.
+    await sembrarEdicion({ publicada: false });
+    await seedDoc('results', 'porra-2026', SNAPSHOT);
 
     await page.goto('/');
 
+    // Ni siquiera pide sesión: no hay nada publicado que enseñar.
     await expect(page.getByRole('heading', { name: /la votación ha cerrado/i })).toBeVisible();
     await expect(page.getByText('Hades II', { exact: true })).toHaveCount(0);
   });
 
-  test('con la fecha cumplida pero sin snapshot no se rompe nada', async ({ page }) => {
-    await sembrarEdicionCerrada({ resultsPublicados: true });
+  test('publicada pero sin archivo que leer, no se rompe nada', async ({ page }) => {
+    await sembrarEdicion({ publicada: true });
 
     await page.goto('/');
+    await signInWithGoogle(page, CURIOSO);
 
     // Se queda en la pantalla de votación cerrada, sin errores.
     await expect(page.getByRole('heading', { name: /la votación ha cerrado/i })).toBeVisible();
+  });
+
+  test('una edición abierta manda sobre los resultados ya publicados', async ({ page }) => {
+    // Publicada la anterior y abierta una nueva: lo que toca es votar, no
+    // quedarse mirando el palmarés del año pasado.
+    await resetEmulators();
+    await seedDoc('config', 'voting', votingOpen({ lastPublishedId: 'porra-2026' }));
+    const goty = buildCategory('goty', 'Juego del año', ['Clair Obscur', 'Hades II']);
+    await seedDoc('categories', goty.id, goty.data);
+    await seedDoc('results', 'porra-2026', ARCHIVO);
+
+    await page.goto('/');
+
+    await expect(page.getByRole('button', { name: /google/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /resultados de la edición/i })).toHaveCount(0);
   });
 });

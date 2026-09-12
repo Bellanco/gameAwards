@@ -12,9 +12,10 @@ import HistoryDetail from './HistoryDetail';
  * (`HistoryDetail`). Antes se apilaban todas las ediciones con un resumen de
  * cada una, que con varias ediciones por año se vuelve ilegible.
  *
- * Aquí aparece también la edición en curso: su archivo existe desde que el admin
- * guarda el calendario o los ganadores. Se marca como tal, porque `closedAt`
- * solo lo escribe el archivado del reinicio.
+ * Solo hay ediciones YA PUBLICADAS. Antes aparecía también la en curso, porque
+ * su archivo se creaba al guardar el calendario o los ganadores; desde que
+ * publicar es el gesto de cerrar la edición, `results` no contiene nada que no
+ * esté publicado, y por eso el público puede leerlo.
  */
 export default function HistoryTab({ seasonResults, resultsLoading, onRefresh }) {
   const { language } = useAppContext();
@@ -68,11 +69,6 @@ export default function HistoryTab({ seasonResults, resultsLoading, onRefresh })
                     <span className="text-xl font-black theme-accent break-words">
                       {getSeasonLabel(edition)}
                     </span>
-                    {!edition.closedAt && (
-                      <span className="text-xs font-bold uppercase px-2 py-1 rounded theme-container-secondary theme-text-secondary shrink-0">
-                        {t('inProgressEdition')}
-                      </span>
-                    )}
                   </div>
 
                   <p className="text-sm theme-text-tertiary mb-3">{edition.season}</p>

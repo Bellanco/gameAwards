@@ -9,7 +9,7 @@ export { useAdminCheck } from './useAdminCheck';
 export { useTheme } from './useTheme';
 export { useVotingConfig } from './useVotingConfig';
 export { useSeasonResults, useSeasonResult } from './useSeasonResults';
-export { useSeasonControls } from './useSeasonControls';
+export { useSeasonControls, useSeasonPreview } from './useSeasonControls';
 export { useStepHistory } from './useStepHistory';
 export { useVotingFlow } from './useVotingFlow';
 export { useViewport } from './useViewport';

@@ -2,6 +2,7 @@ import React from 'react';
 import { useTranslation } from '../data/literals';
 import { useAppContext } from '../context/AppContext';
 import { getCategoryTitle, getOptionLabel } from '../utils/localize';
+import { isOwnEntry } from '../utils/pseudonym';
 import { ScreenLayout } from './layouts';
 import { Header } from './ui';
 
@@ -15,7 +16,10 @@ import { Header } from './ui';
  * votos solo los puede leer su dueño o un admin, así que la clasificación no se
  * puede calcular en el navegador de un visitante. El snapshot lo escribe
  * `seasonService.publishSeasonResults` cada vez que el admin guarda ganadores o
- * el calendario.
+ * el calendario, y las reglas no dejan leerlo hasta que llega `resultsAt`.
+ *
+ * La clasificación publicada NO lleva el UID de nadie, solo una huella, así que
+ * la fila propia se reconoce con `isOwnEntry` (ver utils/pseudonym.js).
  *
  * @param {Object} props
  * @param {Object} props.result - documento results/{season}
@@ -89,10 +93,10 @@ export default function ResultsScreen({ result, currentUserId = null }) {
           ) : (
             <ul className="space-y-2">
               {leaderboard.map((entry) => {
-                const isMe = currentUserId && entry.userId === currentUserId;
+                const isMe = isOwnEntry(entry, currentUserId);
                 return (
                   <li
-                    key={entry.userId}
+                    key={entry.uidHash || entry.userId || entry.rank}
                     className={`flex items-center justify-between gap-4 rounded-lg border p-3 ${
                       isMe
                         ? 'theme-accent-bg theme-text-inverse border-transparent'

@@ -16,19 +16,7 @@ import { auth, googleProvider } from '../firebase';
 import { fetchUserBallot } from '../services/ballotService';
 import { trackLogin } from '../services/analyticsService';
 import { logError, ERROR_TYPES } from '../services/errorService';
-
-/**
- * Código de error de Firebase Auth -> clave de i18n.
- * Lo que no esté aquí cae en `errorSignInGeneric`: nunca se enseña el mensaje
- * crudo de Firebase, que puede incluir detalles internos.
- */
-const AUTH_ERROR_KEYS = {
-  'auth/popup-blocked': 'errorPopupBlocked',
-  'auth/popup-closed-by-user': 'errorPopupClosed',
-  'auth/network-request-failed': 'errorNetwork',
-  'auth/unauthorized-domain': 'errorUnauthorizedDomain',
-  'auth/operation-not-supported-in-this-environment': 'errorPopupUnsupported',
-};
+import { authErrorMessage } from '../utils/authErrors';
 
 /**
  * @param {Function} t - Traductor (useTranslation)
@@ -103,7 +91,7 @@ export const useAuthSession = (t, onSignedIn) => {
       return result.user;
     } catch (error) {
       logError(ERROR_TYPES.AUTH_ERROR, error, { context: 'useAuthSession - signIn' });
-      setAuthError(t(AUTH_ERROR_KEYS[error.code] || 'errorSignInGeneric'));
+      setAuthError(authErrorMessage(t, error));
       return null;
     } finally {
       setIsSigningIn(false);

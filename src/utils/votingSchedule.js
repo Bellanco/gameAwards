@@ -1,12 +1,18 @@
 /**
  * Semántica del calendario de votación (`config/voting`).
  *
- * El admin fija tres días desde la pestaña Temporada y de ahí salen los tres
- * instantes que gobiernan la app:
+ * UNA EDICIÓN TIENE UNA SOLA FECHA: la de cierre. Se elige al abrirla y de ahí
+ * sale el instante que gobierna la app:
  *
- *   opensAt   -> desde cuándo se puede votar   (00:00 del día elegido)
  *   closesAt  -> hasta cuándo se puede votar   (23:59 del día elegido)
- *   resultsAt -> cuándo se publican resultados (23:59 del día elegido)
+ *
+ * Antes había tres (apertura, cierre y publicación de resultados) y el panel
+ * pedía las tres por separado: demasiadas piezas para un ciclo que en realidad
+ * es abrir, cerrar y publicar. Ahora la edición se abre al crearla y se publica
+ * cuando el admin la archiva (ver `lastPublishedId` más abajo).
+ *
+ * `opensAtMillis` se sigue respetando si existe, porque las ediciones creadas
+ * con el modelo anterior lo tienen guardado; simplemente ya no se pide.
  *
  * Reglas de convivencia con el interruptor manual (`isOpen`):
  *  - Las FECHAS mandan: fuera de la ventana nadie vota, aunque isOpen sea true.
@@ -21,11 +27,28 @@
  * pantalla se muestra.
  */
 
-/** Estados posibles de la votación, para pintar la UI del panel. */
+/** Estados posibles de la votación, para pintar la UI pública. */
 export const VOTING_STATE = {
   SCHEDULED: 'scheduled', // aún no ha llegado la fecha de apertura
   OPEN: 'open',
   CLOSED: 'closed', // cerrada por fecha o forzada por el admin
+};
+
+/**
+ * Momento del ciclo de vida de la edición, que es lo que pinta la pestaña
+ * Temporada. Son tres y solo tres, y de cada uno sale UNA acción:
+ *
+ *   NONE    -> no hay edición en marcha        -> «Abrir votación»
+ *   OPEN    -> se está votando                 -> «Cerrar ahora» (adelanta el cierre)
+ *   PENDING -> cerrada, sin publicar todavía   -> «Publicar en el histórico»
+ *
+ * Publicar archiva la edición y la deja sin fecha de cierre, así que el ciclo
+ * vuelve solo a NONE y se puede abrir la siguiente.
+ */
+export const SEASON_STAGE = {
+  NONE: 'none',
+  OPEN: 'open',
+  PENDING: 'pending',
 };
 
 /**
@@ -61,19 +84,34 @@ export const getVotingState = (config, now = Date.now()) => {
 };
 
 /**
- * ¿Están ya publicados los resultados?
+ * Momento del ciclo de vida de la edición (ver SEASON_STAGE).
  *
- * Sin fecha de resultados NO se publica nada: publicar por defecto expondría la
- * clasificación en cuanto el admin marcara el primer ganador.
+ * Lo que distingue «no hay edición» de «hay una» es la FECHA DE CIERRE: abrir
+ * una edición la fija y publicarla la borra. No hace falta ninguna marca extra.
  *
  * @param {Object} config
  * @param {number} [now]
+ * @returns {'none'|'open'|'pending'}
+ */
+export const getSeasonStage = (config, now = Date.now()) => {
+  if (config?.closesAtMillis == null) return SEASON_STAGE.NONE;
+  if (isVotingOpenNow(config, now)) return SEASON_STAGE.OPEN;
+  return SEASON_STAGE.PENDING;
+};
+
+/**
+ * ¿Hay resultados publicados que enseñar al público?
+ *
+ * Ya no depende de una fecha: publicar es el gesto de ARCHIVAR la edición, y al
+ * hacerlo se apunta su id en `config/voting.lastPublishedId`. Así el visitante
+ * resuelve el archivo con una sola lectura por id, sin listar la colección
+ * (`results` solo deja leer lo ya archivado, y una consulta que tope con un
+ * documento prohibido falla entera).
+ *
+ * @param {Object} config
  * @returns {boolean}
  */
-export const areResultsPublished = (config, now = Date.now()) => {
-  const millis = config?.resultsAtMillis;
-  return millis != null && now >= millis;
-};
+export const areResultsPublished = (config) => Boolean(config?.lastPublishedId);
 
 /**
  * Días completos que faltan para un instante (redondeando hacia arriba).
@@ -87,17 +125,19 @@ export const daysUntil = (millis, now = Date.now()) => {
 };
 
 /**
- * Comprueba que los tres días elegidos sean coherentes entre sí.
- * Se comparan como cadenas 'YYYY-MM-DD', que ordenan igual que las fechas.
+ * Valida el día de cierre elegido al abrir una edición.
  *
- * @param {{opensDay?: string, closesDay?: string, resultsDay?: string}} days
- * @returns {string|null} clave i18n del error, o null si todo encaja
+ * Se compara como cadena 'YYYY-MM-DD' contra el día de hoy, que ordenan igual
+ * que las fechas. Se exige una fecha y que no esté en el pasado: una edición que
+ * nace cerrada no le sirve a nadie y deja el panel en el estado «pendiente de
+ * publicar» nada más crearla.
+ *
+ * @param {string} closesDay - 'YYYY-MM-DD'
+ * @param {string} today - 'YYYY-MM-DD' en la zona de la votación
+ * @returns {string|null} clave i18n del error, o null si el día vale
  */
-export const validateScheduleDays = ({ opensDay, closesDay, resultsDay } = {}) => {
-  if (opensDay && closesDay && closesDay < opensDay) return 'errorCloseBeforeOpen';
-  if (closesDay && resultsDay && resultsDay < closesDay) return 'errorResultsBeforeClose';
-  if (!closesDay && resultsDay && opensDay && resultsDay < opensDay) {
-    return 'errorResultsBeforeClose';
-  }
+export const validateClosingDay = (closesDay, today) => {
+  if (!closesDay) return 'errorClosingDayRequired';
+  if (today && closesDay < today) return 'errorClosingDayInThePast';
   return null;
 };

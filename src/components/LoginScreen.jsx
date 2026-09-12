@@ -6,15 +6,23 @@ import { ScreenLayout } from './layouts';
 /**
  * LoginScreen v2 - Refactorizado con ScreenLayout y ControlBar reutilizables
  * Muestra pantalla de login con hero section y cards informativas
+ *
+ * @param {Object} props
+ * @param {'vote'|'results'} [props.purpose='vote'] - a qué se entra. Es el mismo
+ *   login en los dos casos, pero el texto no puede serlo: quien llega cuando la
+ *   edición ya terminó no viene a votar, viene a ver quién ganó, y ofrecerle
+ *   «vota una sola vez» y los tres pasos de la votación desorienta.
  */
 export default function LoginScreen({
   onLogin,
   isLoading,
   errorMessage,
   daysRemaining,
+  purpose = 'vote',
 }) {
   const { language } = useAppContext();
   const t = useTranslation(language);
+  const forResults = purpose === 'results';
 
   return (
     <ScreenLayout
@@ -41,7 +49,7 @@ export default function LoginScreen({
               }}
             />
             <p className="text-lg md:text-2xl theme-text-secondary font-light">
-              {t('votingOpen')}
+              {forResults ? t('resultsAvailable') : t('votingOpen')}
             </p>
           </div>
 
@@ -50,19 +58,21 @@ export default function LoginScreen({
             {/* Descripción */}
             <div className="mb-8 text-center">
               <p className="theme-text-primary text-lg leading-relaxed mb-4">
-                {t('loginSubtitle')}
+                {forResults ? t('loginForResultsSubtitle') : t('loginSubtitle')}
               </p>
-              <div className="flex items-center justify-center gap-4 text-base theme-text-primary font-semibold flex-wrap">
-                <span className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-status-warning rounded-full"></span>
-                  {t('oneVote')}
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-status-warning rounded-full"></span>
-                  {t('secureVoting')}
-                </span>
-              </div>
+              {!forResults && (
+                <div className="flex items-center justify-center gap-4 text-base theme-text-primary font-semibold flex-wrap">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-status-warning rounded-full"></span>
+                    {t('oneVote')}
+                  </span>
+                  <span>•</span>
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 bg-status-warning rounded-full"></span>
+                    {t('secureVoting')}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Días restantes */}
@@ -112,21 +122,23 @@ export default function LoginScreen({
             </p>
           </div>
 
-          {/* Information Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="theme-card theme-border-primary border rounded-lg p-4 theme-card-hover">
-              <p className="text-2xl mb-2 theme-accent theme-display">1</p>
-              <p className="text-sm theme-text-secondary">{t('step1Title')}</p>
+          {/* Los tres pasos de la votación solo tienen sentido si se viene a votar. */}
+          {!forResults && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="theme-card theme-border-primary border rounded-lg p-4 theme-card-hover">
+                <p className="text-2xl mb-2 theme-accent theme-display">1</p>
+                <p className="text-sm theme-text-secondary">{t('step1Title')}</p>
+              </div>
+              <div className="theme-card theme-border-primary border rounded-lg p-4 theme-card-hover">
+                <p className="text-2xl mb-2 theme-accent theme-display">2</p>
+                <p className="text-sm theme-text-secondary">{t('step2Title')}</p>
+              </div>
+              <div className="theme-card theme-border-primary border rounded-lg p-4 theme-card-hover">
+                <p className="text-2xl mb-2 theme-accent theme-display">3</p>
+                <p className="text-sm theme-text-secondary">{t('step3Title')}</p>
+              </div>
             </div>
-            <div className="theme-card theme-border-primary border rounded-lg p-4 theme-card-hover">
-              <p className="text-2xl mb-2 theme-accent theme-display">2</p>
-              <p className="text-sm theme-text-secondary">{t('step2Title')}</p>
-            </div>
-            <div className="theme-card theme-border-primary border rounded-lg p-4 theme-card-hover">
-              <p className="text-2xl mb-2 theme-accent theme-display">3</p>
-              <p className="text-sm theme-text-secondary">{t('step3Title')}</p>
-            </div>
-          </div>
+          )}
 
           {/* Footer */}
           <div className="mt-12 text-center text-sm theme-text-secondary theme-border-primary border-t pt-6">

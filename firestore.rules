@@ -33,6 +33,19 @@ service cloud.firestore {
       return 60;
     }
 
+    // Tope al TEXTO de las selecciones, sumado. `selections` es
+    // `{ categoryId: optionId }` y un optionId real mide unos 45 caracteres
+    // (`<docId>_option_N`), así que 60 x 60 deja margen de sobra para cualquier
+    // porra legítima.
+    //
+    // Sin esto solo se contaban las entradas, no lo que había dentro: un votante
+    // podía escribir en su propio documento 60 claves con cadenas de decenas de
+    // KB cada una, hasta el límite de 1 MiB por documento. Solo se perjudicaba a
+    // sí mismo, pero engordaba el panel y el snapshot publicado.
+    function maxSelectionsTextSize() {
+      return 3600;
+    }
+
     // ¿La votación está abierta AHORA, según config/voting?
     //
     // Esta comprobación es la que hace que el calendario exista de verdad: antes
@@ -66,6 +79,31 @@ service cloud.firestore {
 
     function votingIsOpen() {
       return !exists(votingConfigRef()) || votingConfigAllows();
+    }
+
+    // ¿Los resultados de la edición en curso ya son PÚBLICOS?
+    //
+    // Mismo problema que tenía el plazo de votación: `resultsAt` solo se
+    // comprobaba en el navegador (App.jsx), así que el snapshot de
+    // `results/{seasonId}` —ganadores y clasificación completos— se podía leer
+    // con una petición REST desde el momento en que el admin lo publicaba, que
+    // es cada vez que guarda ganadores o calendario. En una porra eso no es un
+    // detalle de privacidad: es poder ver las respuestas antes del examen.
+    //
+    // Se compara contra `resultsAtMillis` (epoch) por lo mismo que el resto del
+    // calendario: las reglas no saben parsear una cadena ISO.
+    //
+    // SIN FECHA NO SE PUBLICA NADA (igual que utils/votingSchedule.js): si se
+    // interpretara la ausencia como "abierto", la clasificación saldría en
+    // cuanto se marcara el primer ganador.
+    // El `exists()` no es decorativo: sin documento de configuración, `get()`
+    // devuelve null y leer `.data` aborta la evaluación (que en la práctica
+    // deniega, pero por error, no por decisión).
+    function resultsArePublished() {
+      return exists(votingConfigRef()) &&
+             get(votingConfigRef()).data.get('resultsAtMillis', null) != null &&
+             request.time.toMillis() >=
+               get(votingConfigRef()).data.get('resultsAtMillis', null);
     }
 
     // Nº de veces que un votante puede REHACER su papeleta después del envío
@@ -102,6 +140,7 @@ service cloud.firestore {
              d.userDisplayName.size() > 0 && d.userDisplayName.size() <= 50 &&
              d.selections is map &&
              d.selections.size() > 0 && d.selections.size() <= maxSelections() &&
+             d.selections.values().join('').size() <= maxSelectionsTextSize() &&
              d.season is int && d.season >= 2000 && d.season <= 2999 &&
              d.submittedAt is string && d.submittedAt.size() <= 40 &&
              d.updatedAt is string && d.updatedAt.size() <= 40 &&
@@ -150,31 +189,71 @@ service cloud.firestore {
     }
 
     // ===== categories (categorías - lectura pública) =====
+    //
+    // Pública porque hace falta para votar (títulos y nominados). Precisamente
+    // por eso NO puede guardar el ganador: las reglas protegen documentos
+    // enteros, no campos, así que un `winner` aquí es un ganador publicado. Los
+    // ganadores viven en `admin/winners`.
     match /categories/{categoryId} {
       allow read: if true;
       allow write, delete: if isAdmin();
     }
 
     // ===== config (estado de la votación - lectura pública) =====
-    match /config/{document=**} {
+    //
+    // SOLO `config/voting` es público, y lo es porque la app necesita el
+    // calendario antes de que nadie inicie sesión. El comodín que había aquí
+    // (`config/{document=**}`) abría a lectura anónima cualquier documento que
+    // alguien dejara caer bajo `config/` en el futuro, sin que nada lo avisara.
+    match /config/voting {
       allow read: if true;
       allow write: if isAdmin();
     }
+    match /config/{document=**} {
+      allow read, write, delete: if isAdmin();
+    }
 
-    // ===== results (archivo de resultados por temporada - lectura pública) =====
+    // ===== results (archivo de resultados por temporada) =====
+    //
+    // Es el ÚNICO canal de salida de los ganadores y de la clasificación (ni
+    // `ballots` ni `admin/winners` se leen sin permiso), así que quién y cuándo
+    // puede verlos se decide AQUÍ y no solo en el navegador.
+    //
+    // Dos condiciones, y hacen falta las dos:
+    //
+    //  1. HAY QUE TENER SESIÓN. La clasificación lleva el nombre de cada
+    //     participante: es una lista de personas identificables y no tiene por
+    //     qué estar en internet abierto. Esto la deja en «quien entra con su
+    //     cuenta», que es el mismo requisito que para votar.
+    //  2. La edición tiene que estar PUBLICADA: o ya archivada (`closedAt`, que
+    //     solo escribe la publicación) o con su fecha de resultados cumplida
+    //     (ediciones del modelo anterior, que se apoyaban en `resultsAt`).
+    //
+    // Un admin lee siempre: el panel necesita el histórico completo.
+    //
+    // `resource` es null cuando el documento no existe (leer un archivo que no
+    // está); sin esta guarda la regla reventaría en vez de denegar.
+    function isArchivedSeason() {
+      return resource != null && resource.data.get('closedAt', null) != null;
+    }
+
     match /results/{season} {
-      allow read: if true;
+      allow read: if isAdmin() ||
+                     (request.auth != null && (isArchivedSeason() || resultsArePublished()));
       allow write, delete: if isAdmin();
     }
 
-    // ===== winners / surveyWinners (compatibilidad - lectura pública) =====
+    // ===== winners / surveyWinners (compatibilidad) =====
+    //
+    // Colecciones heredadas que ya no escribe nadie. Eran de lectura pública, y
+    // su nombre lo dice todo: si quedara un dato dentro, sería un ganador
+    // consultable por cualquiera. Se cierran a admin por el mismo motivo que
+    // `categories.winner` dejó de guardar ganadores (ver winnersService).
     match /winners/{categoryId} {
-      allow read: if true;
-      allow write, delete: if isAdmin();
+      allow read, write, delete: if isAdmin();
     }
     match /surveyWinners/{categoryId} {
-      allow read: if true;
-      allow write, delete: if isAdmin();
+      allow read, write, delete: if isAdmin();
     }
 
     // ===== admin (configuración sensible) =====

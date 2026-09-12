@@ -26,7 +26,6 @@ export default function HistoryDetail({ edition, onBack, onRenamed }) {
 
   const winners = (edition.categoriesSnapshot || []).filter((cat) => cat.winner);
   const leaderboard = edition.leaderboard || [];
-  const enCurso = !edition.closedAt;
 
   const handleRename = async () => {
     try {
@@ -63,7 +62,6 @@ export default function HistoryDetail({ edition, onBack, onRenamed }) {
         </h2>
         <p className="theme-text-secondary text-sm">
           {edition.season}
-          {enCurso ? ` · ${t('inProgressEdition')}` : ''}
         </p>
       </div>
 
@@ -119,7 +117,11 @@ export default function HistoryDetail({ edition, onBack, onRenamed }) {
           ) : (
             <ul className="space-y-2">
               {leaderboard.map((entry) => (
-                <li key={entry.userId} className="flex justify-between gap-3 text-sm">
+                // Los archivos nuevos no guardan el UID, solo su huella.
+                <li
+                  key={entry.uidHash || entry.userId || entry.rank}
+                  className="flex justify-between gap-3 text-sm"
+                >
                   <span className="theme-text-tertiary">
                     {entry.rank === 1 && '🥇 '}
                     {entry.rank === 2 && '🥈 '}
