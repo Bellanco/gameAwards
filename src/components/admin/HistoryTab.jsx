@@ -5,8 +5,13 @@ import { getCategoryTitle as localizeCategoryTitle, getOptionLabel } from '../..
 import { LoadingSpinner } from '../ui';
 
 /**
- * Pestaña de histórico: ganadores y clasificación de cada edición archivada
- * en `results/{año}`.
+ * Pestaña de histórico: ganadores y clasificación de cada edición publicada en
+ * `results/{año}`.
+ *
+ * Desde que los resultados se publican por fecha (sin esperar al reinicio), aquí
+ * también aparece la edición en curso: su documento existe en cuanto el admin
+ * guarda el calendario o los ganadores. Se marca como tal para no confundirla
+ * con una edición ya cerrada (`closedAt` solo lo escribe el archivado).
  */
 export default function HistoryTab({ seasonResults, resultsLoading }) {
   const { language } = useAppContext();
@@ -32,7 +37,14 @@ export default function HistoryTab({ seasonResults, resultsLoading }) {
               return (
                 <div key={edition.id} className="theme-card theme-border-primary border rounded-lg overflow-hidden">
                   <div className="theme-header theme-border-primary border-b px-6 py-4 flex justify-between items-center">
-                    <h3 className="text-2xl font-black theme-accent">{edition.season}</h3>
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-2xl font-black theme-accent">{edition.season}</h3>
+                      {!edition.closedAt && (
+                        <span className="text-xs font-bold uppercase px-2 py-1 rounded theme-container-secondary theme-text-secondary">
+                          {t('inProgressEdition')}
+                        </span>
+                      )}
+                    </div>
                     <span className="text-sm theme-text-secondary">{edition.totalBallots || 0} {t('votes')}</span>
                   </div>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">

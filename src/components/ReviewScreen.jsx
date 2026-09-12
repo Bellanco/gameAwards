@@ -8,10 +8,18 @@ import { ScreenLayout } from './layouts';
 import { Header } from './ui';
 import { TextInput } from './form';
 import { MAX_USER_TEXT_LENGTH } from '../utils/sanitize';
+import { MAX_BALLOT_EDITS } from '../utils/ballotEdits';
 
 /**
  * ReviewScreen v5 - Refactorizado con componentes modulares
- * Pantalla de revisión de votos antes de enviar
+ * Pantalla de revisión de votos antes de enviar.
+ *
+ * Es también la puerta de entrada al MODIFICAR un voto ya emitido: con
+ * `isEditing` el botón guarda cambios en vez de enviar, y se avisa de que la
+ * operación consume una de las modificaciones disponibles.
+ *
+ * @param {boolean} [props.isEditing] - se está corrigiendo un voto ya emitido
+ * @param {number} [props.remainingEdits] - modificaciones que quedan
  */
 export default function ReviewScreen({
   categories,
@@ -23,6 +31,8 @@ export default function ReviewScreen({
   onReturnHome,
   isLoading,
   errorMessage,
+  isEditing = false,
+  remainingEdits = MAX_BALLOT_EDITS,
 }) {
   // Filtrar solo categorías válidas (no placeholders, no vacías)
   const validCategories = useMemo(() =>
@@ -128,6 +138,20 @@ export default function ReviewScreen({
           </div>
         )}
 
+        {/* Aviso de modificación: cada guardado consume una de las disponibles */}
+        {isEditing && (
+          <div className="p-4 mb-6 rounded-lg theme-card theme-border-primary border">
+            <p className="text-sm theme-text-primary font-semibold">{t('editingNotice')}</p>
+            <p className="text-sm theme-text-secondary mt-1">
+              {remainingEdits === 1
+                ? t('lastEditWarning')
+                : t('editsRemaining')
+                    .replace('{count}', remainingEdits)
+                    .replace('{max}', MAX_BALLOT_EDITS)}
+            </p>
+          </div>
+        )}
+
         {/* 3. Botones de Editar y Enviar */}
         <div className="flex gap-3 md:gap-4 w-full mb-8">
           <button
@@ -146,7 +170,9 @@ export default function ReviewScreen({
             }`}
             title={!isComplete ? t('completeAllCategories') : ''}
           >
-            {isLoading ? t('submitting') : (isComplete ? t('submitBallot') : `${t('submitBallot')}`)}
+            {isLoading
+              ? (isEditing ? t('savingChanges') : t('submitting'))
+              : (isEditing ? t('saveChanges') : t('submitBallot'))}
           </button>
         </div>
 

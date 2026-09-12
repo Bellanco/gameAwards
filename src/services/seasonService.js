@@ -2,9 +2,11 @@
  * Servicio de gestión de temporadas (ediciones anuales).
  *
  * Responsabilidades:
- *  - Abrir/cerrar la votación y fijar la temporada activa (`config/voting`).
+ *  - Fijar el calendario de la edición: apertura, cierre y publicación de
+ *    resultados (`config/voting`), además del cierre forzado y la temporada.
  *  - Archivar los resultados de una edición en `results/{season}` (ganadores +
  *    clasificación con los puntos de cada usuario) antes de reiniciar.
+ *  - Publicar los resultados de la temporada en curso sin destruir nada.
  *  - Reiniciar la edición borrando los votos (`ballots`) tras archivar.
  *
  * Todas las escrituras aquí requieren un usuario admin (ver firestore.rules).
@@ -20,16 +22,22 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { computeLeaderboard } from '../utils/scoring';
-import { buildClosingDate } from '../utils/closingDate';
+import { buildScheduleFields } from '../utils/closingDate';
 import { logError, ERROR_TYPES } from './errorService';
 import logger from './loggerService';
 
 const VOTING_DOC = doc(db, 'config', 'voting');
 
 /**
- * Abre o cierra la votación.
+ * Cierre forzado / reapertura manual de la votación (`config/voting.isOpen`).
+ *
+ * OJO con la semántica: `isOpen` ya no abre por sí solo. Manda el calendario
+ * (ver utils/votingSchedule.js) y este campo solo puede cerrar antes de tiempo;
+ * ponerlo a true fuera de la ventana de fechas no habilita el voto, ni en el
+ * cliente ni en las reglas.
+ *
  * @param {boolean} isOpen
- * @param {{season?: number, closesAt?: string|null}} [extra]
+ * @param {{season?: number}} [extra]
  */
 export async function setVotingOpen(isOpen, extra = {}) {
   await setDoc(
@@ -37,14 +45,6 @@ export async function setVotingOpen(isOpen, extra = {}) {
     {
       isOpen,
       ...(typeof extra.season === 'number' ? { season: extra.season } : {}),
-      // `closesAtMillis` viaja SIEMPRE junto a `closesAt`: es el campo que leen
-      // las reglas, y dejarlo desincronizado permitiría votar tras el cierre.
-      ...(extra.closesAt !== undefined
-        ? {
-            closesAt: extra.closesAt,
-            closesAtMillis: extra.closesAt ? new Date(extra.closesAt).getTime() : null,
-          }
-        : {}),
       updatedAt: new Date().toISOString(),
     },
     { merge: true }
@@ -52,28 +52,104 @@ export async function setVotingOpen(isOpen, extra = {}) {
 }
 
 /**
- * Fija (o limpia) la fecha de cierre de la votación.
+ * Fija (o limpia) el calendario completo de la edición.
  *
- * Recibe el día elegido ('YYYY-MM-DD') y guarda DOS campos:
- *  - `closesAt`: ISO, el que lee el cliente para mostrar y calcular días.
- *  - `closesAtMillis`: epoch en ms, el que comparan las reglas de Firestore
- *    (no saben parsear una cadena ISO). Es el que hace que el plazo se cumpla
- *    en servidor y no solo en el navegador.
+ * Recibe los tres DÍAS elegidos en el panel ('YYYY-MM-DD') y guarda SEIS campos,
+ * un par por fecha: el ISO que lee el cliente y el epoch en ms que comparan las
+ * reglas de Firestore (no saben parsear una cadena ISO). Los pares viajan
+ * siempre juntos: escribir uno sin el otro dejaría el plazo sin efecto en
+ * servidor. Los instantes se fijan en Europe/Madrid, no en la hora local del
+ * administrador (ver utils/closingDate.js).
  *
- * El instante se fija en Europe/Madrid, no en la hora local del administrador
- * (ver utils/closingDate.js). Pasa null para quitar la fecha.
+ * Pasa null o '' en cualquiera de los días para quitar esa fecha.
  *
- * @param {string|null} day - 'YYYY-MM-DD' o null
- * @returns {Promise<string|null>} La fecha de cierre en ISO, o null
+ * @param {{opensDay?: string|null, closesDay?: string|null, resultsDay?: string|null}} days
+ * @returns {Promise<Object>} Los campos escritos (ISO + epoch de cada fecha)
  */
-export async function setClosingDate(day) {
-  const { closesAt, closesAtMillis } = buildClosingDate(day);
+export async function setVotingSchedule(days) {
+  const schedule = buildScheduleFields(days);
   await setDoc(
     VOTING_DOC,
-    { closesAt, closesAtMillis, updatedAt: new Date().toISOString() },
+    { ...schedule, updatedAt: new Date().toISOString() },
     { merge: true }
   );
-  return closesAt;
+  return schedule;
+}
+
+/**
+ * Snapshot de resultados de una temporada: ganadores por categoría, foto de las
+ * categorías (para poder mostrar los nombres aunque después se editen) y la
+ * clasificación con los puntos de cada participante.
+ *
+ * Vive aquí, y no en cada llamador, porque lo escriben dos caminos distintos:
+ * la publicación de resultados y el archivado del reinicio anual. Si divergieran,
+ * el histórico y la pantalla pública mostrarían cosas diferentes.
+ *
+ * @param {{season: number, categories: Array, ballots: Array}} params
+ * @returns {{season: number, winners: Object, categoriesSnapshot: Array,
+ *            leaderboard: Array, totalBallots: number}}
+ */
+export function buildSeasonSnapshot({ season, categories, ballots }) {
+  const winners = {};
+  const categoriesSnapshot = (categories || []).map((cat) => {
+    if (cat.winner) winners[cat.id] = cat.winner;
+    return {
+      id: cat.id,
+      title: cat.title,
+      winner: cat.winner || null,
+      weight: cat.weight || 1,
+      options: cat.options || [],
+    };
+  });
+
+  return {
+    season,
+    winners,
+    categoriesSnapshot,
+    leaderboard: computeLeaderboard(ballots || [], categories || []),
+    totalBallots: (ballots || []).length,
+  };
+}
+
+/**
+ * Publica (o actualiza) los resultados de la temporada en curso en
+ * `results/{season}`, SIN borrar votos ni tocar las categorías.
+ *
+ * Es lo que hace visible la pantalla pública de resultados: `ballots` no es de
+ * lectura pública (solo dueño o admin), así que la clasificación no se puede
+ * calcular en el navegador de un visitante; tiene que existir este snapshot, que
+ * sí es público. La FECHA de publicación (`resultsAt`) decide cuándo se muestra;
+ * esta función decide QUÉ se muestra.
+ *
+ * Se vuelve a llamar cada vez que el admin guarda ganadores o el calendario, así
+ * que el snapshot se mantiene al día mientras la edición está viva.
+ *
+ * @param {{season: number, categories: Array, ballots: Array}} params
+ * @returns {Promise<{season: number, winnersCount: number, totalBallots: number}>}
+ */
+export async function publishSeasonResults({ season, categories, ballots }) {
+  try {
+    const snapshot = buildSeasonSnapshot({ season, categories, ballots });
+
+    await setDoc(doc(db, 'results', String(season)), {
+      ...snapshot,
+      publishedAt: serverTimestamp(),
+    });
+
+    logger.log(`📣 Resultados de la temporada ${season} publicados/actualizados.`);
+
+    return {
+      season,
+      winnersCount: Object.keys(snapshot.winners).length,
+      totalBallots: snapshot.totalBallots,
+    };
+  } catch (error) {
+    logError(ERROR_TYPES.FIRESTORE_ERROR, error, {
+      context: 'seasonService - publishSeasonResults',
+      season,
+    });
+    throw error;
+  }
 }
 
 /**
@@ -95,38 +171,22 @@ export async function setClosingDate(day) {
 export async function archiveAndResetSeason({ season, categories, ballots }) {
   try {
     // 1 + 2. Construir y guardar el snapshot de resultados de la temporada.
-    const winners = {};
-    const categoriesSnapshot = categories.map((cat) => {
-      if (cat.winner) winners[cat.id] = cat.winner;
-      return {
-        id: cat.id,
-        title: cat.title,
-        winner: cat.winner || null,
-        weight: cat.weight || 1,
-        options: cat.options || [],
-      };
-    });
-
-    const leaderboard = computeLeaderboard(ballots, categories);
+    const snapshot = buildSeasonSnapshot({ season, categories, ballots });
 
     await setDoc(doc(db, 'results', String(season)), {
-      season,
-      winners,
-      categoriesSnapshot,
-      leaderboard,
-      totalBallots: ballots.length,
+      ...snapshot,
       closedAt: serverTimestamp(),
     });
 
     logger.log(`📦 Resultados de la temporada ${season} archivados.`);
 
     // 3. Borrar ballots en lotes (límite de 500 por batch en Firestore).
-    const snapshot = await getDocs(collection(db, 'ballots'));
+    const ballotsSnap = await getDocs(collection(db, 'ballots'));
     let deleted = 0;
     let batch = writeBatch(db);
     let opsInBatch = 0;
 
-    for (const ballotDoc of snapshot.docs) {
+    for (const ballotDoc of ballotsSnap.docs) {
       batch.delete(ballotDoc.ref);
       opsInBatch += 1;
       deleted += 1;

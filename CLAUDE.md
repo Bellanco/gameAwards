@@ -62,12 +62,15 @@ src/
 
 - **Escrituras a Firestore → `services/`**, nunca en un componente. Ya existen
   `categoriesService` (cargar/guardar/borrar/reordenar), `ballotService` (enviar y comprobar
-  voto), `winnersService` (ganadores en lote) y `seasonService` (temporada y reinicio anual).
+  voto), `winnersService` (ganadores en lote) y `seasonService` (calendario de la edición,
+  publicación de resultados y reinicio anual).
   Así se pueden probar sin renderizar.
 - **Lógica de estado con ciclo de vida → `hooks/`**: `useVotingFlow` (pasos, votos, progreso),
-  `useAuthSession` (sesión y bloqueo de re-voto), `useViewport`, `useStepHistory`.
-- **Cálculo puro → `utils/`**: `gridDensity`, `closingDate`, `options`, `sanitize`, `scoring`,
-  `localize`, `routes`.
+  `useAuthSession` (sesión y bloqueo de re-voto), `useViewport`, `useStepHistory`,
+  `useSeasonControls` (calendario/publicación/reinicio del AdminPanel), `useSeasonResult`.
+- **Cálculo puro → `utils/`**: `gridDensity`, `closingDate` (instantes del calendario en
+  Europe/Madrid), `votingSchedule` (semántica abierto/publicado), `options`, `sanitize`,
+  `scoring`, `localize`, `routes`, `ballotEdits` (tope de modificaciones del voto).
 - **Idioma y tema NO se pasan por props**: `useAppContext()`.
 
 ### Flujo de pantallas (controlado por `currentStep` en `App.jsx`)
@@ -76,8 +79,15 @@ src/
 - `n` (= `validCategories.length`) → Revisión
 - `99` → Éxito
 - Ruta `/admin` → `AdminPanel` (salta el flujo; carga diferida con `lazy`)
-- Bloqueo de re-voto: si el usuario ya tiene ballot en Firestore → `AlreadyVotedScreen`
-- Votación cerrada (`isDeadlineReached`) → `DeadlineScreen` (antes de login y flujo)
+- Bloqueo de re-voto: si el usuario ya tiene ballot en Firestore → `AlreadyVotedScreen`, que
+  ofrece modificarlo si quedan cambios y la votación sigue abierta (`isEditingBallot` en
+  `App.jsx` es lo que salta el bloqueo)
+- Resultados publicados (llegó `resultsAt`) → `ResultsScreen` **pública**, por delante de todo
+  el flujo (no exige sesión). Si aún no existe el snapshot `results/{season}`, se sigue a la
+  cascada normal.
+- Fuera de plazo (`isDeadlineReached`) → `DeadlineScreen` (antes de login y flujo). La misma
+  pantalla cubre los dos extremos: `isScheduled` cuando la edición aún no ha abierto y cerrada
+  cuando ya pasó el cierre.
 - Sin categorías válidas → mensaje de aviso (no hay pantalla dedicada)
 
 ### Rutas
@@ -130,8 +140,9 @@ No se usa router; la navegación entre categorías es estado de React.
 ## Firebase / Firestore
 
 - Auth: Google (`signInWithPopup`). El **UID de Firebase es el ID del documento** → garantiza
-  un voto por usuario. Escribe con `setDoc(doc(db, "ballots", uid), data)` — solo `create`
-  (las reglas deniegan `update`: un voto por persona, no modificable).
+  un voto por usuario. Escribe con `setDoc(doc(db, "ballots", uid), data)`, tanto el envío
+  inicial (`create`) como las correcciones (`update`): siempre el mismo documento, nunca uno
+  nuevo. El voto **se puede modificar hasta el cierre, un máximo de 5 veces** (ver más abajo).
 - Colecciones:
   - `ballots/{uid}` — voto del usuario. **Lectura solo dueño o admin** (no público).
   - `categories/{id}` — categorías bilingües (lectura pública, escritura admin).
@@ -141,11 +152,12 @@ No se usa router; la navegación entre categorías es estado de React.
   - `admin/**` — configuración sensible (lectura y escritura solo admin).
 - Reglas en `firestore.rules`. **Escritura valida `isOwner` o `isAdmin()`**; `ballots` valida
   esquema en el write. `delete` de ballots solo admin (reinicio anual). Si tocas el modelo de
-  datos, actualiza también las reglas **y sus tests** (`npm run test:rules`, 26 casos contra el
+  datos, actualiza también las reglas **y sus tests** (`npm run test:rules`, 37 casos contra el
   emulador). Publicar con `firebase deploy --only firestore:rules`.
 - **El plazo de votación se valida en servidor**, no solo en el navegador: `allow create` de
-  `ballots` llama a `votingIsOpen()`, que lee `config/voting`. Si `config/voting` no existe, se
-  considera abierta (estado «aún sin configurar»). El esquema exige además que
+  `ballots` llama a `votingIsOpen()`, que lee `config/voting` y comprueba `opensAtMillis` y
+  `closesAtMillis` además de `isOpen`. Si `config/voting` no existe, se considera abierta
+  (estado «aún sin configurar»). El esquema exige además que
   `userEmail == request.auth.token.email` (impide suplantar el correo de otra persona), que
   `season` sea entero y que `selections` no exceda 60 entradas.
 - **Admin por custom claims** (`admin:true`), verificado por el servidor. `useAdminCheck()` lee
@@ -170,7 +182,10 @@ No se usa router; la navegación entre categorías es estado de React.
   ```js
   { userId, userEmail, userNickname, userDisplayName,
     selections: { categoryId: "<optionId>" },
-    season: <año>, submittedAt: ISO, isActive: true }
+    season: <año>, submittedAt: ISO,   // primer envío, INMUTABLE
+    updatedAt: ISO,                    // última escritura
+    editCount: 0,                      // 0 al enviar, +1 por modificación
+    isActive: true }
   ```
   `userNickname` = nombre de la cuenta de Google, se lee de `auth.currentUser` al enviar (no
   editable, no vive en estado). `userDisplayName` = nombre editable en `ReviewScreen` y **el
@@ -193,20 +208,67 @@ No se usa router; la navegación entre categorías es estado de React.
 - **Histórico**: `useSeasonResults()` lee `results/{año}`; el AdminPanel tiene la pestaña
   **Histórico** que muestra, por edición, ganadores por categoría y la clasificación.
 
-### Control de votación y reset anual
+### Modificar el propio voto (máximo 5 veces)
 
-- `config/voting = { isOpen, season, closesAt, closesAtMillis, updatedAt }`. La app lee esto con
-  `useVotingConfig()`. La votación está cerrada si `isOpen=false` **o** si ya pasó `closesAt`
-  → `DeadlineScreen`. `closesAt` es la **fecha de cierre editable** desde la pestaña Temporada
-  (`seasonService.setClosingDate('YYYY-MM-DD')`); el reinicio anual la limpia.
-- **`closesAt` y `closesAtMillis` son el mismo instante en dos formatos** y viajan siempre
-  juntos: `closesAt` (ISO) lo lee el cliente para mostrar; `closesAtMillis` (epoch) lo comparan
-  las reglas, que no saben parsear una cadena ISO. Escribir uno sin el otro deja el plazo sin
-  efecto en servidor. El instante se fija en **Europe/Madrid** (`utils/closingDate.js`), no en
-  la hora local del administrador.
-- El admin abre/cierra y reinicia desde la pestaña **Temporada** del AdminPanel. El reinicio
-  (`seasonService.archiveAndResetSeason`) archiva ganadores + clasificación en `results/{año}`
-  y luego **borra** todos los `ballots`; después avanza la temporada y deja la votación cerrada.
+- El voto dejó de ser inmutable: se puede corregir **mientras la votación siga abierta** y
+  mientras queden modificaciones. Sigue habiendo **un voto por persona**: se reescribe el mismo
+  `ballots/{uid}`, nunca se crea otro documento.
+- El tope lo cuenta el SERVIDOR con `editCount`: `firestore.rules > isValidBallotEdit` exige que
+  el contador entrante sea **exactamente** el anterior + 1 y que no pase de `maxBallotEdits()`
+  (5). Si solo se comprobara «no pasar de 5», el cliente reenviaría siempre `editCount: 1` y
+  editaría sin fin. Al editar tampoco pueden cambiar `userId`, `season` ni `submittedAt`.
+- `src/utils/ballotEdits.js` es el espejo para la UI (`MAX_BALLOT_EDITS`, `getRemainingEdits`,
+  `canEditBallot`). **El 5 está en dos sitios** (util y reglas): si cambias uno, cambia el otro
+  y sus tests.
+- **Sin lecturas extra**: `ballotService.fetchUserBallot()` sustituye al antiguo
+  `hasExistingBallot()` y trae el documento completo en la misma única lectura por sesión que ya
+  se hacía. De ahí salen las tres cosas: si ya votó, qué votó y cuántas modificaciones le
+  quedan. Tras enviar o corregir, `App` guarda en estado el documento recién escrito
+  (`setExistingBallot`) en vez de releer.
+- Flujo: `AlreadyVotedScreen` y `SuccessScreen` ofrecen «Modificar mi voto» solo si
+  `canEditBallot(...)`; se entra por `ReviewScreen` (`isEditing`), con los votos guardados
+  recargados mediante `selectionsToVotes()` de `utils/localize.js` (resuelve optionId → nombre y
+  descarta categorías que ya no existen). `isEditingBallot` en `App.jsx` es lo que deja pasar
+  del bloqueo de re-voto.
+- Los ballots emitidos **antes** de esta feature no tienen `editCount`: cuentan como 0, así que
+  conservan sus 5 modificaciones. No hace falta migrar nada.
+
+### Calendario de la edición y reset anual
+
+- `config/voting = { isOpen, season, opensAt, opensAtMillis, closesAt, closesAtMillis,
+  resultsAt, resultsAtMillis, updatedAt }`. La app lo lee con `useVotingConfig()` y lo
+  **interpreta** en `utils/votingSchedule.js` (puro y con tests):
+  - `isVotingOpenNow(config)` → se puede votar si estamos entre `opensAt` y `closesAt` **y** el
+    admin no ha forzado el cierre. Una fecha ausente no restringe.
+  - `areResultsPublished(config)` → resultados públicos desde `resultsAt`. **Sin fecha no se
+    publica nada** (si no, la clasificación saldría al marcar el primer ganador).
+  - `getVotingState(config)` → `scheduled | open | closed`, para la UI del panel.
+- **Las fechas mandan; `isOpen` solo cierra.** El botón de la pestaña Temporada es un cierre
+  forzado: puede cerrar antes de tiempo, pero poner `isOpen: true` no habilita el voto fuera de
+  la ventana, ni en el cliente ni en las reglas. La misma regla vive en `votingConfigAllows()`
+  de `firestore.rules`; si cambias una, cambia la otra.
+- **Cada fecha viaja en DOS formatos y siempre juntos**: `<x>At` (ISO) lo lee el cliente para
+  mostrar; `<x>AtMillis` (epoch) lo comparan las reglas, que no saben parsear una cadena ISO.
+  Escribir uno sin el otro deja el plazo sin efecto en servidor. Los construye
+  `buildScheduleFields()` de `utils/closingDate.js`, que fija los instantes en **Europe/Madrid**
+  (no en la hora local del administrador): apertura a las 00:00 del día elegido, cierre y
+  resultados a las 23:59:59.999. `toVotingZoneDay()` hace el camino inverso para los inputs.
+- El admin fija el calendario en la pestaña **Temporada** (`seasonService.setVotingSchedule`),
+  con tres `<input type="date">` y un preset de prueba «hoy / +7 / +14 días» para ensayar una
+  edición completa sin depender de diciembre. Un día vacío quita esa fecha.
+- Guardar una apertura **futura** levanta un cierre forzado previo (`isOpen: true`), para que la
+  fecha elegida sirva de algo. Solo con apertura futura: editar el calendario de una edición que
+  el admin cerró antes de tiempo no la reabre (`useSeasonControls.saveSchedule`).
+- **Publicación de resultados**: `ballots` NO es de lectura pública, así que un visitante no
+  puede calcular la clasificación. `seasonService.publishSeasonResults()` escribe el snapshot
+  público `results/{season}` (ganadores + `computeLeaderboard` + foto de las categorías) sin
+  borrar nada, y se llama al **guardar el calendario** y al **guardar ganadores**. `resultsAt`
+  decide *cuándo* se muestra; el snapshot decide *qué* se muestra. Por eso la pestaña Histórico
+  también enseña la edición en curso, marcada como tal (`closedAt` solo lo escribe el archivado).
+- El reinicio (`seasonService.archiveAndResetSeason`) archiva ganadores + clasificación en
+  `results/{año}` y luego **borra** todos los `ballots`; después avanza la temporada, deja la
+  votación cerrada y **limpia el calendario** (heredarlo cerraría o publicaría la nueva edición
+  en el momento equivocado).
 
 ## Convenciones de commits
 
@@ -250,5 +312,10 @@ obsoleto a medida que la app evoluciona:
   verifican el estado inicial); si se añaden aserciones sobre el estado resuelto, usar `waitFor`.
 - El acceso admin requiere asignar el custom claim `admin:true` (ver comando arriba) **antes**
   de poder leer `ballots` o escribir categorías/config. Sin el claim, `/admin` redirige a `/`.
+- **El paso del tiempo no se refresca solo**: el estado (abierta / cerrada / resultados) se
+  evalúa en cada render con `Date.now()`. `config/voting` sí llega en vivo (`onSnapshot`), así
+  que un cambio del admin se ve al instante; pero si la pestaña está abierta cuando *vence* una
+  fecha, hay que recargar para ver el cambio. Suficiente con fechas por día; si algún día se
+  quiere precisión de minutos, hará falta un temporizador en `App.jsx`.
 - El bundle principal es grande (Firebase). `AdminPanel` ya se carga con `lazy()` (code-splitting).
   Si importa reducir más, valorar `manualChunks` en `vite.config.js` para separar `firebase` y `react`.

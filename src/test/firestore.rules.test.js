@@ -7,6 +7,7 @@
  * Cubre lo que endurece el Sprint 2 de la auditoría:
  *  - el plazo de votación se cumple en SERVIDOR, no solo en el navegador;
  *  - el esquema del ballot (tipos, tamaños y correo == token);
+ *  - el límite de ediciones del propio voto (contador que avanza en servidor);
  *  - y que sigue en pie lo que ya funcionaba (un voto por persona, privacidad
  *    de los ballots, escritura de categorías/config solo para admin).
  */
@@ -23,6 +24,8 @@ const PROJECT_ID = 'tga-ballot-rules-test';
 const UID = 'user-123';
 const EMAIL = 'votante@example.com';
 const OTHER_UID = 'user-456';
+/** Fecha del envío inicial: fija, porque una edición no puede cambiarla. */
+const SUBMITTED_AT = '2026-06-01T10:00:00.000Z';
 
 let testEnv;
 
@@ -34,10 +37,19 @@ const validBallot = (overrides = {}) => ({
   userDisplayName: 'Votante',
   selections: { cat1: 'cat1_option_0', cat2: 'cat2_option_1' },
   season: 2026,
-  submittedAt: new Date().toISOString(),
+  submittedAt: SUBMITTED_AT,
+  updatedAt: SUBMITTED_AT,
+  editCount: 0,
   isActive: true,
   ...overrides,
 });
+
+/** Deja un voto ya emitido en Firestore, saltándose las reglas. */
+const seedBallot = async (overrides = {}) => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'ballots', UID), validBallot(overrides));
+  });
+};
 
 /** Contexto de un usuario normal autenticado con Google (token con email). */
 const asVoter = (uid = UID, email = EMAIL) =>
@@ -124,6 +136,40 @@ describe('firestore.rules', () => {
         setDoc(doc(asVoter(), 'ballots', UID), validBallot())
       );
     });
+
+    it('RECHAZA votar antes de la fecha de apertura', async () => {
+      // La edición está programada: el calendario manda aunque isOpen sea true.
+      await setVotingConfig({
+        isOpen: true,
+        season: 2026,
+        opensAtMillis: Date.now() + 3_600_000, // abre dentro de una hora
+        closesAtMillis: Date.now() + 7_200_000,
+      });
+      await assertFails(setDoc(doc(asVoter(), 'ballots', UID), validBallot()));
+    });
+
+    it('permite votar dentro de la ventana apertura-cierre', async () => {
+      await setVotingConfig({
+        isOpen: true,
+        season: 2026,
+        opensAtMillis: Date.now() - 60_000, // abrió hace un minuto
+        closesAtMillis: Date.now() + 3_600_000,
+      });
+      await assertSucceeds(
+        setDoc(doc(asVoter(), 'ballots', UID), validBallot())
+      );
+    });
+
+    it('RECHAZA votar dentro de la ventana si el admin fuerza el cierre', async () => {
+      // `isOpen: false` es un cierre anticipado: nunca abre, pero sí cierra.
+      await setVotingConfig({
+        isOpen: false,
+        season: 2026,
+        opensAtMillis: Date.now() - 60_000,
+        closesAtMillis: Date.now() + 3_600_000,
+      });
+      await assertFails(setDoc(doc(asVoter(), 'ballots', UID), validBallot()));
+    });
   });
 
   describe('esquema del ballot', () => {
@@ -209,13 +255,106 @@ describe('firestore.rules', () => {
       );
     });
 
-    it('RECHAZA sobrescribir un voto ya emitido', async () => {
-      await assertSucceeds(setDoc(doc(asVoter(), 'ballots', UID), validBallot()));
+    it('RECHAZA crear un voto con el contador de ediciones ya avanzado', async () => {
+      // Empezar en 3 sería colarse tres correcciones de regalo... al revés:
+      // dejaría el cupo tocado sin haber editado. El primer envío es siempre 0.
+      await assertFails(
+        setDoc(doc(asVoter(), 'ballots', UID), validBallot({ editCount: 3 }))
+      );
+    });
+  });
+
+  describe('edición del propio voto (máximo 5)', () => {
+    it('permite corregir el voto dentro de plazo', async () => {
+      await seedBallot();
+      await assertSucceeds(
+        setDoc(
+          doc(asVoter(), 'ballots', UID),
+          validBallot({ userDisplayName: 'Cambiado', editCount: 1 })
+        )
+      );
+    });
+
+    it('RECHAZA una edición que no incrementa el contador', async () => {
+      // Si valiera con "no pasar de 5", el cliente reenviaría siempre 1 y
+      // editaría sin fin: el contador debe avanzar de uno en uno.
+      await seedBallot({ editCount: 2 });
+      await assertFails(
+        setDoc(doc(asVoter(), 'ballots', UID), validBallot({ editCount: 2 }))
+      );
+      await assertFails(
+        setDoc(doc(asVoter(), 'ballots', UID), validBallot({ editCount: 1 }))
+      );
+    });
+
+    it('RECHAZA saltarse ediciones en el contador', async () => {
+      await seedBallot({ editCount: 1 });
+      await assertFails(
+        setDoc(doc(asVoter(), 'ballots', UID), validBallot({ editCount: 5 }))
+      );
+    });
+
+    it('permite la quinta edición y RECHAZA la sexta', async () => {
+      await seedBallot({ editCount: 4 });
+      await assertSucceeds(
+        setDoc(doc(asVoter(), 'ballots', UID), validBallot({ editCount: 5 }))
+      );
+      await assertFails(
+        setDoc(doc(asVoter(), 'ballots', UID), validBallot({ editCount: 6 }))
+      );
+    });
+
+    it('RECHAZA editar fuera de plazo', async () => {
+      await setVotingConfig({
+        isOpen: true,
+        season: 2026,
+        closesAtMillis: Date.now() - 60_000,
+      });
+      await seedBallot();
+      await assertFails(
+        setDoc(doc(asVoter(), 'ballots', UID), validBallot({ editCount: 1 }))
+      );
+    });
+
+    it('RECHAZA cambiar la fecha del envío inicial o la temporada al editar', async () => {
+      await seedBallot();
       await assertFails(
         setDoc(
           doc(asVoter(), 'ballots', UID),
-          validBallot({ userDisplayName: 'Cambiado' })
+          validBallot({ editCount: 1, submittedAt: new Date().toISOString() })
         )
+      );
+      await assertFails(
+        setDoc(doc(asVoter(), 'ballots', UID), validBallot({ editCount: 1, season: 2027 }))
+      );
+    });
+
+    it('RECHAZA editar el voto de otra persona', async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(
+          doc(ctx.firestore(), 'ballots', OTHER_UID),
+          validBallot({ userId: OTHER_UID, userEmail: 'otro@example.com' })
+        );
+      });
+      await assertFails(
+        setDoc(
+          doc(asVoter(), 'ballots', OTHER_UID),
+          validBallot({ userId: OTHER_UID, userEmail: EMAIL, editCount: 1 })
+        )
+      );
+    });
+
+    it('permite corregir un voto antiguo, escrito antes del contador', async () => {
+      // Compatibilidad: los ballots emitidos antes de esta feature no tienen
+      // `editCount`; deben poder corregirse partiendo de cero.
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        const { editCount, updatedAt, ...legacy } = validBallot();
+        expect(editCount).toBe(0);
+        expect(updatedAt).toBe(SUBMITTED_AT);
+        await setDoc(doc(ctx.firestore(), 'ballots', UID), legacy);
+      });
+      await assertSucceeds(
+        setDoc(doc(asVoter(), 'ballots', UID), validBallot({ editCount: 1 }))
       );
     });
   });

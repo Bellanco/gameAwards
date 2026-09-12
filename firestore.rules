@@ -35,12 +35,18 @@ service cloud.firestore {
 
     // ¿La votación está abierta AHORA, según config/voting?
     //
-    // Esta comprobación es la que hace que el plazo exista de verdad: antes solo
-    // se evaluaba en el navegador (App.jsx), así que cualquiera podía registrar
-    // un voto fuera de plazo desde la consola o con el reloj del sistema atrasado.
+    // Esta comprobación es la que hace que el calendario exista de verdad: antes
+    // solo se evaluaba en el navegador (App.jsx), así que cualquiera podía
+    // registrar un voto fuera de plazo desde la consola o con el reloj del
+    // sistema atrasado.
     //
-    // Se compara contra `closesAtMillis` (epoch en ms) porque las reglas no
-    // saben parsear la cadena ISO de `closesAt`. Lo escribe seasonService.
+    // Se compara contra `opensAtMillis` / `closesAtMillis` (epoch en ms) porque
+    // las reglas no saben parsear las cadenas ISO de `opensAt` / `closesAt`. Los
+    // escribe seasonService, siempre en pareja con su ISO.
+    //
+    // Semántica (la misma que utils/votingSchedule.js): las FECHAS mandan y el
+    // interruptor `isOpen` solo puede cerrar antes de tiempo, nunca abrir fuera
+    // de la ventana. Una fecha ausente simplemente no restringe.
     //
     // Si config/voting NO existe todavía se considera ABIERTA, igual que hace el
     // cliente: es el estado "el admin aún no ha configurado nada" y no debe
@@ -52,6 +58,8 @@ service cloud.firestore {
     function votingConfigAllows() {
       let cfg = get(votingConfigRef()).data;
       return cfg.get('isOpen', true) == true &&
+             (cfg.get('opensAtMillis', null) == null ||
+              request.time.toMillis() >= cfg.get('opensAtMillis', null)) &&
              (cfg.get('closesAtMillis', null) == null ||
               request.time.toMillis() < cfg.get('closesAtMillis', null));
     }
@@ -60,21 +68,33 @@ service cloud.firestore {
       return !exists(votingConfigRef()) || votingConfigAllows();
     }
 
-    // Validación de esquema de un voto entrante.
+    // Nº de veces que un votante puede REHACER su papeleta después del envío
+    // inicial. El voto dejó de ser inmutable (se puede corregir mientras la
+    // votación siga abierta), pero cada edición es una escritura más: sin tope,
+    // una sola persona podría reescribirla indefinidamente.
+    //
+    // El mismo número vive en `src/utils/ballotEdits.js` para la UI. Aquí es
+    // donde se impone de verdad.
+    function maxBallotEdits() {
+      return 5;
+    }
+
+    // Campos que compone el cliente (ballotService.buildBallot).
+    function ballotFields() {
+      return ['userId', 'userEmail', 'userNickname', 'userDisplayName',
+              'selections', 'season', 'submittedAt', 'updatedAt',
+              'editCount', 'isActive'];
+    }
+
+    // Validación de esquema de un voto entrante (vale para crear y para editar).
     //
     // Comprueba tipos, tamaños y —esto es lo importante— que el correo es el del
     // token: antes `userEmail` solo tenía que ser un string, así que se podía
     // suplantar el de otra persona y el panel de admin lo mostraba tal cual.
     function isValidBallot(userId) {
       let d = request.resource.data;
-      return d.keys().hasOnly([
-               'userId', 'userEmail', 'userNickname', 'userDisplayName',
-               'selections', 'season', 'submittedAt', 'isActive'
-             ]) &&
-             d.keys().hasAll([
-               'userId', 'userEmail', 'userNickname', 'userDisplayName',
-               'selections', 'season', 'submittedAt', 'isActive'
-             ]) &&
+      return d.keys().hasOnly(ballotFields()) &&
+             d.keys().hasAll(ballotFields()) &&
              d.userId == userId &&
              d.userEmail == request.auth.token.email &&
              d.userNickname is string && d.userNickname.size() <= 50 &&
@@ -84,7 +104,31 @@ service cloud.firestore {
              d.selections.size() > 0 && d.selections.size() <= maxSelections() &&
              d.season is int && d.season >= 2000 && d.season <= 2999 &&
              d.submittedAt is string && d.submittedAt.size() <= 40 &&
+             d.updatedAt is string && d.updatedAt.size() <= 40 &&
+             d.editCount is int && d.editCount >= 0 &&
              d.isActive == true;
+    }
+
+    // Primer envío: el contador de ediciones arranca a cero.
+    function isValidNewBallot(userId) {
+      return isValidBallot(userId) && request.resource.data.editCount == 0;
+    }
+
+    // Edición de un voto ya emitido.
+    //
+    // El contador tiene que avanzar EXACTAMENTE de uno en uno: si bastara con
+    // "no pasar de 5", el cliente podría reenviar siempre editCount = 1 y editar
+    // sin fin. Y lo que identifica al voto (dueño, temporada y fecha del primer
+    // envío) no puede cambiar por el camino.
+    function isValidBallotEdit(userId) {
+      let prev = resource.data;
+      let next = request.resource.data;
+      return isValidBallot(userId) &&
+             next.editCount == prev.get('editCount', 0) + 1 &&
+             next.editCount <= maxBallotEdits() &&
+             next.userId == prev.userId &&
+             next.season == prev.season &&
+             next.submittedAt == prev.submittedAt;
     }
 
     // ===== ballots (votos de usuarios) =====
@@ -94,11 +138,12 @@ service cloud.firestore {
       allow read: if isOwner(userId) || isAdmin();
 
       // Creación: solo el propietario, con esquema válido y DENTRO DE PLAZO.
-      allow create: if isOwner(userId) && isValidBallot(userId) && votingIsOpen();
+      allow create: if isOwner(userId) && isValidNewBallot(userId) && votingIsOpen();
 
-      // Actualización: DENEGADA -> un voto por persona, no se puede sobrescribir.
-      // (El reinicio anual borra los ballots, permitiendo crear uno nuevo.)
-      allow update: if false;
+      // Actualización: el propietario puede rehacer su voto mientras la votación
+      // siga abierta y le queden ediciones (maxBallotEdits). Sigue habiendo un
+      // voto por persona: se reescribe el mismo documento, nunca se crea otro.
+      allow update: if isOwner(userId) && isValidBallotEdit(userId) && votingIsOpen();
 
       // Borrado: solo admin (necesario para el reinicio anual de la edición).
       allow delete: if isAdmin();

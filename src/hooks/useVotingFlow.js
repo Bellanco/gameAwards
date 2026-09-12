@@ -93,6 +93,14 @@ export const useVotingFlow = ({ validCategories, hasSession, historyEnabled = tr
     setResumeStep(progress.step);
   }, []);
 
+  /**
+   * Carga unos votos ya emitidos para corregirlos (edición del propio voto).
+   * Sustituye por completo lo que hubiera en memoria: lo que manda es lo que
+   * está guardado en Firestore, no un progreso a medias de otra sesión.
+   * @param {Object} votes - { categoryId: { id, name } }
+   */
+  const loadVotes = useCallback((votes) => setUserVotes(votes || {}), []);
+
   /** Olvida el progreso guardado y vacía los votos en memoria. */
   const clearProgress = useCallback(() => {
     setUserVotes({});
@@ -139,6 +147,7 @@ export const useVotingFlow = ({ validCategories, hasSession, historyEnabled = tr
     finishVoting,
     restoreProgress,
     clearProgress,
+    loadVotes,
     progressPercentage,
     reviewStep,
   };

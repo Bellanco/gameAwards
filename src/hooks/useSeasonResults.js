@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { logError, ERROR_TYPES } from '../services/errorService';
 
@@ -41,4 +41,48 @@ export const useSeasonResults = () => {
   }, [load]);
 
   return { results, isLoading, error, refetch: load };
+};
+
+/**
+ * Hook custom: useSeasonResult
+ * Lee UN solo documento `results/{season}`: el que alimenta la pantalla pública
+ * de resultados. Se lee bajo demanda (`enabled`) para no gastar una lectura por
+ * visita mientras los resultados todavía no están publicados.
+ *
+ * @param {number|string} season - temporada a leer
+ * @param {boolean} enabled - solo lee si es true
+ * @returns {{result: Object|null, isLoading: boolean}}
+ */
+export const useSeasonResult = (season, enabled) => {
+  const [result, setResult] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!enabled || season == null) {
+      setResult(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        setIsLoading(true);
+        const snapshot = await getDoc(doc(db, 'results', String(season)));
+        if (!cancelled) setResult(snapshot.exists() ? { id: snapshot.id, ...snapshot.data() } : null);
+      } catch (err) {
+        logError(ERROR_TYPES.FIRESTORE_ERROR, err, { context: 'useSeasonResult', season });
+        if (!cancelled) setResult(null);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [season, enabled]);
+
+  return { result, isLoading };
 };

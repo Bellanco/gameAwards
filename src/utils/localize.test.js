@@ -10,6 +10,7 @@ import {
   getOptionById,
   getOptionLabel,
   resolveOptionId,
+  selectionsToVotes,
 } from './localize';
 
 const category = {
@@ -119,5 +120,45 @@ describe('resolveOptionId', () => {
   it('resuelve un nombre único { name } a su optionId', () => {
     expect(resolveOptionId(categoryNameModel, 'cat2_option_1')).toBe('cat2_option_1');
     expect(resolveOptionId(categoryNameModel, 'Hades')).toBe('cat2_option_0');
+  });
+});
+
+describe('selectionsToVotes', () => {
+  const categories = [
+    {
+      id: 'goty',
+      title: { es: 'Juego del año', en: 'Game of the year' },
+      options: [
+        { id: 'goty_option_0', name: 'Juego A' },
+        { id: 'goty_option_1', name: 'Juego B' },
+      ],
+    },
+    {
+      id: 'art',
+      title: { es: 'Arte', en: 'Art' },
+      options: [{ id: 'art_option_0', name: 'Juego C' }],
+    },
+  ];
+
+  it('reconstruye { id, name } a partir de los optionId guardados', () => {
+    expect(selectionsToVotes({ goty: 'goty_option_1' }, categories)).toEqual({
+      goty: { id: 'goty_option_1', name: 'Juego B' },
+    });
+  });
+
+  it('descarta selecciones de categorías que ya no existen', () => {
+    // Reenviar un voto a una categoría borrada solo serviría para que las
+    // reglas rechazaran la corrección entera.
+    expect(selectionsToVotes({ borrada: 'x_option_0' }, categories)).toEqual({});
+  });
+
+  it('tolera un voto antiguo guardado por nombre', () => {
+    expect(selectionsToVotes({ art: 'Juego C' }, categories)).toEqual({
+      art: { id: 'art_option_0', name: 'Juego C' },
+    });
+  });
+
+  it('devuelve un mapa vacío sin selecciones', () => {
+    expect(selectionsToVotes(undefined, categories)).toEqual({});
   });
 });

@@ -3,9 +3,8 @@ import { auth, googleProvider } from '../firebase';
 import { signOut, signInWithPopup } from 'firebase/auth';
 import { useTranslation } from '../data/literals';
 import { useAppContext } from '../context/AppContext';
-import { useAdminCheck, useFirestoreCategories, useFirestoreBallots, useVotingConfig, useSeasonResults } from '../hooks';
+import { useAdminCheck, useFirestoreCategories, useFirestoreBallots, useVotingConfig, useSeasonResults, useSeasonControls } from '../hooks';
 import { sortCategoriesByOrder } from '../services/categoriesService';
-import { setVotingOpen, setClosingDate, archiveAndResetSeason } from '../services/seasonService';
 import { getCategoryTitle as localizeCategoryTitle, getOptionLabel, hasTitle } from '../utils/localize';
 import { LoadingSpinner, ThemeLanguageControls } from './ui';
 import logger from '../services/loggerService';
@@ -32,15 +31,20 @@ export default function AdminPanel() {
   const { isAdmin, currentUser, isLoading: authLoading } = useAdminCheck();
   const { categories, isLoading: categoriesLoading } = useFirestoreCategories();
   const { ballots, isLoading: ballotsLoading } = useFirestoreBallots();
-  const { isOpen: isVotingOpen, season, closesAt } = useVotingConfig();
+  const votingConfig = useVotingConfig();
   const { results: seasonResults, isLoading: resultsLoading } = useSeasonResults();
+
+  // Calendario de la edición, cierre forzado, publicación y reinicio anual.
+  const seasonControls = useSeasonControls({
+    config: votingConfig,
+    categories,
+    ballots,
+    t,
+  });
 
   const [statsData, setStatsData] = useState(null);
   const [viewMode, setViewMode] = useState('overview'); // 'overview' | 'ballots' | 'categories' | 'winners' | 'ranking' | 'history' | 'season'
   const [errorMessage, setErrorMessage] = useState('');
-  const [seasonBusy, setSeasonBusy] = useState(false);
-  const [seasonMessage, setSeasonMessage] = useState('');
-  const [closeDate, setCloseDate] = useState(''); // 'YYYY-MM-DD' para el input
 
   // Calcular estadísticas cuando cambian categorías o votos
   useEffect(() => {
@@ -57,17 +61,6 @@ export default function AdminPanel() {
       window.location.replace(FALLBACK_ROUTE);
     }
   }, [authLoading, currentUser, isAdmin]);
-
-  // Sincronizar el input de fecha de cierre con config/voting.closesAt
-  useEffect(() => {
-    if (closesAt) {
-      const d = new Date(closesAt);
-      const pad = (n) => String(n).padStart(2, '0');
-      setCloseDate(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
-    } else {
-      setCloseDate('');
-    }
-  }, [closesAt]);
 
   /**
    * Calcula estadísticas de los votos
@@ -166,60 +159,6 @@ export default function AdminPanel() {
    */
   const handleLogout = async () => {
     await signOut(auth);
-  };
-
-  /**
-   * Abrir / cerrar la votación (config/voting.isOpen).
-   */
-  const handleToggleVoting = async () => {
-    try {
-      setSeasonBusy(true);
-      setSeasonMessage('');
-      await setVotingOpen(!isVotingOpen, { season });
-      setSeasonMessage(t('saved'));
-      setTimeout(() => setSeasonMessage(''), 2500);
-    } catch (err) {
-      setSeasonMessage(err.message);
-    } finally {
-      setSeasonBusy(false);
-    }
-  };
-
-  /**
-   * Guardar (o limpiar) la fecha de cierre de la votación.
-   */
-  const handleSaveClosingDate = async () => {
-    try {
-      setSeasonBusy(true);
-      setSeasonMessage('');
-      await setClosingDate(closeDate || null);
-      setSeasonMessage(t('saved'));
-      setTimeout(() => setSeasonMessage(''), 2500);
-    } catch (err) {
-      setSeasonMessage(err.message);
-    } finally {
-      setSeasonBusy(false);
-    }
-  };
-
-  /**
-   * Archivar resultados de la temporada y reiniciar la edición (borra votos).
-   */
-  const handleArchiveReset = async () => {
-    if (!window.confirm(`${t('archiveResetConfirm')} (${season})`)) return;
-    try {
-      setSeasonBusy(true);
-      setSeasonMessage('');
-      const result = await archiveAndResetSeason({ season, categories, ballots });
-      // Avanzar a la siguiente temporada: cerrada y sin fecha de cierre (se
-      // elegirá de nuevo al abrir la nueva edición).
-      await setVotingOpen(false, { season: season + 1, closesAt: null });
-      setSeasonMessage(`${t('archived')}: ${result.deleted} ${t('votes')} · ${result.cleared} ${t('categories').toLowerCase()} · ${season} → ${season + 1}`);
-    } catch (err) {
-      setSeasonMessage(err.message);
-    } finally {
-      setSeasonBusy(false);
-    }
   };
 
   // No autenticado
@@ -336,18 +275,7 @@ export default function AdminPanel() {
 
         {/* Season / Voting control */}
         {viewMode === 'season' && (
-          <SeasonTab
-            season={season}
-            isVotingOpen={isVotingOpen}
-            closesAt={closesAt}
-            closeDate={closeDate}
-            setCloseDate={setCloseDate}
-            seasonBusy={seasonBusy}
-            seasonMessage={seasonMessage}
-            onToggleVoting={handleToggleVoting}
-            onSaveClosingDate={handleSaveClosingDate}
-            onArchiveReset={handleArchiveReset}
-          />
+          <SeasonTab config={votingConfig} controls={seasonControls} />
         )}
       </div>
     </div>
