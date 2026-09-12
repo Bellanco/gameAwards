@@ -8,6 +8,13 @@ import AutoSizeText from './AutoSizeText';
  * 1. "vote" - Para seleccionar juegos en VoteScreen
  * 2. "medal" - Para mostrar Top 3 en ReviewScreen
  * 3. "review" - Para mostrar votos en el grid de ReviewScreen
+ *
+ * `maxHeightPx` (solo en "vote") es el alto que le toca a la tarjeta en la
+ * rejilla: la proporción manda mientras quepa, pero en pantallas anchas y bajas
+ * (portátiles, tablets apaisadas) una tarjeta de 3 columnas se iría a 200px de
+ * alto y obligaría a hacer scroll para ver la última fila. El `min-h` de cada
+ * tamaño sigue teniendo prioridad en CSS, así que en móvil nunca aplasta las
+ * tarjetas: ahí se sigue haciendo scroll.
  */
 export default function GameCard({
   gameName,
@@ -23,7 +30,8 @@ export default function GameCard({
   statusBadge = null,
   compact = false,
   isMobilePortrait = false,
-  isTransitioning = false
+  isTransitioning = false,
+  maxHeightPx = null
 }) {
   // Variante: VOTE (selección de juegos)
   if (variant === 'vote') {
@@ -42,6 +50,7 @@ export default function GameCard({
       <button
         onClick={() => !isTransitioning && onSelect && onSelect()}
         disabled={isTransitioning}
+        style={maxHeightPx ? { maxHeight: `${maxHeightPx}px` } : undefined}
         className={`relative rounded-lg overflow-hidden border-2 ${sizeClass} w-full select-none transition-transform duration-200
           ${isTransitioning 
             ? 'pointer-events-none cursor-not-allowed' 

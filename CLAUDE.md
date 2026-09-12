@@ -68,7 +68,8 @@ src/
 - **Lógica de estado con ciclo de vida → `hooks/`**: `useVotingFlow` (pasos, votos, progreso),
   `useAuthSession` (sesión y bloqueo de re-voto), `useViewport`, `useStepHistory`,
   `useSeasonControls` (calendario/publicación/reinicio del AdminPanel), `useSeasonResult`.
-- **Cálculo puro → `utils/`**: `gridDensity`, `closingDate` (instantes del calendario en
+- **Cálculo puro → `utils/`**: `gridDensity` (columnas de la rejilla de nominados: calibración
+  por ancho + reparto equilibrado, ver abajo), `closingDate` (instantes del calendario en
   Europe/Madrid), `votingSchedule` (semántica abierto/publicado), `options`, `sanitize`,
   `scoring`, `localize`, `routes`, `ballotEdits` (tope de modificaciones del voto).
 - **Idioma y tema NO se pasan por props**: `useAppContext()`.
@@ -125,6 +126,13 @@ No se usa router; la navegación entre categorías es estado de React.
      `100vh` incluye la barra de direcciones del móvil y cortaba la fila de botones. Si
      necesitas el vh estático, usa `h-[100vh]` explícitamente.
    - Objetivo táctil mínimo **44×44 px** en controles de usuario (`min-h-[44px] min-w-[44px]`).
+   - **Para compactar por falta de espacio vertical usa `short:` (max-height 500px), NUNCA
+     `landscape:`**: un monitor de escritorio también es apaisado, así que `landscape:` dejaba
+     la cabecera de cualquier escritorio con el título a 18px y 8px de margen lateral. Lo que
+     escasea en un móvil tumbado es el alto, y eso es lo que mide `short` (`tailwind.config.js`).
+   - **Ancho máximo del contenido**: `CONTENT_MAX_WIDTH_PX` (1680) en `utils/gridDensity.js`.
+     En un monitor ultra-ancho estirar cinco tarjetas a 500px no mejora la lectura; el contenido
+     se centra en vez de estirarse.
    - Los botones de tema/idioma NO se escriben a mano: usa `<ThemeLanguageControls>` de
      `components/ui` (estaban copiados en cuatro sitios, con `aria-label` en solo dos).
 6. **Componentes < 300 líneas.** Si crece, divídelo: saca la lógica a un servicio o a un hook
@@ -207,6 +215,22 @@ No se usa router; la navegación entre categorías es estado de React.
   como antiguos (nombre/título string), sin necesidad de migrar los datos existentes.
 - **Histórico**: `useSeasonResults()` lee `results/{año}`; el AdminPanel tiene la pestaña
   **Histórico** que muestra, por edición, ganadores por categoría y la clasificación.
+
+### Rejilla de nominados (adaptación a pantalla)
+
+- Las categorías reales tienen **4-6 nominados** (la mayoría 5) con nombres de hasta ~46
+  caracteres; `utils/gridDensity.js` está calibrado para 4-7 y funciona fuera de ese rango.
+- `getGridColumns()` combina tres cosas: la calibración por ancho (tabla por rangos), las
+  columnas que caben de verdad, y `balanceColumns()`, que **evita la fila huérfana**: con 6
+  nominados y sitio para 5 columnas se reparte 3+3, no 5+1; con 7 y sitio para 6, 4+3. Entre
+  repartos con las mismas filas gana el que deja la última fila más llena; menos filas siempre
+  gana sobre mejor reparto (ver la categoría entera de un vistazo es lo primero).
+- `estimateCardWidth()` da el ancho que le toca a cada tarjeta. **La densidad de la tarjeta
+  (`compact`) se decide por ese ancho, no por el número de nominados**: cinco opciones en un
+  monitor son tarjetas holgadas y las mismas cinco en una tablet, estrechas.
+- `VoteScreen` pasa a `GameCard` un `maxHeightPx` calculado con el alto real del área de
+  rejilla, para que las filas quepan sin scroll cuando hay sitio. El `min-h` de la tarjeta tiene
+  prioridad en CSS, así que en móvil no se aplasta nada: ahí se sigue haciendo scroll.
 
 ### Modificar el propio voto (máximo 5 veces)
 

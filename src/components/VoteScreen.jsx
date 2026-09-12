@@ -3,7 +3,11 @@ import { useTranslation } from '../data/literals';
 import { useAppContext } from '../context/AppContext';
 import { useViewport } from '../hooks/useViewport';
 import { getRandomGradients } from '../utils/gradients';
-import { getGridColumns } from '../utils/gridDensity';
+import {
+  getGridColumns,
+  estimateCardWidth,
+  CONTENT_MAX_WIDTH_PX,
+} from '../utils/gridDensity';
 import { tField, getCategoryTitle, getOptionId, getOptionLabel } from '../utils/localize';
 import GameCard from './GameCard';
 import { ScreenLayout } from './layouts';
@@ -38,6 +42,9 @@ export default function VoteScreen({
   const [gameGradients, setGameGradients] = useState({});
   const [loadingImages, setLoadingImages] = useState(true);
   const [hasVerticalScroll, setHasVerticalScroll] = useState(false);
+  // Alto real del área de rejilla: con él se calcula cuánto puede medir cada
+  // tarjeta para que las filas quepan sin scroll cuando hay sitio.
+  const [gridAreaHeight, setGridAreaHeight] = useState(0);
   const [isAtBottom, setIsAtBottom] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const scrollContainerRef = useRef(null);
@@ -92,6 +99,7 @@ export default function VoteScreen({
       if (scrollContainerRef.current) {
         const hasScroll = scrollContainerRef.current.scrollHeight > scrollContainerRef.current.clientHeight;
         setHasVerticalScroll(hasScroll);
+        setGridAreaHeight(scrollContainerRef.current.clientHeight);
       }
     };
 
@@ -167,6 +175,22 @@ export default function VoteScreen({
     isMobile: viewportInfo.isMobile,
     isLandscape: viewportInfo.isLandscape,
   });
+
+  // Ancho que le toca de verdad a cada tarjeta: es lo que decide si la tarjeta va
+  // en versión compacta, en vez del número de nominados. Cinco opciones en un
+  // monitor son tarjetas holgadas; las mismas cinco en una tablet, estrechas.
+  const cardWidth = estimateCardWidth({ width: viewportInfo.width, columns: gridColumns });
+  const isCompactCard = cardWidth < 230 || (viewportInfo.isMobile && viewportInfo.isLandscape);
+
+  const gridRows = Math.ceil(optionCount / gridColumns);
+  const rowGapPx = viewportInfo.isMobile ? 8 : 16;
+
+  // Alto máximo por tarjeta para que las filas quepan en el área visible. Solo
+  // recorta cuando sobra ancho (pantallas anchas y bajas); el `min-h` de la
+  // tarjeta tiene prioridad en CSS, así que en móvil se sigue haciendo scroll.
+  const maxCardHeight = gridAreaHeight > 0
+    ? Math.max(56, Math.floor((gridAreaHeight - rowGapPx * (gridRows - 1) - 8) / gridRows))
+    : null;
 
   const denseLandscapeClass = viewportInfo.isMobile && viewportInfo.isLandscape && optionCount >= 6
     ? 'gap-1.5 sm:gap-2 md:gap-3'
@@ -284,6 +308,10 @@ export default function VoteScreen({
             }`}
             style={{
               gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))`,
+              // Tope de ancho: en un monitor ultra-ancho, estirar cinco tarjetas
+              // a 500px no mejora la lectura, solo separa el contenido.
+              maxWidth: `${CONTENT_MAX_WIDTH_PX}px`,
+              marginInline: 'auto',
               transition: 'grid-template-columns 0.25s ease-out'
             }}
           >
@@ -300,7 +328,8 @@ export default function VoteScreen({
                   gradient={gameGradients[optionId] || 'bg-gradient-to-br from-zinc-900/60 to-zinc-700/80'}
                   isSelected={isSelected}
                   isMobilePortrait={isMobilePortrait}
-                  compact={optionCount > 4 || viewportInfo.isLandscape || gridColumns >= 4}
+                  compact={isCompactCard}
+                  maxHeightPx={maxCardHeight}
                   isTransitioning={isTransitioning}
                   onSelect={() =>
                     handleSelectOption(category.id, { id: optionId, name: optionName })
@@ -312,7 +341,7 @@ export default function VoteScreen({
         </div>
 
         {/* Status - Compact */}
-        <div className="mt-2 sm:mt-3 px-2 sm:px-3 py-1 sm:py-1.5 theme-card theme-border-primary border rounded text-sm flex-shrink-0">
+        <div className="mt-2 sm:mt-3 px-2 sm:px-3 py-1 sm:py-1.5 theme-card theme-border-primary border rounded text-sm flex-shrink-0 w-full mx-auto" style={{ maxWidth: `${CONTENT_MAX_WIDTH_PX}px` }}>
           <span className={`font-bold ${isVoted ? 'text-status-success' : 'text-status-warning'}`}>
             {isVoted ? t('voted') : t('pending')}
           </span>

@@ -41,16 +41,21 @@ export default function ResultsScreen({ result, currentUserId = null }) {
       }
       showControlBar={false}
     >
-      <div className="relative z-10 w-full max-w-5xl mx-auto p-4 md:p-8 space-y-8">
+      {/*
+        En pantallas grandes, ganadores y clasificación van en paralelo: apilados
+        obligaban a recorrer 27 categorías antes de llegar al ranking, que es lo
+        que la gente viene a mirar. Por debajo de xl se apilan, ganadores primero.
+      */}
+      <div className="relative z-10 w-full max-w-7xl mx-auto p-4 md:p-8 grid grid-cols-1 xl:grid-cols-[3fr_2fr] gap-8 xl:gap-12 items-start">
         {/* Ganadores por categoría */}
-        <section>
+        <section className="min-w-0">
           <h2 className="text-xl md:text-2xl font-black theme-display uppercase theme-text-primary mb-4">
             {t('winnersByCategory')}
           </h2>
           {winners.length === 0 ? (
             <p className="theme-text-secondary">{t('noWinnersYet')}</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-3">
               {winners.map((cat) => (
                 <div
                   key={cat.id}
@@ -69,7 +74,7 @@ export default function ResultsScreen({ result, currentUserId = null }) {
         </section>
 
         {/* Clasificación de participantes */}
-        <section>
+        <section className="min-w-0 xl:sticky xl:top-4">
           <div className="flex items-baseline justify-between gap-4 mb-4 flex-wrap">
             <h2 className="text-xl md:text-2xl font-black theme-display uppercase theme-text-primary">
               {t('ranking')}
@@ -108,7 +113,7 @@ export default function ResultsScreen({ result, currentUserId = null }) {
           )}
         </section>
 
-        <p className="text-sm theme-text-secondary text-center">
+        <p className="text-sm theme-text-secondary text-center xl:col-span-2">
           © The Game Awards {result?.season || new Date().getFullYear()}
         </p>
       </div>
