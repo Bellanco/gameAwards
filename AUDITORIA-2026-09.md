@@ -28,8 +28,8 @@ Carga inicial ≈ 689 kB / 173 kB gzip
 
 ## Resumen por severidad
 
-> **Estado:** **Sprints 1 y 2 aplicados** (hallazgos 1, 2, 3, 4, 5, 6 y 8, marcados ✅ abajo).
-> Ver «Sprint 1 — aplicado» y «Sprint 2 — aplicado» al final del documento.
+> **Estado:** **Sprints 1, 2 y 3 aplicados.** Las reglas están **desplegadas en producción**.
+> Ver las secciones «Sprint N — aplicado» al final del documento.
 
 | # | Severidad | Ámbito | Hallazgo |
 |---|---|---|---|
@@ -39,12 +39,12 @@ Carga inicial ≈ 689 kB / 173 kB gzip
 | 4 | ✅ Resuelto | Seguridad | ~~`isValidBallot` no valida `season`, `userEmail` ni el tamaño de `selections`~~ |
 | 5 | ✅ Resuelto | Privacidad | ~~`logError` envía mensaje de error y contexto **crudos a Analytics en producción**~~ |
 | 6 | ✅ Resuelto | Deploy | ~~Sin `_redirects`: la ruta `/admin` **devuelve 404** en carga directa (CloudFlare Pages)~~ |
-| 7 | 🟠 Alta | Rendimiento | `AutoSizeText` provoca **layout thrashing** (hasta 20 reflows sincronizados por tarjeta) |
+| 7 | ✅ Resuelto | Rendimiento | ~~`AutoSizeText` provoca **layout thrashing** (hasta 20 reflows sincronizados por tarjeta)~~ |
 | 8 | ✅ Resuelto | Funcional | ~~Fallo al parsear `votingProgress` **deja la app colgada** en «Cargando»~~ |
-| 9 | 🟡 Media | Responsive | `h-screen` en lugar de `dvh`: contenido cortado en Safari iOS / Chrome Android |
+| 9 | ✅ Resuelto | Responsive | ~~`h-screen` en lugar de `dvh`: contenido cortado en Safari iOS / Chrome Android~~ |
 | 10 | 🟡 Media | Rendimiento | Guardado de ganadores N+1 y no atómico |
-| 11 | 🟡 Media | Usabilidad | Sin router: el botón «atrás» del navegador saca al usuario de la app |
-| 12 | 🟡 Media | A11y | `<html lang="es">` fijo aunque la UI esté en inglés |
+| 11 | ✅ Resuelto | Usabilidad | ~~Sin router: el botón «atrás» del navegador saca al usuario de la app~~ |
+| 12 | ✅ Resuelto | A11y | ~~`<html lang="es">` fijo aunque la UI esté en inglés~~ |
 | 13 | 🟡 Media | Mantenibilidad | ~470 líneas de **código muerto** (analytics, `useWinnerSelection`, `form/`) |
 | 14–31 | 🔵 Baja | Varios | Ver detalle abajo |
 
@@ -751,11 +751,12 @@ usa — hoy hay que deducirlo de un comentario en `firestore.rules`.
 7. ~~`public/_headers` con CSP (2.7)~~
 8. ~~`firebase@11` + `npm audit fix` (2.8)~~
 
-**Sprint 3 — experiencia (uno o dos días):**
-9. `100dvh` (4.1) y quitar los retardos de 250 ms (4.4).
-10. `AutoSizeText` con `clamp()` o búsqueda binaria (3.1).
-11. `document.documentElement.lang` (5.1) y objetivos táctiles a 44 px (5.2).
-12. Enrutado real con `react-router-dom` (4.2).
+**Sprint 3 — experiencia ✅ APLICADO** (ver detalle al final):
+9. ~~`100dvh` (4.1) y quitar los retardos de 250 ms (4.4)~~
+10. ~~`AutoSizeText` con búsqueda binaria (3.1)~~
+11. ~~`document.documentElement.lang` (5.1) y objetivos táctiles a 44 px (5.2)~~
+12. Botón «atrás» resuelto con historial; **`react-router` NO se añade** — ver la
+    justificación en «Sprint 3 — aplicado».
 
 **Sprint 4 — deuda técnica (continuo):**
 13. Decidir sobre el código muerto: cablear analytics o borrarlo (6.1).
@@ -978,3 +979,116 @@ Vite 7 / Vitest 3, que es un cambio mayor y merece su propio trabajo.
 Los tests de `closingDate` cazaron un fallo real de la primera implementación:
 `Intl.formatToParts` no devuelve milisegundos, así que el desfase salía corto y la hora de
 cierre se desplazaba 999 ms.
+
+---
+
+## Sprint 3 — aplicado
+
+Verificado con `npx eslint .` (0 problemas), `npm test` (**89** tests, antes 75) y
+`npm run build`. Sigue sin poderse ejecutar el flujo completo en un navegador, así que lo
+verificable por test se ha cubierto con tests (ver más abajo) y el resto queda anotado.
+
+### 9.1 Viewport dinámico (hallazgo 4.1) — `tailwind.config.js`
+
+`h-screen` y `min-h-screen` pasan a `100dvh`, redefinidos **en un solo sitio** en vez de tocar
+los ~15 usos. `100vh` en iOS Safari y Chrome Android incluye la barra de direcciones: en
+`VoteScreen` dejaba la fila de botones parcialmente debajo de ella, y en `CategoryManager`
+(con `overflow-hidden`) el contenido inferior era inalcanzable. Verificado en el CSS generado:
+dos reglas con `100dvh`, ninguna con `height:100vh`.
+
+Soporte: Safari 15.4+, Chrome 108+, Firefox 101+ (>96%). Si hiciera falta el vh estático sigue
+disponible como `h-[100vh]`.
+
+### 9.2 Retardos artificiales (hallazgo 4.4) — `src/components/VoteScreen.jsx`
+
+Seleccionar un nominado encadenaba tres `setTimeout` (100 + 100 + 50 ms): ~250 ms por
+categoría, unos **6 segundos perdidos** en una porra de 25 categorías. Y ninguno se limpiaba al
+desmontar, así que salir rápido de la pantalla disparaba `setState` sobre un árbol desmontado.
+
+Ahora el bloqueo antidoble-pulsación es un `ref` (inmediato, sin re-render) en vez de una
+cadena de temporizadores:
+
+- **Botones Anterior/Siguiente: navegación inmediata** (0 ms).
+- **Selección de nominado: un único retardo de 120 ms**, deliberado, para que el check llegue a
+  verse antes de cambiar de categoría. Quitarlo del todo dejaba la selección sin ninguna
+  confirmación visual.
+- El temporizador se limpia al desmontar.
+
+### 10. `AutoSizeText` (hallazgo 3.1) — `src/components/AutoSizeText.jsx`
+
+La búsqueda del tamaño de letra pasa de **lineal a bisección**. Escribir el estilo y leer
+`scrollHeight` en bucle es un reflow síncrono por iteración: con el rango 9–30 px eran hasta 21
+por tarjeta, y con 10 nominados en pantalla ~210 reflows en el hilo principal cada vez que se
+cambiaba de categoría. Ahora son ~5 por tarjeta. La búsqueda es válida porque «cabe a tamaño S»
+es monótono.
+
+Tres mejoras que vienen con ello:
+
+- **`useLayoutEffect`** en vez de `useEffect`: el ajuste ocurre antes de pintar, así que ya no
+  se ve un fotograma con el texto a tamaño máximo antes de encogerse.
+- **Atajo**: si cabe al tamaño máximo, una sola medición y fuera.
+- **`ResizeObserver`** (con `requestAnimationFrame`): recalcula al cambiar el ancho del
+  contenedor. Era un fallo latente — al rotar el móvil cambia el número de columnas de la
+  rejilla y el texto se quedaba desbordado hasta cambiar de categoría.
+
+Se optó por bisección en vez de `clamp()` + container queries, que era la otra opción
+propuesta: `clamp()` cambia el modelo de dimensionado por completo y no hay forma de verificar
+el resultado visualmente en este entorno. La bisección conserva el comportamiento exacto y da
+el grueso de la mejora. `clamp()` sigue siendo el paso siguiente si algún día se puede ver.
+
+### 11.1 Idioma del documento (hallazgo 5.1) — `src/App.jsx`
+
+`document.documentElement.lang` se sincroniza con el idioma de la interfaz. Antes
+`<html lang="es">` era fijo y los lectores de pantalla leían el inglés con fonética española
+(incumplimiento directo de WCAG 3.1.1).
+
+### 11.2 Objetivos táctiles (hallazgo 5.2) — nuevo `components/ui/ThemeLanguageControls.jsx`
+
+Los botones de tema e idioma estaban copiados **en cuatro sitios** (`ControlBar`, `Header`,
+`AdminPanel` y la antigua `NotFoundScreen`) con las clases repetidas a mano y divergencias:
+a dos les faltaba el `aria-label`. Ahora viven en un único componente, con **44×44 px** mínimos
+(antes ~32 px, y ~26 px en apaisado por el `landscape:py-1`). Esto cierra de paso el hallazgo
+6.5.
+
+**No** se han tocado las flechas ▲▼ de reordenar categorías (32×28 px). Es una decisión, no un
+olvido: el panel de administración es una herramienta de escritorio, y llevar cada flecha a
+44 px haría que cada fila de categoría midiera 88 px o más, perjudicando justo la densidad de
+lista que el administrador necesita para reordenar.
+
+### 12. Botón «atrás» (hallazgo 4.2) — nuevo `src/hooks/useStepHistory.js`
+
+**Desviación consciente del plan: no se añade `react-router-dom`.**
+
+El problema real era que el gesto de retroceso —el reflejo natural en móvil para «volver a la
+categoría anterior»— sacaba al usuario de la aplicación. Eso queda resuelto con `useStepHistory`,
+que empuja una entrada de historial por paso y traduce `popstate` de vuelta a un paso.
+
+El motivo de no montar el router:
+
+- El render de `App.jsx` es una cascada de ~10 returns tempranos sobre `currentStep`.
+  Convertirlo a URL-por-paso es una reestructuración del **núcleo del flujo de votación**.
+- No hay **ni un test** que cubra `App.jsx` (hallazgo 7.1), ni forma de ejecutar el flujo en un
+  navegador en este entorno. Reestructurar a ciegas lo más crítico de la app es el mayor riesgo
+  que se podría asumir en esta sesión.
+- Lo que el router añadiría **por encima** de lo ya resuelto son URLs por paso compartibles o
+  marcables. En un flujo con login obligatorio que además restaura el progreso desde
+  `localStorage`, ese valor es prácticamente nulo.
+
+Queda pendiente y bien delimitado: si se quieren URLs por paso, el orden correcto es primero
+tests de flujo sobre `App.jsx`, luego el router.
+
+### Tests nuevos
+
+| Archivo | Tests | Qué cubre |
+|---|---|---|
+| `src/hooks/useStepHistory.test.js` | 9 | Entradas de historial, popstate, no duplicar en StrictMode, y que un «atrás» no empuje una entrada nueva (si lo hiciera, el usuario quedaría atrapado en el flujo) |
+| `src/components/AutoSizeText.test.jsx` | 5 | Tamaño elegido y **número de mediciones** (≤ 8 frente a ~20): fija también la propiedad de rendimiento, no solo el resultado |
+
+### Pendiente de verificación manual
+
+Nada de esto se puede comprobar sin un navegador:
+
+1. Que la fila de botones de `VoteScreen` ya no queda bajo la barra de direcciones en móvil.
+2. Que el botón «atrás» retrocede de categoría (y desde la primera vuelve al login).
+3. Que el check de la selección se ve en esos 120 ms antes de avanzar.
+4. Que el texto de las tarjetas se reajusta al rotar el móvil.
