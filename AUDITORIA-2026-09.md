@@ -28,8 +28,8 @@ Carga inicial ≈ 689 kB / 173 kB gzip
 
 ## Resumen por severidad
 
-> **Estado:** **Sprints 1, 2 y 3 aplicados.** Las reglas están **desplegadas en producción**.
-> Ver las secciones «Sprint N — aplicado» al final del documento.
+> **Estado:** **Sprints 1, 2, 3 y 4 aplicados.** Las reglas están **desplegadas y verificadas
+> en producción**. Ver las secciones «Sprint N — aplicado» al final del documento.
 
 | # | Severidad | Ámbito | Hallazgo |
 |---|---|---|---|
@@ -42,10 +42,10 @@ Carga inicial ≈ 689 kB / 173 kB gzip
 | 7 | ✅ Resuelto | Rendimiento | ~~`AutoSizeText` provoca **layout thrashing** (hasta 20 reflows sincronizados por tarjeta)~~ |
 | 8 | ✅ Resuelto | Funcional | ~~Fallo al parsear `votingProgress` **deja la app colgada** en «Cargando»~~ |
 | 9 | ✅ Resuelto | Responsive | ~~`h-screen` en lugar de `dvh`: contenido cortado en Safari iOS / Chrome Android~~ |
-| 10 | 🟡 Media | Rendimiento | Guardado de ganadores N+1 y no atómico |
+| 10 | ✅ Resuelto | Rendimiento | ~~Guardado de ganadores N+1 y no atómico~~ |
 | 11 | ✅ Resuelto | Usabilidad | ~~Sin router: el botón «atrás» del navegador saca al usuario de la app~~ |
 | 12 | ✅ Resuelto | A11y | ~~`<html lang="es">` fijo aunque la UI esté en inglés~~ |
-| 13 | 🟡 Media | Mantenibilidad | ~470 líneas de **código muerto** (analytics, `useWinnerSelection`, `form/`) |
+| 13 | ✅ Resuelto | Mantenibilidad | ~~~470 líneas de **código muerto** (analytics, `useWinnerSelection`, `form/`)~~ |
 | 14–31 | 🔵 Baja | Varios | Ver detalle abajo |
 
 ---
@@ -758,11 +758,12 @@ usa — hoy hay que deducirlo de un comentario en `firestore.rules`.
 12. Botón «atrás» resuelto con historial; **`react-router` NO se añade** — ver la
     justificación en «Sprint 3 — aplicado».
 
-**Sprint 4 — deuda técnica (continuo):**
-13. Decidir sobre el código muerto: cablear analytics o borrarlo (6.1).
-14. Contexto de idioma/tema (6.4) y dividir los cuatro componentes grandes (6.2).
-15. Mover las escrituras de Firestore a servicios (6.3) y testearlas (7.1).
-16. CI con `lint` + `test` + `build` (7.3).
+**Sprint 4 — deuda técnica ✅ APLICADO** (ver detalle al final):
+13. ~~Decidir sobre el código muerto: cablear analytics o borrarlo (6.1)~~
+14. ~~Contexto de idioma/tema (6.4) y dividir los componentes grandes (6.2)~~
+15. ~~Mover las escrituras de Firestore a servicios (6.3) y testearlas (7.1)~~
+16. CI con `lint` + `test` + `build` (7.3) — **escrito, pendiente de añadir a mano**
+    (el token necesita el scope `workflow`)
 
 ---
 
@@ -1092,3 +1093,138 @@ Nada de esto se puede comprobar sin un navegador:
 2. Que el botón «atrás» retrocede de categoría (y desde la primera vuelve al login).
 3. Que el check de la selección se ve en esos 120 ms antes de avanzar.
 4. Que el texto de las tarjetas se reajusta al rotar el móvil.
+
+---
+
+## Sprint 4 — aplicado
+
+Verificado con `npx eslint .` (0 problemas), `npm test` (**124** tests, antes 89),
+`npm run test:rules` (26) y `npm run build`.
+
+> El workflow de CI queda **fuera del repositorio** por una limitación del token; ver el punto
+> 16 para activarlo.
+
+### 16. CI (hallazgo 7.3) — ⏳ pendiente de añadir a mano
+
+El workflow está escrito y listo en `.github/workflows/ci.yml`, pero **sin versionar**: GitHub
+rechaza cualquier push que cree o modifique un archivo de `.github/workflows/` si el token no
+tiene el scope `workflow`.
+
+```
+! [remote rejected] develop -> develop (refusing to allow a Personal Access Token
+  to create or update workflow `.github/workflows/ci.yml` without `workflow` scope)
+```
+
+Son dos trabajos en cada push y PR a `develop`/`master`: uno con lint + tests + build, y otro
+que levanta el emulador (con JDK) y corre los tests de reglas.
+
+Para activarlo, cualquiera de las dos vías:
+- Dar el scope `workflow` al token (GitHub → Settings → Developer settings → Tokens) y
+  `git add .github/workflows/ci.yml`.
+- O crearlo desde la web de GitHub (Actions → New workflow), pegando el contenido del archivo
+  local.
+
+Ojo: mientras siga sin versionar, un `git add -A` lo volvería a incluir y el push fallaría otra
+vez con el mismo error.
+
+### 13. Código muerto (hallazgo 6.1)
+
+Se decidió caso por caso en vez de borrar en bloque:
+
+| Qué | Decisión |
+|---|---|
+| `analyticsService` (17 funciones, 1 usada) | **Cableado el embudo, borrado el resto.** `trackLogin`, `trackCategoryViewed`, `trackBallotSubmitted`, `trackLanguageChanged` y `trackError` ahora se llaman de verdad; las otras 12 se eliminan |
+| `useWinnerSelection` (168 líneas) | Borrado: sin consumidores, y `WinnersPanel` ya tenía su propia lógica |
+| `form/Checkbox`, `form/FormGroup` | Borrados: sin uso y sin hueco natural |
+| `form/TextInput` | **Conservado y puesto en uso** en `ReviewScreen` y `CategoryManager`, que escribían `<input>` a mano |
+| `loading.html` (8 kB) | Borrado: sin referencias en el repo |
+| `LOADING_ICONS`, `setSeason`, `downloadErrorLog`, `clearErrorLog`, `withErrorHandling` | Borrados |
+
+Lo importante del bloque de analytics: la app **no registraba nada** —ni logins, ni votos, ni
+envíos— mientras `ANALYTICS_SETUP.md` lo documentaba como si funcionara. Ahora mide el embudo,
+que es lo que interesa de un formulario de varios pasos: en qué categoría abandona la gente.
+
+En `ReviewScreen`, el `maxLength` del input sale de `MAX_USER_TEXT_LENGTH` (`utils/sanitize`),
+que es el mismo tope que exigen las reglas: el campo ya no puede aceptar algo que el servidor
+vaya a rechazar.
+
+### 15. Escrituras a servicios (hallazgo 6.3) y sus tests (7.1)
+
+**Ningún componente habla ya con Firestore.** Verificado: no queda un solo
+`import ... from 'firebase/firestore'` en `src/components/`.
+
+| Servicio | Qué mueve |
+|---|---|
+| `ballotService` | `buildBallot` (puro) + `submitBallot` + `hasExistingBallot`, sacados de `App.jsx` |
+| `winnersService` | `saveWinners`, sacado de `WinnersPanel` |
+| `categoriesService` | `saveCategory`, `deleteCategory`, `reorderCategories`, sacados de `CategoryManager` |
+
+`saveWinners` cierra además el **hallazgo 3.2**: era un `await updateDoc` por categoría dentro
+de un bucle (25 viajes secuenciales al servidor, y ganadores a medias si fallaba a mitad). Ahora
+es un lote atómico: o se guardan todos o ninguno.
+
+### 14.1 Contexto de idioma y tema (hallazgo 6.4)
+
+`AppContext` sustituye 4 props × 9 pantallas = 36 puntos de mantenimiento para dos valores
+globales. El estado sigue viviendo en `App.jsx` (regla 1 del proyecto); lo que desaparece es el
+trasiego por props.
+
+### 14.2 Componentes grandes (hallazgo 6.2)
+
+**Ninguno supera ya las 300 líneas de código.** Se midió el código real (sin comentarios ni
+blancos), que es lo que la regla quiere acotar:
+
+| Archivo | Antes (total) | Ahora (total / código) |
+|---|---|---|
+| `App.jsx` | 588 | 404 / **282** |
+| `CategoryManager.jsx` | 563 | 309 / **239** |
+| `AdminPanel.jsx` | 552 | 355 / **266** |
+| `WinnersPanel.jsx` | 422 | 222 / **~160** |
+| `VoteScreen.jsx` | 401 | 354 / **~270** |
+
+El criterio fue **sacar lógica antes que trocear JSX**: casi toda la reducción viene de mover
+código a servicios, hooks y utils, no de repartir marcado entre archivos.
+
+Nuevos: `admin/OverviewTab`, `admin/BallotsTab`, `admin/HistoryTab`, `admin/SeasonTab`,
+`admin/CategoryList`, `admin/CategoryForm`, `admin/WinnersSelector`, `admin/RankingTable`,
+`hooks/useVotingFlow`, `hooks/useAuthSession`, `hooks/useViewport`, `utils/gridDensity`.
+
+Tres arreglos que cayeron por el camino:
+
+- **`validCategories` sube a `useMemo`** por encima de los manejadores que la leen. Vivía en
+  mitad del render, después de varios returns tempranos: funcionaba de milagro y cualquier
+  refactor la habría roto con un `ReferenceError` por TDZ (**hallazgo 6.7**).
+- **`useViewport`** unifica la detección de viewport, que estaba duplicada y con dos listeners
+  de `resize` sin agrupar; ahora los eventos de un giro de pantalla se juntan con `rAF`.
+- **`validBallots` memoizado** en `AdminPanel`: se recalculaba, con su `Set`, tres veces por
+  render (**hallazgo 3.4**).
+
+### Textos embebidos (hallazgo 4.8, parcial)
+
+Al extraer `useAuthSession` se pasaron a i18n los mensajes de error de login, que estaban en
+español dentro de `App.jsx` y **filtraban rutas internas al usuario** («Verifica
+src/firebase.js»). Ahora se mapea el código de Firebase a una clave, y lo no contemplado cae en
+un mensaje genérico: nunca se enseña el texto crudo de Firebase. También sale a i18n el aviso de
+«no hay categorías». i18n: 223 claves, paridad ES/EN completa.
+
+### Tests nuevos
+
+| Archivo | Tests | Qué cubre |
+|---|---|---|
+| `src/hooks/useVotingFlow.test.js` | 18 | Navegación, votos, progreso y persistencia (incluido el progreso corrupto que colgaba la app) |
+| `src/services/categoriesService.test.js` | 8 | Guardar sin pisar `orderIndex`, placeholder de la última, reordenar en lote |
+| `src/services/winnersService.test.js` | 6 | Lote único, limpieza de ganadores deseleccionados |
+| `src/utils/gridDensity.test.js` | 7 | Columnas por ancho y nº de nominados |
+| `src/services/ballotService.test.js` | 6 | Esquema exacto que validan las reglas |
+
+Total: **124 tests unitarios + 26 de reglas** (empezamos la auditoría con 43).
+
+### Pendiente de verificación manual
+
+El refactor es amplio y no hay forma de ejecutar la app aquí. Conviene repasar a mano:
+
+1. Flujo completo de voto (login → votar → revisar → enviar).
+2. Panel de administración: las cuatro pestañas, crear/editar/borrar/reordenar categorías y
+   guardar ganadores.
+3. Que el cambio de idioma y de tema sigue funcionando en todas las pantallas (es lo que más
+   superficie ha tocado el contexto).
