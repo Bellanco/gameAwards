@@ -6,19 +6,8 @@ import { useFirestoreCategories } from '../hooks';
 import { Button, Card, Alert } from './ui';
 import { logError, ERROR_TYPES } from '../services/errorService';
 import { tField, getCategoryTitle, hasTitle } from '../utils/localize';
+import { buildStableOptions, generateUUID } from '../utils/options';
 import { sortCategoriesByOrder } from '../services/categoriesService';
-
-/**
- * Generar UUID v4
- * @returns {string}
- */
-const generateUUID = () => {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
 
 const emptyOption = () => ({ id: null, value: '' });
 
@@ -110,11 +99,9 @@ export default function CategoryManager({ language = 'es', onClose }) {
       const docId = editingId || generateUUID();
 
       // Nombres de juego en idioma único: se guardan como { id, name }.
-      // El `id` se conserva al editar para que optionId/votos/scoring no cambien.
-      const options = validOptions.map((opt, idx) => {
-        const value = opt.value.trim();
-        return { id: opt.id || `${docId}_option_${idx}`, name: value };
-      });
+      // El `id` se conserva al editar para que optionId/votos/scoring no cambien,
+      // y las opciones nuevas reciben uno irrepetible (ver utils/options.js).
+      const options = buildStableOptions(validOptions, docId);
       const optionIds = options.map(o => o.id);
 
       const title = {

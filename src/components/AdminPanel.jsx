@@ -9,12 +9,12 @@ import { setVotingOpen, setClosingDate, archiveAndResetSeason } from '../service
 import { getCategoryTitle as localizeCategoryTitle, getOptionLabel, hasTitle } from '../utils/localize';
 import { LoadingSpinner } from './ui';
 import logger from '../services/loggerService';
+import { FALLBACK_ROUTE } from '../utils/routes';
 
 // Importar pantallas de administración
 import CategoryManager from './CategoryManager';
 import WinnersPanel from './WinnersPanel';
 import LoginScreen from './LoginScreen';
-import NotFoundScreen from './NotFoundScreen';
 
 /**
  * AdminPanel v4 - Panel de administración refactorizado
@@ -41,6 +41,15 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
       calculateStats(ballots, categories);
     }
   }, [categories, ballots]);
+
+  // Guardián de la ruta: un usuario autenticado que NO es admin se va a la
+  // página principal. `replace` para no dejar /admin en el historial (el botón
+  // "atrás" no debe devolverle a un sitio donde no puede entrar).
+  useEffect(() => {
+    if (!authLoading && currentUser && !isAdmin) {
+      window.location.replace(FALLBACK_ROUTE);
+    }
+  }, [authLoading, currentUser, isAdmin]);
 
   // Sincronizar el input de fecha de cierre con config/voting.closesAt
   useEffect(() => {
@@ -219,17 +228,11 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
     );
   }
 
-  // Autenticado pero no es admin - Mostrar 404 para evitar ataques de enumeración
-  if (!authLoading && !isAdmin) {
-    return (
-      <NotFoundScreen
-        language={language}
-        onToggleLanguage={onToggleLanguage}
-        theme={theme}
-        onToggleTheme={onToggleTheme}
-        onGoHome={() => window.location.href = '/'}
-      />
-    );
+  // Autenticado pero SIN el claim de admin: fuera del panel, a la página
+  // principal. No se muestra ninguna pantalla intermedia (ni 404 ni "sin
+  // permiso") para no confirmar que la ruta existe.
+  if (!authLoading && currentUser && !isAdmin) {
+    return <LoadingSpinner fullScreen />;
   }
 
   // Cargando

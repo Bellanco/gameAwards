@@ -59,10 +59,23 @@ src/
 - `0..n-1` → Votación (una categoría por paso)
 - `n` (= `validCategories.length`) → Revisión
 - `99` → Éxito
-- Ruta `/admin` → `AdminPanel` (siempre accesible, salta el flujo; carga diferida con `lazy`)
+- Ruta `/admin` → `AdminPanel` (salta el flujo; carga diferida con `lazy`)
 - Bloqueo de re-voto: si el usuario ya tiene ballot en Firestore → `AlreadyVotedScreen`
 - Votación cerrada (`isDeadlineReached`) → `DeadlineScreen` (antes de login y flujo)
 - Sin categorías válidas → mensaje de aviso (no hay pantalla dedicada)
+
+### Rutas
+
+Solo hay **dos rutas declaradas**, en `src/utils/routes.js` (fuente única): `/` y `/admin`.
+No se usa router; la navegación entre categorías es estado de React.
+
+- **Cualquier ruta no declarada rebota a `/`** (`FALLBACK_ROUTE`) reescribiendo la URL con
+  `history.replaceState`, sin dejar entrada en el historial. No hay pantalla 404.
+- **`/admin` con sesión pero sin el claim `admin`** → `window.location.replace('/')`. No se
+  muestra ningún aviso, para no confirmar que la ruta existe.
+- **`/admin` sin sesión** → `LoginScreen` (es el mismo login que el flujo público).
+- `public/_redirects` (`/* /index.html 200`) es **imprescindible**: sin él CloudFlare Pages
+  devuelve un 404 estático en `/admin` y React no llega a arrancar.
 
 ## Reglas del proyecto (no negociables)
 
@@ -122,6 +135,13 @@ src/
     selections: { categoryId: "<optionId>" },
     season: <año>, submittedAt: ISO, isActive: true }
   ```
+  `userNickname` = nombre de la cuenta de Google, se lee de `auth.currentUser` al enviar (no
+  editable, no vive en estado). `userDisplayName` = nombre editable en `ReviewScreen` y **el
+  único que valida `submitBallot`**. No añadas un segundo nombre en el estado de `App.jsx`.
+- **`optionId` estable y único**: al guardar una categoría, los ids se construyen con
+  `buildStableOptions()` de `src/utils/options.js`. Conserva el id de las opciones existentes y
+  da uno irrepetible a las nuevas. **Nunca derives un `optionId` del índice del array**: borrar
+  una opción y añadir otra reutiliza el id de una superviviente y corrompe votos y scoring.
 - Helpers en `src/utils/localize.js` (`tField`, `getCategoryTitle`, `getOptionId`,
   `getOptionLabel`, `hasTitle`, **`resolveOptionId`**) y `src/utils/scoring.js`
   (`computeLeaderboard`, `scoreBallot`). **Usa `hasTitle(cat)` en vez de `cat.title.trim()`**
@@ -188,6 +208,6 @@ obsoleto a medida que la app evoluciona:
   en los tests porque actualizan estado tras el render inicial. Son inofensivos (los tests solo
   verifican el estado inicial); si se añaden aserciones sobre el estado resuelto, usar `waitFor`.
 - El acceso admin requiere asignar el custom claim `admin:true` (ver comando arriba) **antes**
-  de poder leer `ballots` o escribir categorías/config. Sin el claim, el panel mostrará 404.
+  de poder leer `ballots` o escribir categorías/config. Sin el claim, `/admin` redirige a `/`.
 - El bundle principal es grande (Firebase). `AdminPanel` ya se carga con `lazy()` (code-splitting).
   Si importa reducir más, valorar `manualChunks` en `vite.config.js` para separar `firebase` y `react`.

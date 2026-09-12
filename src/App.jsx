@@ -7,6 +7,7 @@ import { loadAndSortCategories } from './services/categoriesService';
 import { useTheme, useVotingConfig } from './hooks';
 import logger from './services/loggerService';
 import { hasTitle, getCategoryTitle } from './utils/localize';
+import { resolveRoute, FALLBACK_ROUTE } from './utils/routes';
 
 // Componentes modulares
 import VoteScreen from './components/VoteScreen';
@@ -58,11 +59,14 @@ function App() {
   const [resumeStep, setResumeStep] = useState(0);
 
   // ============ Datos del Usuario ============
-  const [userNickname, setUserNickname] = useState('');
+  // `userDisplayName` es el ÚNICO nombre editable y la única fuente de verdad de
+  // la UI. El nombre de la cuenta de Google se lee de `currentUser` al enviar,
+  // nunca de estado: antes vivía en un `userNickname` que `handleReturnToHome`
+  // vaciaba sin que ninguna pantalla ofreciera forma de rellenarlo, y eso dejaba
+  // el envío bloqueado para siempre.
   const [userDisplayName, setUserDisplayName] = useState('');
   const [userVotes, setUserVotes] = useState({});
-  const [canEditNickname, setCanEditNickname] = useState(true);
-  
+
   // ============ Control de Deadline ============
   // La votación está cerrada si el admin la cierra (isOpen=false) O si ya pasó
   // la fecha de cierre elegida (closesAt, ese día a las 23:59).
@@ -76,7 +80,17 @@ function App() {
   // ============ Estado de UI ============
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
+
+  // ============ Ruta actual ============
+  // Solo hay dos rutas declaradas ('/' y '/admin'). Cualquier otra cosa rebota a
+  // la principal, reescribiendo la URL sin dejar entrada en el historial.
+  const route = resolveRoute(window.location.pathname);
+
+  useEffect(() => {
+    if (route === null) {
+      window.history.replaceState(null, '', FALLBACK_ROUTE);
+    }
+  }, [route]);
 
   /**
    * useEffect: Cargar categorías desde Firestore
@@ -104,23 +118,33 @@ function App() {
   useEffect(() => {
     // Listener de autenticación de Firebase
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setCurrentUser(user);
-        setUserNickname(user.displayName || '');
-        setUserDisplayName(user.displayName || ''); // Inicializar con displayName del usuario
-        setCanEditNickname(false); // No editable después del login
+      try {
+        if (user) {
+          setCurrentUser(user);
+          setUserDisplayName(user.displayName || ''); // Inicializar con displayName del usuario
 
-        // Recuperar progreso previo de localStorage. Restauramos los votos, pero
-        // el paso solo se recuerda (resumeStep): al reabrir la app siempre se
-        // muestra primero la pantalla de login, y al continuar se retoma ahí.
-        const savedProgress = localStorage.getItem('votingProgress');
-        if (savedProgress) {
-          const progress = JSON.parse(savedProgress);
-          setUserVotes(progress.votes || {});
-          setResumeStep(progress.step > 0 ? progress.step : 0);
+          // Recuperar progreso previo de localStorage. Restauramos los votos, pero
+          // el paso solo se recuerda (resumeStep): al reabrir la app siempre se
+          // muestra primero la pantalla de login, y al continuar se retoma ahí.
+          // El parseo va protegido: un valor corrupto (extensión, escritura a
+          // medias, cambio de formato) lanzaba aquí dentro y dejaba la app
+          // colgada en «Cargando», porque nunca se alcanzaba isLoadingAuth=false.
+          const savedProgress = localStorage.getItem('votingProgress');
+          if (savedProgress) {
+            try {
+              const progress = JSON.parse(savedProgress);
+              setUserVotes(progress?.votes || {});
+              setResumeStep(progress?.step > 0 ? progress.step : 0);
+            } catch (error) {
+              logger.error('Progreso guardado corrupto, se descarta:', error);
+              localStorage.removeItem('votingProgress');
+            }
+          }
         }
+      } finally {
+        // Pase lo que pase, la app debe salir de la pantalla de carga.
+        setIsLoadingAuth(false);
       }
-      setIsLoadingAuth(false);
     });
 
     // Cleanup
@@ -242,7 +266,7 @@ function App() {
       setCurrentStep(-1);
       setResumeStep(0);
       setUserVotes({});
-      setUserNickname('');
+      setUserDisplayName('');
       localStorage.removeItem('votingProgress');
     } catch (error) {
       logger.error('Logout Error:', error);
@@ -256,10 +280,10 @@ function App() {
     setCurrentStep(-1); // Volver a login
     setResumeStep(0); // Olvidar el progreso recordado
     setUserVotes({}); // Limpiar votos
-    setUserNickname(''); // Limpiar apodo
-    setUserDisplayName(''); // Limpiar displayName
+    // El nombre vuelve al de la cuenta de Google, NO a vacío: la sesión sigue
+    // abierta y ReviewScreen debe encontrar un nombre válido al volver a entrar.
+    setUserDisplayName(auth.currentUser?.displayName || '');
     setErrorMessage(''); // Limpiar errores
-    setSuccessMessage(''); // Limpiar mensajes de éxito
     localStorage.removeItem('votingProgress');
   };
 
@@ -323,7 +347,10 @@ function App() {
    * Envía la porra (simulada en DEMO_MODE, real con Firebase después)
    */
   const submitBallot = async () => {
-    if (!userNickname.trim()) {
+    // Se valida el nombre EDITABLE, que es el que ReviewScreen muestra y el
+    // usuario puede corregir si el mensaje de error aparece.
+    const displayName = userDisplayName.trim();
+    if (!displayName) {
       setErrorMessage(t('errorEnterNickname'));
       return;
     }
@@ -360,11 +387,13 @@ function App() {
       const sanitize = (value) => (value || '').trim().replace(/[<>]/g, '').slice(0, 50);
 
       // Preparar datos (estructura validada por firestore.rules)
+      // userNickname = nombre de la cuenta de Google (no editable); se lee de
+      // currentUser, no de estado, para que no pueda quedar vacío.
       const ballotData = {
         userId: currentUser?.uid || 'demo-user',
         userEmail: currentUser?.email || 'demo@example.com',
-        userNickname: sanitize(userNickname),
-        userDisplayName: sanitize(userDisplayName),
+        userNickname: sanitize(currentUser?.displayName || displayName),
+        userDisplayName: sanitize(displayName),
         selections: selections, // { categoryId: optionId }
         season: season,
         submittedAt: new Date().toISOString(),
@@ -377,8 +406,6 @@ function App() {
       // Marcar como votado (bloquea el re-voto si vuelve a entrar)
       setHasVoted(true);
 
-      // Simulación de éxito
-      setSuccessMessage(`¡Voto registrado exitosamente, ${userNickname}!`);
       setCurrentStep(99); // Pantalla de éxito - useEffect limpiará localStorage automáticamente
     } catch (error) {
       logger.error('Ballot Submit Error:', error);
@@ -432,8 +459,10 @@ function App() {
   // - Si tiene title vacío, también es un placeholder
   const validCategories = categories.filter(cat => !cat.isPlaceholder && hasTitle(cat));
 
-  // Panel de Admin - Ruta secreta /admin (SIEMPRE accesible, incluso sin categorías)
-  if (window.location.pathname === '/admin') {
+  // Panel de Admin - Ruta oculta /admin (SIEMPRE accesible, incluso sin categorías).
+  // Quién puede entrar lo decide AdminPanel (custom claim admin) y, en última
+  // instancia, las reglas de Firestore.
+  if (route === 'admin') {
     return (
       <Suspense fallback={
         <div className="min-h-screen theme-gradient-primary flex items-center justify-center">
@@ -482,7 +511,7 @@ function App() {
   if (currentUser && hasVoted && currentStep !== 99) {
     return (
       <AlreadyVotedScreen
-        userNickname={userDisplayName || userNickname}
+        userNickname={userDisplayName}
         onLogout={handleLogout}
         language={language}
         onToggleLanguage={toggleLanguage}
@@ -536,8 +565,6 @@ function App() {
       <ReviewScreen
         categories={validCategories}
         userVotes={userVotes}
-        userNickname={userNickname}
-        onNicknameChange={setUserNickname}
         userDisplayName={userDisplayName}
         onDisplayNameChange={setUserDisplayName}
         onSubmit={submitBallot}
@@ -545,7 +572,6 @@ function App() {
         onReturnHome={handleReturnToHome}
         isLoading={isLoading}
         errorMessage={errorMessage}
-        canEditNickname={canEditNickname}
         language={language}
         onToggleLanguage={toggleLanguage}
         theme={theme}
@@ -558,10 +584,9 @@ function App() {
   if (currentStep === 99) {
     return (
       <SuccessScreen
-        userNickname={userDisplayName || userNickname}
+        userNickname={userDisplayName}
         onLogout={handleLogout}
         onReturnHome={handleReturnToHome}
-        successMessage={successMessage}
         language={language}
         onToggleLanguage={toggleLanguage}
         theme={theme}
