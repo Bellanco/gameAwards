@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { auth, googleProvider } from '../firebase';
 import { signOut, signInWithPopup } from 'firebase/auth';
 import { useTranslation } from '../data/literals';
-import { LanguageIcon, ThemeIcon, MedalGoldIcon, MedalSilverIcon, MedalBronzeIcon } from './Icons';
+import { MedalGoldIcon, MedalSilverIcon, MedalBronzeIcon } from './Icons';
 import { useAdminCheck, useFirestoreCategories, useFirestoreBallots, useVotingConfig, useSeasonResults } from '../hooks';
 import { sortCategoriesByOrder } from '../services/categoriesService';
 import { setVotingOpen, setClosingDate, archiveAndResetSeason } from '../services/seasonService';
 import { getCategoryTitle as localizeCategoryTitle, getOptionLabel, hasTitle } from '../utils/localize';
-import { LoadingSpinner } from './ui';
+import { LoadingSpinner, ThemeLanguageControls } from './ui';
 import logger from '../services/loggerService';
 import { FALLBACK_ROUTE } from '../utils/routes';
 
@@ -252,23 +252,16 @@ export default function AdminPanel({ language = 'es', onToggleLanguage, theme = 
               <p className="theme-text-secondary text-sm">{t('ballotResults')}</p>
             </div>
             <div className="flex gap-4 items-center">
-              <button
-                onClick={onToggleTheme}
-                className="flex items-center gap-2 px-3 py-2 theme-card theme-border-primary border rounded-lg text-sm font-semibold transition-all"
-                title={theme === 'light' ? t('darkTheme') : t('lightTheme')}
-              >
-                <ThemeIcon className="w-4 h-4" isDark={theme === 'dark'} />
-              </button>
-              <button
-                onClick={onToggleLanguage}
-                className="flex items-center gap-2 px-3 py-2 theme-card theme-border-primary border rounded-lg text-sm font-semibold transition-all"
-              >
-                <LanguageIcon className="w-4 h-4" />
-                <span>{language.toUpperCase()}</span>
-              </button>
+              <ThemeLanguageControls
+                language={language}
+                onToggleLanguage={onToggleLanguage}
+                theme={theme}
+                onToggleTheme={onToggleTheme}
+                className="flex gap-4 items-center"
+              />
               <button
                 onClick={handleLogout}
-                className="py-2 px-4 btn-danger border theme-border-primary rounded-lg font-semibold text-sm transition-all"
+                className="min-h-[44px] py-2 px-4 btn-danger border theme-border-primary rounded-lg font-semibold text-sm transition-all"
               >
                 {t('signOut')}
               </button>

@@ -9,4 +9,5 @@ export { default as LoadingSpinner } from './LoadingSpinner';
 export { default as Alert } from './Alert';
 export { default as Header } from './Header';
 export { default as Footer } from './Footer';
+export { default as ThemeLanguageControls } from './ThemeLanguageControls';
 export { ALERT_ICONS, LOADING_ICONS } from './iconComponents.jsx';

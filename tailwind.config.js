@@ -14,6 +14,22 @@ export default {
       screens: {
         'xs': '360px', // iPhone SE y pantallas pequeñas
       },
+      // `h-screen` y `min-h-screen` pasan a usar unidades DINÁMICAS de viewport.
+      //
+      // 100vh en iOS Safari y Chrome Android incluye la barra de direcciones, así
+      // que el layout header/main/footer de VoteScreen dejaba la fila de botones
+      // parcialmente debajo de ella, y en CategoryManager (con overflow-hidden)
+      // el contenido inferior era directamente inalcanzable.
+      //
+      // Se redefine aquí, en un solo sitio, en vez de tocar los ~15 usos. Si
+      // alguna vez hace falta el vh estático, sigue disponible como `h-[100vh]`.
+      // Soporte: Safari 15.4+, Chrome 108+, Firefox 101+ (>96% de navegadores).
+      height: {
+        screen: '100dvh',
+      },
+      minHeight: {
+        screen: '100dvh',
+      },
       colors: {
         // Colores base inspirados en pergamino y acero
         primary: '#efe5d3',

@@ -10,3 +10,4 @@ export { useWinnerSelection } from './useWinnerSelection';
 export { useTheme } from './useTheme';
 export { useVotingConfig } from './useVotingConfig';
 export { useSeasonResults } from './useSeasonResults';
+export { useStepHistory } from './useStepHistory';

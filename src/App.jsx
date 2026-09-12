@@ -4,7 +4,7 @@ import { signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useTranslation } from './data/literals';
 import { loadAndSortCategories } from './services/categoriesService';
-import { useTheme, useVotingConfig } from './hooks';
+import { useTheme, useVotingConfig, useStepHistory } from './hooks';
 import logger from './services/loggerService';
 import { hasTitle, getCategoryTitle } from './utils/localize';
 import { resolveRoute, FALLBACK_ROUTE } from './utils/routes';
@@ -92,6 +92,22 @@ function App() {
       window.history.replaceState(null, '', FALLBACK_ROUTE);
     }
   }, [route]);
+
+  // ============ Botón "atrás" del navegador ============
+  // Retrocede dentro del flujo de votación en vez de salir de la app.
+  useStepHistory({
+    currentStep,
+    onNavigateBack: setCurrentStep,
+    enabled: route === 'home',
+  });
+
+  // ============ Idioma del documento ============
+  // Sin esto, <html lang="es"> se quedaba fijo aunque la interfaz estuviera en
+  // inglés, y los lectores de pantalla leían el inglés con fonética española
+  // (incumple WCAG 3.1.1).
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   /**
    * useEffect: Cargar categorías desde Firestore

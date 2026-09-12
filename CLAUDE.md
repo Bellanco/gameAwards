@@ -80,6 +80,9 @@ No se usa router; la navegación entre categorías es estado de React.
 - `public/_headers` lleva la CSP y las cabeceras de seguridad. La CSP autoriza el script
   anti-FOUC de `index.html` **por su hash sha256**: si tocas ese script hay que recalcularlo
   (el propio archivo trae el comando). `src/test/csp.test.js` falla si se olvida.
+- **Botón «atrás» del navegador**: `useStepHistory()` empuja una entrada de historial por paso
+  del flujo, así que «atrás» vuelve a la categoría anterior en vez de salir de la app. No
+  cambia la URL. Si algún día se quieren URLs por paso (`/votar/3`), eso sí exige un router.
 
 ## Reglas del proyecto (no negociables)
 
@@ -93,6 +96,12 @@ No se usa router; la navegación entre categorías es estado de React.
    Componentes en PascalCase, archivos `.jsx`.
 5. **Solo Tailwind, mobile-first** (`p-4 md:p-8`, no al revés). Sin CSS custom salvo animaciones.
    Tema oscuro por defecto (`bg-slate-900/950`, acentos azul/esmeralda/amarillo).
+   - `h-screen` y `min-h-screen` están redefinidos a **`100dvh`** en `tailwind.config.js`:
+     `100vh` incluye la barra de direcciones del móvil y cortaba la fila de botones. Si
+     necesitas el vh estático, usa `h-[100vh]` explícitamente.
+   - Objetivo táctil mínimo **44×44 px** en controles de usuario (`min-h-[44px] min-w-[44px]`).
+   - Los botones de tema/idioma NO se escriben a mano: usa `<ThemeLanguageControls>` de
+     `components/ui` (estaban copiados en cuatro sitios, con `aria-label` en solo dos).
 6. **Componentes < 300 líneas.** Si crece, divídelo.
 7. **async/await**, no cadenas `.then().then()`.
 8. **Logging**: usa `import logger from 'services/loggerService'` (silencia en producción), no

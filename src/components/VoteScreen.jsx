@@ -7,6 +7,13 @@ import { ScreenLayout } from './layouts';
 import { Header, Footer } from './ui';
 
 /**
+ * Pausa tras seleccionar un nominado, para que el check llegue a verse antes de
+ * pasar a la categoría siguiente. Es el ÚNICO retardo del flujo: la navegación
+ * con los botones es inmediata.
+ */
+const SELECTION_FEEDBACK_MS = 120;
+
+/**
  * VoteScreen v2 - Refactorizado con componentes modulares
  * Layout: ScreenLayout + Header (progreso) + Grid de juegos + Footer (navegación)
  */
@@ -33,7 +40,17 @@ export default function VoteScreen({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [viewportInfo, setViewportInfo] = useState({ isMobile: false, isLandscape: false, width: 0 });
   const scrollContainerRef = useRef(null);
-  
+
+  // Bloqueo de navegación contra doble pulsación (ghost clicks).
+  //
+  // Antes se encadenaban tres setTimeout (100 + 100 + 50 ms), así que cada
+  // categoría costaba ~250 ms de espera percibida —unos 6 segundos en una porra
+  // de 25 categorías— y ninguno se limpiaba al desmontar. Ahora el bloqueo es un
+  // ref (inmediato y sin re-render) y solo queda UN retardo, el de la selección,
+  // para que dé tiempo a ver el check antes de cambiar de categoría.
+  const navigationLock = useRef(false);
+  const selectionTimer = useRef(null);
+
   const isVoted = !!userVotes[category?.id];
   const selectedOption = userVotes[category?.id];
   const optionCount = category?.options?.length || 0;
@@ -45,7 +62,9 @@ export default function VoteScreen({
     const gradients = getRandomGradients(optionIds);
     setGameGradients(gradients);
     setLoadingImages(false);
-    setIsTransitioning(false); // Reset transition state when category changes
+    // Al cambiar de categoría se libera el bloqueo de navegación.
+    navigationLock.current = false;
+    setIsTransitioning(false);
     
     // Limpiar cualquier estado de focus de botones anteriores
     const activeElement = document.activeElement;
@@ -117,6 +136,10 @@ export default function VoteScreen({
       clearTimeout(timeoutId);
     };
   }, [category?.id, category?.options]);
+
+  // El temporizador de la selección debe morir con el componente: si no, al
+  // salir rápido de la pantalla dispara un setState sobre un árbol desmontado.
+  useEffect(() => () => clearTimeout(selectionTimer.current), []);
 
   // Mantener metadata de viewport para responder a orientación y ancho real
   useEffect(() => {
@@ -216,27 +239,26 @@ export default function VoteScreen({
     }
   };
 
-  // Manejadores de navegación con protección contra ghost clicks
-  const handleNext = () => {
+  const navigate = (move) => {
+    if (navigationLock.current) return;
+    navigationLock.current = true;
     setIsTransitioning(true);
-    setTimeout(() => {
-      onNext();
-      // Pequeño delay adicional para garantizar que se limpie el estado
-      setTimeout(() => setIsTransitioning(false), 50);
-    }, 100);
+    move();
   };
 
-  const handlePrevious = () => {
-    setIsTransitioning(true);
-    setTimeout(() => {
-      onPrevious();
-      // Pequeño delay adicional para garantizar que se limpie el estado
-      setTimeout(() => setIsTransitioning(false), 50);
-    }, 100);
-  };
+  // Pulsar un botón navega al instante; el bloqueo lo libera el efecto de cambio
+  // de categoría.
+  const handleNext = () => navigate(onNext);
+  const handlePrevious = () => navigate(() => onPrevious());
 
   const handleSelectOption = (categoryId, option) => {
+    if (navigationLock.current) return;
     onSelectOption(categoryId, option);
+    // Marcamos el bloqueo YA (impide un segundo toque durante la pausa) pero
+    // dejamos que el check se pinte antes de avanzar.
+    navigationLock.current = true;
+    setIsTransitioning(true);
+    selectionTimer.current = setTimeout(onNext, SELECTION_FEEDBACK_MS);
   };
 
   // Header con progreso y controles
@@ -346,13 +368,9 @@ export default function VoteScreen({
                   isMobilePortrait={isMobilePortrait}
                   compact={optionCount > 4 || viewportInfo.isLandscape || gridColumns >= 4}
                   isTransitioning={isTransitioning}
-                  onSelect={() => {
-                    if (!isTransitioning) {
-                      handleSelectOption(category.id, { id: optionId, name: optionName });
-                      // Avanzar automáticamente a siguiente categoría o a ReviewScreen
-                      setTimeout(() => handleNext(), 100);
-                    }
-                  }}
+                  onSelect={() =>
+                    handleSelectOption(category.id, { id: optionId, name: optionName })
+                  }
                 />
               );
             })}
