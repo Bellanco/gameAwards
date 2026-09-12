@@ -28,16 +28,16 @@ Carga inicial ≈ 689 kB / 173 kB gzip
 
 ## Resumen por severidad
 
-> **Estado:** el **Sprint 1 está aplicado** (hallazgos 1, 3, 6 y 8, marcados ✅ abajo).
-> Ver «Sprint 1 — aplicado» al final del documento.
+> **Estado:** **Sprints 1 y 2 aplicados** (hallazgos 1, 2, 3, 4, 5, 6 y 8, marcados ✅ abajo).
+> Ver «Sprint 1 — aplicado» y «Sprint 2 — aplicado» al final del documento.
 
 | # | Severidad | Ámbito | Hallazgo |
 |---|---|---|---|
 | 1 | ✅ Resuelto | Funcional | ~~Tras pulsar «Cancelar» en Revisión, el usuario **nunca puede enviar su voto**~~ |
-| 2 | 🔴 Crítica | Seguridad | El cierre de votación **solo se valida en cliente**: se puede votar fuera de plazo |
+| 2 | ✅ Resuelto | Seguridad | ~~El cierre de votación **solo se valida en cliente**: se puede votar fuera de plazo~~ |
 | 3 | ✅ Resuelto | Datos | ~~`CategoryManager` genera **`optionId` duplicados** al reordenar/borrar nominados~~ |
-| 4 | 🟠 Alta | Seguridad | `isValidBallot` no valida `season`, `userEmail` ni el tamaño de `selections` |
-| 5 | 🟠 Alta | Privacidad | `logError` envía mensaje de error y contexto **crudos a Analytics en producción** |
+| 4 | ✅ Resuelto | Seguridad | ~~`isValidBallot` no valida `season`, `userEmail` ni el tamaño de `selections`~~ |
+| 5 | ✅ Resuelto | Privacidad | ~~`logError` envía mensaje de error y contexto **crudos a Analytics en producción**~~ |
 | 6 | ✅ Resuelto | Deploy | ~~Sin `_redirects`: la ruta `/admin` **devuelve 404** en carga directa (CloudFlare Pages)~~ |
 | 7 | 🟠 Alta | Rendimiento | `AutoSizeText` provoca **layout thrashing** (hasta 20 reflows sincronizados por tarjeta) |
 | 8 | ✅ Resuelto | Funcional | ~~Fallo al parsear `votingProgress` **deja la app colgada** en «Cargando»~~ |
@@ -745,11 +745,11 @@ usa — hoy hay que deducirlo de un comentario en `firestore.rules`.
 3. ~~`public/_redirects` + catch-all de rutas (4.3)~~
 4. ~~`optionId` únicos en `CategoryManager` (1.2)~~
 
-**Sprint 2 — seguridad (un día):**
-5. Endurecer `firestore.rules`: plazo en servidor + validación de esquema (2.1, 2.2).
-6. Sanear el envío a Analytics (2.4).
-7. `public/_headers` con CSP (2.7).
-8. `firebase@11` + `npm audit fix` (2.8).
+**Sprint 2 — seguridad ✅ APLICADO** (ver detalle al final):
+5. ~~Endurecer `firestore.rules`: plazo en servidor + validación de esquema (2.1, 2.2)~~
+6. ~~Sanear el envío a Analytics (2.4)~~
+7. ~~`public/_headers` con CSP (2.7)~~
+8. ~~`firebase@11` + `npm audit fix` (2.8)~~
 
 **Sprint 3 — experiencia (uno o dos días):**
 9. `100dvh` (4.1) y quitar los retardos de 250 ms (4.4).
@@ -847,3 +847,134 @@ está disponible.
 semántica de `userNickname`/`userDisplayName` en el modelo de voto, la regla de que un
 `optionId` **nunca** se deriva del índice, y la corrección de «sin el claim, el panel mostrará
 404» → ahora redirige a `/`.
+
+---
+
+## Sprint 2 — aplicado
+
+Verificado con `npx eslint .` (0 problemas), `npm test` (**75** tests, antes 58),
+`npm run test:rules` (**26** tests nuevos contra el emulador de Firestore) y `npm run build`.
+
+> ⚠️ **Las reglas no están activas hasta desplegarlas**: `firebase deploy --only firestore:rules`.
+> Y después hay que **volver a guardar la fecha de cierre** en la pestaña Temporada (ver 5.3).
+
+### 5. Reglas de Firestore (hallazgos 2.1 y 2.2) — `firestore.rules`
+
+**El plazo ahora existe en servidor.** `allow create` de `ballots` llama a `votingIsOpen()`,
+que lee `config/voting` y comprueba `isOpen` y la fecha de cierre. Antes el plazo solo se
+evaluaba en `App.jsx`, así que bastaba la consola del navegador —o el reloj del sistema
+atrasado, porque `Date.now()` es local— para registrar un voto fuera de plazo.
+
+Si `config/voting` no existe, se considera abierta: es el estado «el admin aún no ha
+configurado nada» y no debe bloquear la primera edición. Mismo criterio que el cliente.
+
+**Esquema endurecido.** `isValidBallot` ahora exige:
+
+| Campo | Antes | Ahora |
+|---|---|---|
+| `userEmail` | `is string` | `== request.auth.token.email` (no se puede suplantar) |
+| `season` | sin validar | `is int` y entre 2000 y 2999 |
+| `userDisplayName` | sin validar | `is string`, longitud 1–50 |
+| `userNickname` | `is string` | `is string`, longitud ≤ 50 |
+| `selections` | `is map` | `is map`, entre 1 y 60 entradas |
+| `submittedAt` | `is string` | `is string`, ≤ 40 caracteres |
+| `isActive` | `is bool` | `== true` |
+| claves | solo `hasOnly` | `hasOnly` + `hasAll` (ninguna de más ni de menos) |
+
+**Y ahora están probadas.** `src/test/firestore.rules.test.js` cubre 26 casos contra el
+emulador: plazo, esquema, propiedad, un voto por persona, privacidad de los ballots y permisos
+de categorías/config. Se añade `npm run test:rules`, que levanta el emulador y ejecuta la suite
+(`vitest.rules.config.js`, aparte para que `npm test` siga sin dependencias externas).
+
+Durante el desarrollo aparecían `evaluation error` en el log del emulador. Se comprobó
+—contrastando con las reglas anteriores y reescribiendo la función— que corresponden a la
+pasada de resolución de `get()`/`exists()` de Firestore: evalúa, encuentra la búsqueda sin
+resolver, y reevalúa con el resultado correcto. Todas las aserciones positivas pasan.
+
+### 5.2 Cliente alineado con las reglas — `src/App.jsx`
+
+`submitBallot` enviaba `userId: currentUser?.uid || 'demo-user'` y
+`userEmail: ... || 'demo@example.com'`, restos del modo demo que ahora solo producirían un
+rechazo opaco. Se eliminan los valores por defecto y se añade una guarda de sesión. La
+temporada se envía con `Math.trunc()` (las reglas exigen un entero) y el nombre se valida **ya
+saneado**, porque un nombre que el saneado deja vacío también sería rechazado.
+
+El saneado se extrae a `src/utils/sanitize.js` (con tests), manteniendo el comportamiento
+anterior: el tope de 50 caracteres es el que evita el rechazo del servidor; la eliminación de
+`<` y `>` sigue siendo cosmética (hallazgo 2.9, sin tocar).
+
+### 5.3 Fecha de cierre inequívoca (cierra también el hallazgo 2.3)
+
+Para que las reglas puedan comparar el plazo hace falta un instante, y las reglas de Firestore
+no saben parsear una cadena ISO. `config/voting` gana `closesAtMillis` (epoch en ms) junto al
+`closesAt` de siempre; `seasonService` escribe **los dos a la vez**, porque desincronizarlos
+dejaría el plazo sin efecto.
+
+Y una vez que ese instante decide si un voto entra o no, «la hora local del navegador del
+administrador» deja de ser una fuente defendible: `src/utils/closingDate.js` lo fija en
+**Europe/Madrid** con `Intl` y doble pasada, de modo que acierta también los días de cambio de
+hora. Ocho tests lo cubren, incluidos el 29-03-2026 (23 h) y el 25-10-2026 (25 h).
+
+> **Migración:** los documentos `config/voting` existentes tienen `closesAt` pero **no**
+> `closesAtMillis`, así que tras desplegar las reglas el cierre por fecha no se aplicará en
+> servidor hasta que el admin **vuelva a guardar la fecha** en la pestaña Temporada. El cierre
+> manual (`isOpen: false`) sí funciona desde el primer momento.
+
+### 6. Fuga a Analytics (hallazgo 2.4) — `src/services/errorService.js`
+
+`logError` saneaba `errorData` «para producción» y tres líneas después enviaba a Google
+Analytics el mensaje crudo y el contexto completo. Ahora envía siempre `errorData.message` (ya
+saneado) y el contexto solo en desarrollo.
+
+De paso se cierra el hallazgo 2.5, que no estaba en el sprint pero es el mismo riesgo latente:
+`trackLogin`, `trackLogout`, `trackBallotSubmitted` y `trackAdminAccessAttempted` mandaban
+`user_email` / `user_nickname` a GA. Son funciones sin consumidores hoy, pero
+`ANALYTICS_SETUP.md` las documenta como si estuvieran activas: cablearlas tal cual habría
+empezado a enviar correos personales a Google. Se les quita la PII y se deja una nota.
+
+### 7. Cabeceras de seguridad (hallazgo 2.7) — `public/_headers`
+
+CSP restrictiva (`default-src 'none'`) más HSTS, `X-Frame-Options: DENY`, `nosniff`,
+`Referrer-Policy`, `Permissions-Policy` y COOP/CORP. La app dejaba de ser clickjackeable.
+
+Sin `'unsafe-inline'` en `script-src`: el script anti-FOUC de `index.html` se autoriza **por su
+hash sha256**. Eso crea un fallo silencioso —tocas el script, olvidas el hash, y en producción
+la app arranca sin tema y sin error visible—, así que `src/test/csp.test.js` lo convierte en un
+fallo de test: recalcula el hash del fuente y comprueba que está en la CSP, junto con las
+defensas que no deben perderse en un retoque.
+
+Tres decisiones que conviene no revertir sin pensar, documentadas en el propio archivo:
+`Cross-Origin-Opener-Policy: same-origin-allow-popups` (con `same-origin` a secas
+`signInWithPopup` se cuelga), `apis.google.com` + `accounts.google.com` (sin ellos no abre el
+login), y `'unsafe-inline'` en `style-src` (la app calcula estilos en línea: degradados, barra
+de progreso, `AutoSizeText`).
+
+**Pendiente de verificar en el primer despliegue:** login de Google, lectura/escritura de
+Firestore y carga de fuentes. Una CSP no se puede probar en local con fiabilidad.
+
+### 8. Dependencias (hallazgo 2.8)
+
+`firebase@10.7 → 11.10`. Vulnerabilidades **de producción: 14 → 0** (la cadena de `undici`
+venía de `@firebase/functions` y `@firebase/storage`, que la app ni usa). El chunk de Firebase
+crece de 435 a 459 kB (gzip 100 → 107 kB).
+
+Se queda en la 11 y no en la 12 (que ya existe) a propósito: la 11 ya deja el recuento en cero,
+y encadenar un segundo salto mayor añade riesgo de migración sin beneficio de seguridad.
+
+`npm audit fix` reduce las de desarrollo de 12 a 4. Las 4 restantes son todas `esbuild <= 0.24.2`
+vía `vite@5` / `vitest@1`: **solo afectan al servidor de desarrollo** (permiten que una web
+cualquiera le haga peticiones y lea la respuesta), no al build. Arreglarlas exige subir a
+Vite 7 / Vitest 3, que es un cambio mayor y merece su propio trabajo.
+
+### Tests nuevos
+
+| Archivo | Tests | Qué cubre |
+|---|---|---|
+| `src/test/firestore.rules.test.js` | 26 | Reglas contra el emulador |
+| `src/utils/closingDate.test.js` | 8 | Instante de cierre, incluidos días de cambio de hora |
+| `src/utils/sanitize.test.js` | 5 | Saneado alineado con el tope del servidor |
+| `src/test/csp.test.js` | 4 | Hash del script inline y defensas de la CSP |
+
+Los tests de `closingDate` cazaron un fallo real de la primera implementación:
+`Intl.formatToParts` no devuelve milisegundos, así que el desfase salía corto y la hora de
+cierre se desplazaba 999 ms.
