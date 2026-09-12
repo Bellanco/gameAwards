@@ -140,3 +140,89 @@ export async function signInWithGoogle(page, { email, name }) {
 
   await popup.waitForEvent('close', { timeout: 15_000 }).catch(() => {});
 }
+
+/** Identity Toolkit del emulador (la API de administración de cuentas). */
+const IDENTITY = `http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/projects/${PROJECT_ID}`;
+
+/** Cuentas que hay ahora mismo en el emulador de Auth. */
+async function listAccounts() {
+  const response = await fetch(`${IDENTITY}/accounts:query`, {
+    method: 'POST',
+    headers: OWNER,
+    body: '{}',
+  });
+  const body = await response.json();
+  return body.userInfo || [];
+}
+
+/**
+ * Convierte una cuenta ya existente en administradora.
+ *
+ * El acceso de admin depende de un custom claim que verifica el servidor
+ * (`admin: true`), no de nada del cliente: lo comprueban `useAdminCheck` y las
+ * propias reglas de Firestore. Aquí se pone por la API del emulador, que es el
+ * equivalente local de `admin.auth().setCustomUserClaims()`.
+ */
+export async function grantAdminClaim(email) {
+  // La cuenta la acaba de crear el popup: se espera a verla en el emulador en
+  // vez de confiar en un `waitForTimeout` a ojo.
+  let account = null;
+  for (let intento = 0; intento < 20 && !account; intento += 1) {
+    const cuentas = await listAccounts();
+    account = cuentas.find((u) => u.email === email);
+    if (!account) await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  if (!account) {
+    const emails = (await listAccounts()).map((u) => u.email);
+    throw new Error(`No existe la cuenta ${email} en el emulador. Hay: ${emails.join(', ') || '(ninguna)'}`);
+  }
+
+  const response = await fetch(`${IDENTITY}/accounts:update`, {
+    method: 'POST',
+    headers: OWNER,
+    body: JSON.stringify({
+      localId: account.localId,
+      customAttributes: JSON.stringify({ admin: true }),
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`grantAdminClaim: ${response.status} ${await response.text()}`);
+  }
+  return account.localId;
+}
+
+/** Olvida la sesión en el navegador (no en el emulador). */
+export async function forgetSession(page) {
+  await page.evaluate(async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    await new Promise((resolve) => {
+      const request = indexedDB.deleteDatabase('firebaseLocalStorageDb');
+      request.onsuccess = request.onerror = request.onblocked = () => resolve();
+    });
+  });
+  await page.context().clearCookies();
+}
+
+/**
+ * Entra en /admin como administrador.
+ *
+ * Hacen falta dos pasadas por el login y no es rodeo: el claim solo se puede
+ * poner sobre una cuenta que ya exista, y el token emitido en el primer login
+ * todavía no lo lleva. Al volver a entrar, el emulador emite un token nuevo que
+ * sí lo incluye, que es exactamente lo que pasa en producción cuando a alguien
+ * se le da el claim: tiene que volver a iniciar sesión.
+ */
+export async function signInAsAdmin(page, user) {
+  // El primer login va por la portada y no por /admin: allí, al no tener aún el
+  // claim, el panel redirige a `/` en cuanto se autentica y esa navegación se
+  // cruza con el cierre del popup.
+  await page.goto('/');
+  await signInWithGoogle(page, user);
+
+  await grantAdminClaim(user.email);
+
+  await forgetSession(page);
+  await page.goto('/admin');
+  await signInWithGoogle(page, user);
+}

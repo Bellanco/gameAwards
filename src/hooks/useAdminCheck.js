@@ -34,6 +34,16 @@ export const useAdminCheck = () => {
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
+      // Vuelve a "cargando" en CADA cambio de sesión, no solo al arrancar.
+      //
+      // Sin esto, quien iniciaba sesión estando ya en /admin se iba a la
+      // portada aunque fuera administrador: entre `setCurrentUser(user)` y el
+      // `await` que lee el claim hay un render con usuario presente, `isAdmin`
+      // todavía en false y `isLoading` ya en false (lo dejó así el primer
+      // evento, el de "no hay sesión"), y el guardián del panel lo leía como
+      // "autenticado y sin permiso". Solo entraba quien recargaba /admin con la
+      // sesión ya establecida.
+      setIsLoading(true);
       try {
         setCurrentUser(user);
 

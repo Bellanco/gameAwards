@@ -56,6 +56,14 @@ npm run test:e2e:ui # lo mismo, con la interfaz de Playwright para depurar
   `editCount`), bloqueo de re-voto, corrección del voto con su contador, fuera de plazo,
   edición programada y publicación de resultados. Cada prueba se ejecuta en escritorio y en
   un viewport de 320×568.
+- **El panel de admin también** (`e2e/admin.spec.js`): que sin el claim no se entra, que con él
+  se ve el panel, y que lo que se guarda desde la pestaña Temporada (calendario con sus pares
+  ISO+epoch y snapshot de resultados) y desde Ganadores (winner por optionId en la categoría y
+  en el snapshot) llega a Firestore con la forma que espera la app pública.
+- El claim `admin:true` se pone con `grantAdminClaim()` (API del emulador, equivalente local de
+  `setCustomUserClaims`). Hacen falta **dos pasadas por el login**: el claim solo se puede poner
+  sobre una cuenta que ya exista y el token del primer login no lo lleva — igual que en
+  producción, donde hay que volver a iniciar sesión tras recibirlo.
 
 ### Accesibilidad
 
