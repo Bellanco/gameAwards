@@ -762,8 +762,7 @@ usa — hoy hay que deducirlo de un comentario en `firestore.rules`.
 13. ~~Decidir sobre el código muerto: cablear analytics o borrarlo (6.1)~~
 14. ~~Contexto de idioma/tema (6.4) y dividir los componentes grandes (6.2)~~
 15. ~~Mover las escrituras de Firestore a servicios (6.3) y testearlas (7.1)~~
-16. CI con `lint` + `test` + `build` (7.3) — **escrito, pendiente de añadir a mano**
-    (el token necesita el scope `workflow`)
+16. ~~CI con `lint` + `test` + `build` (7.3)~~
 
 ---
 
@@ -1101,31 +1100,24 @@ Nada de esto se puede comprobar sin un navegador:
 Verificado con `npx eslint .` (0 problemas), `npm test` (**124** tests, antes 89),
 `npm run test:rules` (26) y `npm run build`.
 
-> El workflow de CI queda **fuera del repositorio** por una limitación del token; ver el punto
-> 16 para activarlo.
+### 16. CI (hallazgo 7.3) — `.github/workflows/ci.yml`
 
-### 16. CI (hallazgo 7.3) — ⏳ pendiente de añadir a mano
+Dos trabajos en cada push y PR a `develop`/`master`: uno con lint + tests + build, y otro que
+levanta el emulador (con JDK) y corre los tests de reglas.
 
-El workflow está escrito y listo en `.github/workflows/ci.yml`, pero **sin versionar**: GitHub
-rechaza cualquier push que cree o modifique un archivo de `.github/workflows/` si el token no
-tiene el scope `workflow`.
+El archivo lo añadió el propietario del repositorio desde la web de GitHub: un push normal lo
+rechaza si el token no tiene el scope `workflow`.
 
 ```
 ! [remote rejected] develop -> develop (refusing to allow a Personal Access Token
   to create or update workflow `.github/workflows/ci.yml` without `workflow` scope)
 ```
 
-Son dos trabajos en cada push y PR a `develop`/`master`: uno con lint + tests + build, y otro
-que levanta el emulador (con JDK) y corre los tests de reglas.
-
-Para activarlo, cualquiera de las dos vías:
-- Dar el scope `workflow` al token (GitHub → Settings → Developer settings → Tokens) y
-  `git add .github/workflows/ci.yml`.
-- O crearlo desde la web de GitHub (Actions → New workflow), pegando el contenido del archivo
-  local.
-
-Ojo: mientras siga sin versionar, un `git add -A` lo volvería a incluir y el push fallaría otra
-vez con el mismo error.
+**La primera ejecución encontró un fallo real, y era del propio proyecto:** el job de reglas
+falló porque `npm run test:rules` invocaba `firebase` a secas, y `firebase-tools` no es
+dependencia del repositorio — funcionaba en local solo porque estaba instalado globalmente en
+esa máquina. El script pasa a `npx --yes firebase-tools@15`, que resuelve siempre desde el
+registro y no depende de nada ambiental. Es justo el tipo de fallo para el que sirve tener CI.
 
 ### 13. Código muerto (hallazgo 6.1)
 

@@ -21,7 +21,8 @@ npm run build      # build de producción a dist/ (minify + drop_console)
 npm run preview    # previsualizar el build
 npm test           # tests con Vitest (una pasada)
 npm run test:watch # tests en modo watch
-npm run test:rules # tests de firestore.rules contra el emulador (necesita Java)
+npm run test:rules # tests de firestore.rules contra el emulador (necesita Java; descarga
+                   # firebase-tools con npx, NO depende de tenerlo instalado)
 ```
 
 ### Tests (Vitest)
