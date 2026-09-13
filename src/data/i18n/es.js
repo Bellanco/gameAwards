@@ -130,6 +130,22 @@ export const es = {
   noRankingYet: "Todavía no hay participantes en la clasificación.",
   resultsAvailableOn: "Los resultados se publicarán el {date}",
   resultsNotPublishedYet: "Los resultados aún no están publicados",
+
+  // Premios del podio (pantalla de resultados). Los cinco primeros puestos se
+  // llevan un título; los empatados comparten puesto y todos reciben el suyo.
+  awardsSectionTitle: "Premios del podio",
+  yourAwardTitle: "Tu premio",
+  yourAwardSubtitle: "¡Enhorabuena! {position}: este título es tuyo.",
+  viewAward: "Ver premio",
+  viewAwardOf: "Ver el premio de {name}",
+  awardDownload: "Descargar premio",
+  awardLoading: "Preparando el premio…",
+  awardError: "No se pudo preparar el premio. Recarga la página para intentarlo de nuevo.",
+  awardTitle1: "Primer puesto",
+  awardTitle2: "Segundo puesto",
+  awardTitle3: "Tercer puesto",
+  awardTitle4: "Cuarto puesto",
+  awardTitle5: "Quinto puesto",
   
   // Admin Panel
   adminPanel: "Panel de administración",

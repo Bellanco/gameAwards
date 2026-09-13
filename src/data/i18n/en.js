@@ -130,6 +130,22 @@ export const en = {
   noRankingYet: "No participants in the standings yet.",
   resultsAvailableOn: "Results will be published on {date}",
   resultsNotPublishedYet: "Results are not published yet",
+
+  // Podium awards (results screen). The top five places each get a title; tied
+  // participants share a place and every one of them gets that title.
+  awardsSectionTitle: "Podium awards",
+  yourAwardTitle: "Your award",
+  yourAwardSubtitle: "Congratulations! {position}: this title is yours.",
+  viewAward: "View award",
+  viewAwardOf: "View {name}'s award",
+  awardDownload: "Download award",
+  awardLoading: "Preparing the award…",
+  awardError: "The award could not be prepared. Reload the page to try again.",
+  awardTitle1: "First place",
+  awardTitle2: "Second place",
+  awardTitle3: "Third place",
+  awardTitle4: "Fourth place",
+  awardTitle5: "Fifth place",
   
   // Admin Panel
   adminPanel: "Admin Panel",
