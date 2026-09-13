@@ -57,6 +57,39 @@ export const scoreBallot = (ballot, categories, winners = null) => {
 };
 
 /**
+ * Asigna los puestos de una clasificación con ranking DENSO: quienes empatan a
+ * puntos comparten puesto y el siguiente puesto es el inmediatamente posterior,
+ * sin dejar huecos (5, 5, 3 puntos -> puestos 1, 1, 2).
+ *
+ * Esto importa más allá de la estética, porque el puesto es lo que reparte los
+ * premios del podio (ver utils/awards.js): con dos primeros, el tercer
+ * clasificado recibe el título de SEGUNDO, no el de tercero.
+ *
+ * Es idempotente y reordena por puntos, así que vale tanto para una
+ * clasificación recién calculada como para la de un archivo publicado antes de
+ * este cambio, que guardaba el puesto como posición en la lista. Los archivos
+ * antiguos NO necesitan migración: se recalcula al leerlos.
+ *
+ * @param {Array<{points:number}>} leaderboard
+ * @returns {Array<{rank:number, points:number}>} misma forma, con `rank` denso
+ */
+export const assignDenseRanks = (leaderboard) => {
+  const sorted = [...(leaderboard || [])].sort((a, b) => (b?.points || 0) - (a?.points || 0));
+
+  let rank = 0;
+  let previousPoints = null;
+
+  return sorted.map((entry) => {
+    const points = entry?.points || 0;
+    if (points !== previousPoints) {
+      rank += 1;
+      previousPoints = points;
+    }
+    return { ...entry, rank };
+  });
+};
+
+/**
  * Tabla de clasificación ordenada de mayor a menor puntuación.
  *
  * Cada entrada lleva el `userId` (lo necesita el panel de admin, que trabaja
@@ -64,19 +97,19 @@ export const scoreBallot = (ballot, categories, winners = null) => {
  * snapshot público se queda solo con la huella: ver
  * `seasonService.buildSeasonSnapshot` y `utils/pseudonym.js`.
  *
+ * El puesto es DENSO: los empatados comparten número (ver `assignDenseRanks`).
+ *
  * @param {Array} ballots
  * @param {Array} categories
  * @param {Object.<string,string>} [winners] - mapa categoryId -> optionId ganador
  * @returns {Array<{rank:number,userId:string,uidHash:string,nickname:string,points:number}>}
  */
-export const computeLeaderboard = (ballots, categories, winners = null) => {
-  return (ballots || [])
-    .map((ballot) => ({
+export const computeLeaderboard = (ballots, categories, winners = null) =>
+  assignDenseRanks(
+    (ballots || []).map((ballot) => ({
       userId: ballot.userId,
       uidHash: hashUid(ballot.userId),
       nickname: ballot.userDisplayName || ballot.userNickname || 'Anónimo',
       points: scoreBallot(ballot, categories, winners),
     }))
-    .sort((a, b) => b.points - a.points)
-    .map((entry, index) => ({ rank: index + 1, ...entry }));
-};
+  );
