@@ -17,8 +17,20 @@
 
 import { getAward } from './awards';
 
-/** Tipografía display del tema (ver styles/theme-tokens.css). */
-const FONT_STACK = "'Cinzel', 'Times New Roman', serif";
+/**
+ * La tipografía del título IMPRESO en la lámina («Ganador Game Awards»), para
+ * que el nombre parezca parte del mismo cartel y no un añadido: Comic Sans MS
+ * en negrita cursiva. NO es la fuente display del tema (Cinzel), a propósito.
+ *
+ * Comic Sans MS va primera porque quien la tenga instalada —Windows, y los Mac
+ * con Office— verá exactamente la del título. El resto cae en Comic Neue, su
+ * equivalente libre, que se descarga bajo demanda (ver `ensureFont`).
+ */
+const FONT_FAMILY = "'Comic Sans MS', 'Comic Neue', 'Chalkboard SE', cursive";
+/** El título de la lámina va en negrita cursiva; el nombre la acompaña. */
+const FONT_STYLE = 'italic bold';
+/** El título impreso lleva las letras sueltas; sin esto el nombre va más prieto. */
+const LETTER_SPACING = '0.04em';
 /** Interlineado relativo al cuerpo, cuando el nombre no cabe en una línea. */
 const LINE_HEIGHT = 1.18;
 /** Más de dos líneas deja de leerse como un título y pasa a ser un párrafo. */
@@ -137,22 +149,56 @@ const loadImage = (src) => {
   return imageCache.get(src);
 };
 
+/** Hoja de estilos de Comic Neue, la única web font que necesita el premio. */
+const COMIC_NEUE_HREF =
+  'https://fonts.googleapis.com/css2?family=Comic+Neue:ital,wght@1,700&display=swap';
+
 /**
- * Espera a que la tipografía display esté disponible.
+ * Se asegura de que la tipografía del premio esté lista ANTES de medir y pintar.
  *
- * Sin esto el primer premio se dibuja con la fuente de respaldo: el canvas no
- * se repinta solo cuando la web font termina de llegar, así que el nombre se
- * queda en Times para siempre. Si el navegador no expone `document.fonts`, se
- * sigue adelante con el respaldo.
+ * Dos cosas, y las dos hacen falta:
+ *
+ * 1. Comic Neue se pide **bajo demanda**, no desde `index.html`: es el respaldo
+ *    de quien no tenga Comic Sans MS instalada y no hay razón para que la
+ *    descargue todo el que entra a votar.
+ * 2. Se espera a que cargue. Un canvas no se repinta solo cuando la web font
+ *    termina de llegar, así que sin esperar el primer premio se quedaría con la
+ *    tipografía de respaldo para siempre.
+ *
+ * Si el navegador no expone `document.fonts`, o no hay red, se sigue adelante:
+ * la lámina sale igual, solo que con otra letra.
  */
-const waitForFont = async () => {
+const ensureFont = async () => {
+  if (typeof document === 'undefined') return;
+
+  if (!document.getElementById('comic-neue-font')) {
+    const link = document.createElement('link');
+    link.id = 'comic-neue-font';
+    link.rel = 'stylesheet';
+    link.href = COMIC_NEUE_HREF;
+    document.head.appendChild(link);
+  }
+
   if (!document.fonts?.load) return;
   try {
-    await document.fonts.load(`bold 100px ${FONT_STACK}`);
+    await document.fonts.load(`${FONT_STYLE} 100px ${FONT_FAMILY}`);
     await document.fonts.ready;
   } catch {
     // Sin la web font la lámina sale igual, solo con otra tipografía.
   }
+};
+
+/**
+ * Fija la fuente del contexto para un cuerpo dado.
+ *
+ * El espaciado se asigna DESPUÉS de `font` a propósito: va en `em`, así que se
+ * resuelve contra el tamaño que tenga el contexto en ese momento. Al revés
+ * quedaría calculado sobre el cuerpo anterior. `letterSpacing` no existe en
+ * navegadores antiguos ni en jsdom; asignarlo de más no rompe nada.
+ */
+const applyFont = (ctx, fontSize) => {
+  ctx.font = `${FONT_STYLE} ${fontSize}px ${FONT_FAMILY}`;
+  ctx.letterSpacing = LETTER_SPACING;
 };
 
 /**
@@ -166,7 +212,7 @@ export const drawAward = async (canvas, { rank, name }) => {
   const award = getAward(rank);
   if (!canvas || !award) return;
 
-  const [image] = await Promise.all([loadImage(award.image), waitForFont()]);
+  const [image] = await Promise.all([loadImage(award.image), ensureFont()]);
 
   canvas.width = image.naturalWidth;
   canvas.height = image.naturalHeight;
@@ -182,12 +228,12 @@ export const drawAward = async (canvas, { rank, name }) => {
   };
 
   const measureAt = (text, fontSize) => {
-    ctx.font = `bold ${fontSize}px ${FONT_STACK}`;
+    applyFont(ctx, fontSize);
     return ctx.measureText(text).width;
   };
   const { fontSize, lines } = layoutAwardName(measureAt, name, box);
 
-  ctx.font = `bold ${fontSize}px ${FONT_STACK}`;
+  applyFont(ctx, fontSize);
   ctx.fillStyle = award.color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';

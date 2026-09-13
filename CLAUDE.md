@@ -453,6 +453,12 @@ con su nombre, que se ve y se descarga desde `ResultsScreen`.
   hueco negro que dejan la ola, los logos y el título impreso—, así que **si cambia un template
   hay que volver a medir su caja** o el nombre se monta encima del dibujo. El `color` de cada una
   es el del título impreso en esa lámina, muestreado de ella.
+- **La letra del nombre es la del título impreso en la lámina**, no la display del tema: Comic
+  Sans MS en negrita cursiva, con las letras algo sueltas. Quien la tenga instalada (Windows, y
+  los Mac con Office) ve exactamente la del cartel; el resto cae en **Comic Neue**, su
+  equivalente libre, que `ensureFont()` pide a Google Fonts **bajo demanda** —no desde
+  `index.html`: no hay razón para que la descargue quien solo entra a votar— y espera antes de
+  medir, porque un canvas no se repinta solo cuando la web font termina de llegar.
 - **El premio se dibuja en el navegador**, en un `<canvas>` a resolución nativa escalado por CSS
   (`utils/awardCanvas.js`): lo que se ve y lo que se descarga son el mismo píxel. No se guarda
   nada en Firestore —el premio se deriva del archivo publicado (puesto + nombre)— y no hay

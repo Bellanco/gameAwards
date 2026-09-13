@@ -3,8 +3,8 @@
  *
  * La medición se inyecta a propósito: en jsdom `measureText` devuelve siempre 0
  * y cualquier cálculo sobre un canvas real daría verdes falsos. Aquí se simula
- * una fuente de ancho fijo (0,55 em por carácter, aproximadamente lo que ocupa
- * Cinzel), que es suficiente para comprobar la lógica.
+ * una fuente de ancho fijo (0,55 em por carácter), que es suficiente para
+ * comprobar la lógica: lo que se prueba es el encaje, no la tipografía.
  *
  * describe/it/expect son globales (vite.config.js -> test.globals).
  */
