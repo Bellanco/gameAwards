@@ -3,6 +3,7 @@ import { useTranslation } from '../../data/literals';
 import { useAppContext } from '../../context/AppContext';
 import { Button, Card, LoadingSpinner, Alert } from '../ui';
 import { tField, getCategoryTitle, getOptionId, getOptionLabel } from '../../utils/localize';
+import { CheckmarkIcon } from '../Icons';
 
 /**
  * Selector de ganadores: una tarjeta por categoría con sus nominados.
@@ -93,8 +94,9 @@ export default function WinnersSelector({
                   <Card.Header>
                     <h2 className="text-xl font-bold theme-text-primary">{getCategoryTitle(category, language)}</h2>
                     {winners[category.id] && (
-                      <p className="text-success text-sm mt-2">
-                        ✓ {t('selected')}: {getOptionLabel(category, winners[category.id], language)}
+                      <p className="text-success text-sm mt-2 flex items-center gap-1.5">
+                        <CheckmarkIcon className="w-4 h-4 shrink-0" />
+                        {t('selected')}: {getOptionLabel(category, winners[category.id], language)}
                       </p>
                     )}
                   </Card.Header>
@@ -116,7 +118,10 @@ export default function WinnersSelector({
                               }
                             `}
                           >
-                            {isWinner && '✓ '}{optionName}
+                            <span className="flex items-center justify-center gap-1.5">
+                              {isWinner && <CheckmarkIcon className="w-4 h-4 shrink-0" />}
+                              {optionName}
+                            </span>
                           </button>
                         );
                       })}

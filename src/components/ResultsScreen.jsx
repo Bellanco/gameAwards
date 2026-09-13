@@ -6,6 +6,7 @@ import { isOwnEntry } from '../utils/pseudonym';
 import { assignDenseRanks } from '../utils/scoring';
 import { hasAward } from '../utils/awards';
 import { ScreenLayout } from './layouts';
+import { MedalIcon, TrophyIcon } from './Icons';
 import { Header } from './ui';
 import AwardCard from './AwardCard';
 import AwardDialog from './AwardDialog';
@@ -55,8 +56,6 @@ export default function ResultsScreen({ result, currentUserId = null }) {
     [leaderboard, currentUserId]
   );
   const ownAward = ownEntry && hasAward(ownEntry.rank) ? ownEntry : null;
-
-  const medal = (rank) => (rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`);
 
   return (
     <ScreenLayout
@@ -146,7 +145,23 @@ export default function ResultsScreen({ result, currentUserId = null }) {
                     }`}
                   >
                     <span className="flex items-center gap-3 min-w-0">
-                      <span className="font-bold w-8 text-center shrink-0">{medal(entry.rank)}</span>
+                      {/*
+                        El puesto se dice SIEMPRE en texto, aunque se vea como
+                        medalla: el SVG es `aria-hidden`, así que sin esto un
+                        lector de pantalla leería el nombre sin la posición.
+                      */}
+                      <span className="w-7 shrink-0 flex items-center justify-center">
+                        <span className="sr-only">
+                          {t('position')} {entry.rank}
+                        </span>
+                        {entry.rank <= 3 ? (
+                          <MedalIcon rank={entry.rank} className="w-7 h-7" />
+                        ) : (
+                          <span aria-hidden="true" className="font-bold tabular-nums">
+                            {entry.rank}
+                          </span>
+                        )}
+                      </span>
                       <span className="font-semibold truncate">{entry.nickname}</span>
                     </span>
                     <span className="flex items-center gap-2 shrink-0">
@@ -163,7 +178,7 @@ export default function ResultsScreen({ result, currentUserId = null }) {
                           title={t('viewAward')}
                           className="min-h-[44px] min-w-[44px] rounded-lg border theme-border-control flex items-center justify-center text-lg transition-all hover:-translate-y-0.5 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-(--color-accent)"
                         >
-                          <span aria-hidden="true">🏆</span>
+                          <TrophyIcon className="w-5 h-5" />
                         </button>
                       )}
                     </span>
@@ -175,7 +190,7 @@ export default function ResultsScreen({ result, currentUserId = null }) {
         </section>
 
         <p className="text-sm theme-text-secondary text-center xl:col-span-2">
-          © The Game Awards {result?.season || new Date().getFullYear()}
+          {seasonName || t('officialsVotingPlatform')}
         </p>
       </div>
 

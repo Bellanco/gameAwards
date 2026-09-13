@@ -111,9 +111,10 @@ test.describe('premios del podio', () => {
     await signInWithGoogle(page, PREMIADO);
 
     await expect(page.getByRole('heading', { name: /resultados de la edición/i })).toBeVisible();
-    // Dos oros y ninguna medalla de bronce: Carla es SEGUNDA.
-    await expect(page.getByText('🥇')).toHaveCount(2);
-    await expect(page.getByText('🥉')).toHaveCount(0);
+    // Dos primeros puestos y ningún tercero: Carla es SEGUNDA. El puesto se
+    // comprueba por el texto accesible, no por la medalla (un SVG decorativo).
+    await expect(page.getByText(/posición 1/i)).toHaveCount(2);
+    await expect(page.getByText(/posición 3/i)).toHaveCount(0);
 
     // Y el título que recibe Carla es el de segundo puesto, no el de tercero.
     await page.getByRole('button', { name: /ver el premio de carla/i }).click();

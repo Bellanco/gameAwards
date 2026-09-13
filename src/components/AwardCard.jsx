@@ -5,6 +5,7 @@ import { drawAward, downloadCanvas } from '../utils/awardCanvas';
 import { getAward } from '../utils/awards';
 import logger from '../services/loggerService';
 import { Button } from './ui';
+import { DownloadIcon } from './Icons';
 
 /**
  * AwardCard - La lámina de un puesto del podio con el nombre de su ganador.
@@ -95,7 +96,10 @@ export default function AwardCard({ rank, name, seasonName = '' }) {
         disabled={status !== 'ready'}
         className="min-h-[44px] self-center"
       >
-        {t('awardDownload')}
+        <span className="flex items-center justify-center gap-2">
+          <DownloadIcon className="w-5 h-5" />
+          {t('awardDownload')}
+        </span>
       </Button>
     </div>
   );

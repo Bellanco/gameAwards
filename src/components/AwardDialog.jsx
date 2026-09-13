@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useTranslation } from '../data/literals';
 import { useAppContext } from '../context/AppContext';
 import AwardCard from './AwardCard';
+import { CloseIcon } from './Icons';
 
 /**
  * AwardDialog - Diálogo modal con el título premiado de un puesto.
@@ -59,9 +60,9 @@ export default function AwardDialog({ rank, name, seasonName = '', onClose }) {
           type="button"
           onClick={() => dialogRef.current?.close()}
           aria-label={t('close')}
-          className="shrink-0 min-h-[44px] min-w-[44px] rounded-lg border theme-border-control theme-text-primary text-xl leading-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-(--color-accent)"
+          className="shrink-0 min-h-[44px] min-w-[44px] rounded-lg border theme-border-control theme-text-primary flex items-center justify-center focus:outline-hidden focus-visible:ring-2 focus-visible:ring-(--color-accent)"
         >
-          ×
+          <CloseIcon className="w-5 h-5" />
         </button>
       </div>
 

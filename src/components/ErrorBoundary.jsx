@@ -1,6 +1,7 @@
 import React from 'react';
 import { getTranslations } from '../data/literals';
 import { logError, ERROR_TYPES } from '../services/errorService';
+import { WarningIcon } from './Icons';
 
 /**
  * ErrorBoundary - Captura errores de render en el árbol de React y muestra
@@ -35,7 +36,7 @@ export default class ErrorBoundary extends React.Component {
     return (
       <div className="min-h-screen theme-gradient-primary flex items-center justify-center p-4">
         <div className="text-center max-w-md">
-          <div className="text-5xl mb-4">⚠️</div>
+          <WarningIcon className="w-14 h-14 mx-auto mb-4" />
           <h1 className="text-2xl font-bold theme-display uppercase theme-text-primary mb-2">{t.unexpectedError}</h1>
           <p className="theme-text-tertiary mb-6">{t.unexpectedErrorMessage}</p>
           <button

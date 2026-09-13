@@ -99,9 +99,11 @@ describe('ResultsScreen · premios del podio', () => {
   it('reparte el puesto empatado a todos los empatados y no salta el siguiente', () => {
     render(<ResultsScreen result={conEmpate} />);
     // Ana y Beto son los dos primeros; Carla es SEGUNDA, no tercera.
-    expect(screen.getAllByText('🥇')).toHaveLength(2);
-    expect(screen.getByText('🥈')).toBeInTheDocument();
-    expect(screen.queryByText('🥉')).not.toBeInTheDocument();
+    // El puesto se lee del texto accesible, no de la medalla (que es un SVG
+    // decorativo).
+    expect(screen.getAllByText(/posición 1/i)).toHaveLength(2);
+    expect(screen.getByText(/posición 2/i)).toBeInTheDocument();
+    expect(screen.queryByText(/posición 3/i)).not.toBeInTheDocument();
   });
 
   it('recalcula el puesto de un archivo antiguo en vez de fiarse del guardado', () => {
@@ -109,7 +111,7 @@ describe('ResultsScreen · premios del podio', () => {
     // posición en la lista (1, 2, 3 para un empate). No se migran: se recalcula.
     render(<ResultsScreen result={conEmpate} />);
     expect(screen.getByRole('button', { name: /ver el premio de beto/i })).toBeInTheDocument();
-    expect(screen.getAllByText('🥇')).toHaveLength(2);
+    expect(screen.getAllByText(/posición 1/i)).toHaveLength(2);
   });
 
   it('despliega el premio propio, sin tener que pulsar nada', () => {
