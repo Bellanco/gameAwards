@@ -21,6 +21,7 @@ npm run dev        # dev server en http://localhost:5173
 npm run build      # build de producción a dist/ (minify + drop_console)
 npm run preview    # previsualizar el build
 npm run share-card # regenera public/share-card.jpg desde el SVG (tarjeta al compartir el enlace)
+npm run award-cards # regenera public/awards/rank-N.jpg desde templates/ (láminas de los premios)
 npm test           # tests con Vitest (una pasada)
 npm run test:watch # tests en modo watch
 npm run test:rules # tests de firestore.rules contra el emulador (necesita **JDK 21+**:
@@ -57,6 +58,12 @@ npm run test:e2e:ui # lo mismo, con la interfaz de Playwright para depurar
   `editCount`), bloqueo de re-voto, corrección del voto con su contador, fuera de plazo,
   edición programada y publicación de resultados. Cada prueba se ejecuta en escritorio y en
   un viewport de 320×568.
+- **Los premios del podio** (`e2e/awards.spec.js`): que la lámina se sirve y el canvas se pinta
+  de verdad (el botón de descarga solo se habilita cuando está pintado), que la descarga sale
+  con su nombre de archivo, y que el EMPATE reparte el mismo título a los empatados sin saltarse
+  el puesto siguiente. `getUid(email)` de `helpers.js` da el UID real de la cuenta del emulador:
+  hace falta para sembrar la huella (`uidHash`) de la clasificación publicada, que no se puede
+  escribir hasta que la cuenta existe.
 - **El panel de admin también** (`e2e/admin.spec.js`): que sin el claim no se entra, que con él se
   ve el panel, y el **ciclo de vida entero de una edición** —abrir (con su par ISO+epoch), cerrar,
   marcar ganadores y publicar—, comprobando en Firestore lo que de verdad importa: que el ganador
@@ -95,6 +102,7 @@ src/
 ├── index.css                # Directivas Tailwind
 ├── context/AppContext.jsx   # Idioma y tema (evita el prop-drilling por 9 pantallas)
 ├── components/              # Pantallas (VoteScreen, ReviewScreen, AdminPanel…)
+│   │                        # + AwardCard / AwardDialog (premios del podio)
 │   ├── admin/               # Pestañas y sub-paneles del AdminPanel
 │   ├── ui/                  # Primitivos (Button, Card, Alert, ThemeLanguageControls…)
 │   ├── form/                # Inputs de formulario (TextInput) + index.js
@@ -123,8 +131,10 @@ src/
   por ancho + reparto equilibrado, ver abajo), `closingDate` (instantes del calendario en
   Europe/Madrid), `votingSchedule` (semántica abierto/publicado), `pseudonym` (huella del UID
   para la clasificación publicada), `authErrors` (código de Firebase Auth → clave i18n, compartido
-  por el login público y el del panel), `options`, `sanitize`,
-  `scoring`, `localize`, `routes`, `ballotEdits` (tope de modificaciones del voto).
+  por el login público y el del panel), `awards` (qué lámina y qué caja de texto le toca a cada
+  puesto del podio), `awardCanvas` (encaje del nombre en la lámina y descarga), `options`,
+  `sanitize`, `scoring` (puntos + `assignDenseRanks`), `localize`, `routes`, `ballotEdits` (tope
+  de modificaciones del voto).
 - **Idioma y tema NO se pasan por props**: `useAppContext()`.
 
 ### Flujo de pantallas (controlado por `currentStep` en `App.jsx`)
@@ -136,8 +146,8 @@ src/
 - Bloqueo de re-voto: si el usuario ya tiene ballot en Firestore → `AlreadyVotedScreen`, que
   ofrece modificarlo si quedan cambios y la votación sigue abierta (`isEditingBallot` en
   `App.jsx` es lo que salta el bloqueo)
-- Resultados publicados → `ResultsScreen`, por delante del resto del flujo **salvo que haya una
-  edición abierta**: mientras se pueda votar, se vota. Muestra **solo la última edición cerrada**,
+- Resultados publicados → `ResultsScreen` (ganadores, clasificación y **premios del podio**, ver
+  más abajo), por delante del resto del flujo **salvo que haya una edición abierta**: mientras se pueda votar, se vota. Muestra **solo la última edición cerrada**,
   resuelta por `config/voting.lastPublishedId`; si no existe el archivo, se sigue a la cascada.
   **Exige sesión**: quien llega sin ella ve el `LoginScreen` con `purpose="results"` (otro texto:
   no viene a votar, viene a ver quién ganó).
@@ -158,7 +168,8 @@ No se usa router; la navegación entre categorías es estado de React.
 - **`/admin` sin sesión** → `LoginScreen` (es el mismo login que el flujo público).
 - `public/_redirects` (`/* /index.html 200`) es **imprescindible**: sin él CloudFlare Pages
   devuelve un 404 estático en `/admin` y React no llega a arrancar.
-- `public/_headers` lleva la CSP y las cabeceras de seguridad. La CSP autoriza el script
+- `public/_headers` lleva la CSP, las cabeceras de seguridad y la caché de lo que no lleva hash
+  en el nombre (`/share-card.jpg` un día, `/awards/*` una semana). La CSP autoriza el script
   anti-FOUC de `index.html` **por su hash sha256**: si tocas ese script hay que recalcularlo
   (el propio archivo trae el comando). `src/test/csp.test.js` falla si se olvida.
 - **Botón «atrás» del navegador**: `useStepHistory()` empuja una entrada de historial por paso
@@ -420,6 +431,43 @@ vez, el que toca, y de cada uno sale una acción (`SEASON_STAGE` en `utils/votin
   siguen respetando si existen (`isVotingOpenNow` los mira), simplemente ya no se piden.
 - `utils/votingSchedule.js` es puro y con tests: `isVotingOpenNow`, `getSeasonStage`,
   `areResultsPublished` (mira `lastPublishedId`, ya no una fecha) y `validateClosingDay`.
+
+### Premios del podio (los cinco primeros puestos)
+
+Al publicar una edición, los **cinco primeros PUESTOS** de la clasificación reciben un título
+con su nombre, que se ve y se descarga desde `ResultsScreen`.
+
+- **El puesto no es la posición en la lista.** `assignDenseRanks()` (en `utils/scoring.js`)
+  numera con ranking DENSO: los empatados comparten puesto y el siguiente es el inmediatamente
+  posterior, sin huecos (9, 9, 4 puntos → puestos 1, 1, 2). Los dos primeros se llevan los dos
+  el título de primero y quien les sigue recibe el de SEGUNDO, no el de tercero. Por eso puede
+  haber más de cinco personas premiadas y nunca más de cinco títulos distintos.
+- `ResultsScreen` **recalcula** el puesto al leer el archivo en vez de fiarse del `rank`
+  guardado: así los archivos publicados antes de esto (que guardaban el puesto como posición en
+  la lista) salen bien **sin migrar nada**. `computeLeaderboard` ya devuelve el puesto denso.
+- **El arte vive en `templates/` (fuente editable, ~1,2 MB por lámina) y NO se sirve desde ahí**:
+  `npm run award-cards` lo optimiza a `public/awards/rank-N.jpg` (2000 px, 5,8 MB → 1,2 MB). Si
+  retocas un template, regenera. Mismo patrón que `share-card.svg` → `share-card.jpg`.
+- **Dónde se escribe el nombre**: `utils/awards.js`, una `box` por lámina en fracciones del ancho
+  y del alto (no en píxeles: las cinco no miden lo mismo). Está **medida sobre el arte real** —el
+  hueco negro que dejan la ola, los logos y el título impreso—, así que **si cambia un template
+  hay que volver a medir su caja** o el nombre se monta encima del dibujo. El `color` de cada una
+  es el del título impreso en esa lámina, muestreado de ella.
+- **El premio se dibuja en el navegador**, en un `<canvas>` a resolución nativa escalado por CSS
+  (`utils/awardCanvas.js`): lo que se ve y lo que se descarga son el mismo píxel. No se guarda
+  nada en Firestore —el premio se deriva del archivo publicado (puesto + nombre)— y no hay
+  servicio implicado. `layoutAwardName()` busca el mayor cuerpo de letra que quepa, con un máximo
+  de dos líneas, y **recibe la medición inyectada** para poder probarse sin canvas (en jsdom
+  `measureText` devuelve siempre 0).
+- La lámina se sirve del **mismo origen** (`img-src 'self'`), así que el canvas no queda
+  contaminado y `toBlob` funciona. Una imagen de otro dominio dejaría la descarga muerta en
+  silencio.
+- `AwardDialog` usa un **`<dialog>` nativo**: el foco atrapado, el Escape y la inercia de lo que
+  queda detrás salen gratis. El canvas lleva `role="img"` + `aria-label`, porque para un lector de
+  pantalla un canvas es una caja vacía y el nombre dibujado dentro no existe en el DOM.
+- El premio **propio va desplegado arriba del todo**; los demás se abren desde su fila de la
+  clasificación con el botón del trofeo. Todo el que tenga sesión puede ver y descargar cualquiera
+  de los cinco: no expone nada que no esté ya en la clasificación.
 
 ### Previsualización al compartir el enlace (Open Graph)
 
