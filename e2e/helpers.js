@@ -182,6 +182,33 @@ async function listAccounts() {
 }
 
 /**
+ * Cuenta del emulador para un correo, esperando a que exista.
+ *
+ * La acaba de crear el popup del login, así que se espera a verla en vez de
+ * confiar en un `waitForTimeout` a ojo.
+ */
+async function findAccount(email) {
+  for (let intento = 0; intento < 20; intento += 1) {
+    const account = (await listAccounts()).find((u) => u.email === email);
+    if (account) return account;
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  const emails = (await listAccounts()).map((u) => u.email);
+  throw new Error(`No existe la cuenta ${email} en el emulador. Hay: ${emails.join(', ') || '(ninguna)'}`);
+}
+
+/**
+ * UID de una cuenta ya creada: el mismo `auth.currentUser.uid` que ve la app.
+ *
+ * Hace falta para sembrar datos que dependen de QUIÉN es el usuario —la huella
+ * de la clasificación publicada, por ejemplo (ver src/utils/pseudonym.js)—, que
+ * no se pueden escribir antes de que la cuenta exista.
+ */
+export async function getUid(email) {
+  return (await findAccount(email)).localId;
+}
+
+/**
  * Convierte una cuenta ya existente en administradora.
  *
  * El acceso de admin depende de un custom claim que verifica el servidor
@@ -190,18 +217,7 @@ async function listAccounts() {
  * equivalente local de `admin.auth().setCustomUserClaims()`.
  */
 export async function grantAdminClaim(email) {
-  // La cuenta la acaba de crear el popup: se espera a verla en el emulador en
-  // vez de confiar en un `waitForTimeout` a ojo.
-  let account = null;
-  for (let intento = 0; intento < 20 && !account; intento += 1) {
-    const cuentas = await listAccounts();
-    account = cuentas.find((u) => u.email === email);
-    if (!account) await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  if (!account) {
-    const emails = (await listAccounts()).map((u) => u.email);
-    throw new Error(`No existe la cuenta ${email} en el emulador. Hay: ${emails.join(', ') || '(ninguna)'}`);
-  }
+  const account = await findAccount(email);
 
   const response = await fetch(`${IDENTITY}/accounts:update`, {
     method: 'POST',
