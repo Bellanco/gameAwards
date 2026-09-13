@@ -78,5 +78,5 @@
   <!-- El dominio cierra la composición por abajo: sin él quedaban 150px muertos
        bajo el texto y la tarjeta se leía descolgada hacia arriba. -->
   <text x="410" y="556" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="25" font-weight="600"
-        fill="#8c7f6c" letter-spacing="2">tga-ballot.pages.dev</text>
+        fill="#8c7f6c" letter-spacing="2">gameawards.pages.dev</text>
 </svg>
