@@ -18,6 +18,7 @@
 
 import React from 'react';
 import { ALERT_ICONS } from './iconComponents.jsx';
+import { CloseIcon } from '../Icons';
 
 export default function Alert({ 
   type = 'info', // 'success', 'error', 'warning', 'info'
@@ -60,9 +61,9 @@ export default function Alert({
       {onClose && (
         <button
           onClick={handleClose}
-          className="text-lg font-bold opacity-60 hover:opacity-100 transition-opacity"
+          className="opacity-60 hover:opacity-100 transition-opacity"
         >
-          ✕
+          <CloseIcon className="w-4 h-4" />
         </button>
       )}
     </div>

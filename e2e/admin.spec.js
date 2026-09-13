@@ -55,34 +55,59 @@ test.describe('panel de administración', () => {
     }
   });
 
-  test('el admin fija el calendario y queda guardado en config/voting', async ({ page }) => {
+  test('sin edición en marcha, el panel ofrece abrir una nueva', async ({ page }) => {
+    // El login entra por la portada, que necesita la votación abierta; el estado
+    // a probar —ninguna edición en marcha, como un proyecto recién estrenado— se
+    // siembra después.
+    await signInAsAdmin(page, ADMIN);
+    await seedDoc('config', 'voting', { season: 2026, isOpen: false });
+    await page.reload();
+    await page.getByRole('button', { name: /^temporada$/i }).click();
+
+    await expect(page.getByRole('heading', { name: /nueva edición/i })).toBeVisible();
+
+    await page.getByLabel(/^nombre$/i).fill('Porra de verano');
+    await page.getByLabel(/se cierra el/i).fill('2026-12-31');
+    await page.getByRole('button', { name: /abrir votación/i }).click();
+    await expect(page.getByText(/edición abierta/i).first()).toBeVisible();
+
+    const config = await readDoc('config', 'voting');
+    expect(config.isOpen).toBe(true);
+    expect(config.seasonName).toBe('Porra de verano');
+    // El id se deriva del nombre: es la clave del archivo en `results`.
+    expect(config.seasonId).toBe('porra-de-verano');
+    // La fecha viaja en pareja ISO + epoch; sin el epoch las reglas no podrían
+    // cumplir el plazo (no saben parsear una cadena ISO).
+    expect(config.closesAt).toBeTruthy();
+    expect(config.closesAtMillis).toBe(Date.parse(config.closesAt));
+    // Y ya no se piden ni apertura ni fecha de resultados.
+    expect(config.opensAtMillis ?? null).toBeNull();
+    expect(config.resultsAtMillis ?? null).toBeNull();
+
+    // Abrir una edición NO publica nada todavía.
+    expect(await readDoc('results', 'porra-de-verano')).toBeNull();
+  });
+
+  test('con la votación abierta, el panel solo ofrece cerrarla', async ({ page }) => {
     await signInAsAdmin(page, ADMIN);
     await page.getByRole('button', { name: /^temporada$/i }).click();
 
-    // El preset rellena hoy / +7 / +14, que es justo el escenario de prueba.
-    await page.getByRole('button', { name: /prueba rápida/i }).click();
-    await page.getByRole('button', { name: /guardar calendario/i }).click();
-    await expect(page.getByText(/^guardado$/i)).toBeVisible();
+    await expect(page.getByRole('button', { name: /cerrar ahora/i })).toBeVisible();
+    // Nada de formularios de apertura ni de publicación mientras se vota.
+    await expect(page.getByRole('heading', { name: /nueva edición/i })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /publicar en el histórico/i })).toHaveCount(0);
+
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: /cerrar ahora/i }).click();
+    await expect(page.getByText(/votación cerrada/i).first()).toBeVisible();
 
     const config = await readDoc('config', 'voting');
-
-    // Cada fecha viaja en pareja ISO + epoch: si se escribiera solo una, el
-    // plazo no se cumpliría en las reglas.
-    for (const campo of ['opensAt', 'closesAt', 'resultsAt']) {
-      expect(config[campo], campo).toBeTruthy();
-      expect(config[`${campo}Millis`], `${campo}Millis`).toBe(Date.parse(config[campo]));
-    }
-    // Y en orden: apertura <= cierre <= resultados.
-    expect(config.opensAtMillis).toBeLessThanOrEqual(config.closesAtMillis);
-    expect(config.closesAtMillis).toBeLessThanOrEqual(config.resultsAtMillis);
-
-    // Guardar el calendario deja también preparado el snapshot público.
-    const snapshot = await readDoc('results', String(config.season));
-    expect(snapshot).not.toBeNull();
-    expect(snapshot.season).toBe(config.season);
+    expect(config.isOpen).toBe(false);
+    // Cerrar no publica: la edición sigue viva, pendiente de ganadores.
+    expect(config.lastPublishedId || '').toBe('');
   });
 
-  test('el admin marca un ganador y se publica en el snapshot', async ({ page }) => {
+  test('el admin marca un ganador y se guarda fuera del alcance público', async ({ page }) => {
     await signInAsAdmin(page, ADMIN);
     await page.getByRole('button', { name: /seleccionar ganadores/i }).click();
 
@@ -91,39 +116,84 @@ test.describe('panel de administración', () => {
     await page.getByRole('button', { name: /guardar ganadores/i }).click();
     await expect(page.getByText(/guardados|guardado/i).first()).toBeVisible();
 
-    // El ganador se guarda por optionId en la categoría...
-    const categoria = await readDoc('categories', 'goty');
-    expect(categoria.winner).toBe('goty_option_1');
+    // El ganador se guarda por optionId en `admin/winners`, que solo lee un
+    // administrador.
+    const guardados = await readDoc('admin', 'winners');
+    expect(guardados.winners.goty).toBe('goty_option_1');
 
-    // ...y el snapshot público se actualiza en el mismo gesto, que es lo que
-    // verá la gente cuando llegue la fecha de resultados.
-    const snapshot = await readDoc('results', '2026');
-    expect(snapshot.winners.goty).toBe('goty_option_1');
+    // Y NO en la categoría: `categories` es de lectura pública, así que un
+    // `winner` ahí sería el resultado de la porra al alcance de cualquiera antes
+    // de anunciarlo. Esta aserción es el arreglo entero.
+    const categoria = await readDoc('categories', 'goty');
+    expect(categoria.winner ?? null).toBeNull();
+
+    // Y guardar ganadores NO publica nada: mientras la edición está viva no
+    // existe ningún archivo público que se pueda filtrar. Publicar es el gesto
+    // de cerrar la edición desde la pestaña Temporada.
+    expect(await readDoc('results', 'porra-2026')).toBeNull();
   });
 
-  test('el admin nombra la edición y el archivo se guarda con ese id', async ({ page }) => {
+  test('publicar cierra el ciclo: archivo público, votos borrados y panel listo', async ({ page }) => {
+    const ayer = Date.now() - 86_400_000;
+
+    // Se entra con la votación todavía abierta (el login pasa por la portada) y
+    // luego se deja el estado a probar: edición cerrada, ganador ya marcado y un
+    // voto emitido. Es el momento justo antes de publicar.
     await signInAsAdmin(page, ADMIN);
+    await seedDoc(
+      'config',
+      'voting',
+      votingOpen({ isOpen: false, closesAt: new Date(ayer).toISOString(), closesAtMillis: ayer })
+    );
+    await seedDoc('admin', 'winners', { winners: { goty: 'goty_option_1' } });
+    await seedDoc('ballots', 'votante-1', {
+      userId: 'votante-1',
+      userEmail: 'votante@example.com',
+      userNickname: 'Votante',
+      userDisplayName: 'Votante',
+      selections: { goty: 'goty_option_1' },
+      season: 2026,
+      submittedAt: new Date(ayer).toISOString(),
+      updatedAt: new Date(ayer).toISOString(),
+      editCount: 0,
+      isActive: true,
+    });
+    await page.reload();
+
     await page.getByRole('button', { name: /^temporada$/i }).click();
 
-    // Nombre propio e identificador distinto del año: es lo que permite tener
-    // dos ediciones en el mismo año sin pisarse.
-    await page.getByLabel(/^nombre$/i).fill('Porra de verano');
-    await page.getByLabel(/identificador/i).fill('2026-verano');
-    await page.getByRole('button', { name: /guardar nombre/i }).click();
-    await expect(page.getByText(/^guardado$/i)).toBeVisible();
+    // El panel enseña lo que se va a publicar antes de dejarte publicarlo.
+    await expect(page.getByRole('heading', { name: /lo que se va a publicar/i })).toBeVisible();
+    await expect(page.getByText(/votante/i).first()).toBeVisible();
 
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: /publicar en el histórico/i }).click();
+    await expect(page.getByText(/edición publicada/i).first()).toBeVisible();
+
+    // El archivo queda con `closedAt`, que es lo que las reglas dejan leer sin
+    // sesión, y con el ganador resuelto.
+    const archivo = await readDoc('results', 'porra-2026');
+    expect(archivo.closedAt).toBeTruthy();
+    expect(archivo.winners.goty).toBe('goty_option_1');
+    expect(archivo.name).toBe('Porra 2026');
+    // La clasificación publicada no lleva el UID de nadie, solo su huella.
+    expect(archivo.leaderboard).toHaveLength(1);
+    expect(archivo.leaderboard[0].userId).toBeUndefined();
+    expect(archivo.leaderboard[0].uidHash).toMatch(/^[0-9a-f]{16}$/);
+    expect(archivo.leaderboard[0].points).toBe(1);
+
+    // Los votos se borran, que es lo que permite abrir la siguiente edición.
+    expect(await readDoc('ballots', 'votante-1')).toBeNull();
+    // Y los ganadores de la edición cerrada también.
+    expect(await readDoc('admin', 'winners')).toBeNull();
+
+    // La config vuelve al principio del ciclo, apuntando al archivo publicado.
     const config = await readDoc('config', 'voting');
-    expect(config.seasonId).toBe('2026-verano');
-    expect(config.seasonName).toBe('Porra de verano');
+    expect(config.closesAtMillis ?? null).toBeNull();
+    expect(config.lastPublishedId).toBe('porra-2026');
 
-    // Al publicar, el archivo va a results/{seasonId}, no a results/{año}.
-    await page.getByRole('button', { name: /actualizar resultados ahora/i }).click();
-    await expect(page.getByText(/resultados actualizados/i)).toBeVisible();
-
-    const archivo = await readDoc('results', '2026-verano');
-    expect(archivo).not.toBeNull();
-    expect(archivo.name).toBe('Porra de verano');
-    expect(archivo.season).toBe(2026);
+    // Y el panel ofrece de nuevo abrir una edición.
+    await expect(page.getByRole('heading', { name: /nueva edición/i })).toBeVisible();
   });
 
   test('el histórico abre el detalle de una edición y permite renombrarla', async ({ page }) => {
@@ -179,8 +249,9 @@ test.describe('panel de administración', () => {
     await signInAsAdmin(page, ADMIN);
     await page.getByRole('button', { name: /^temporada$/i }).click();
 
+    page.once('dialog', (dialog) => dialog.accept());
     await page.getByRole('button', { name: /cerrar ahora/i }).click();
-    await expect(page.getByText(/^guardado$/i)).toBeVisible();
+    await expect(page.getByText(/votación cerrada/i).first()).toBeVisible();
 
     expect((await readDoc('config', 'voting')).isOpen).toBe(false);
 

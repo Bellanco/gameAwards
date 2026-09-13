@@ -53,11 +53,14 @@ describe('HistoryTab', () => {
     expect(screen.getByRole('button', { name: /2025/ })).toBeInTheDocument();
   });
 
-  it('marca la edición que aún no se ha archivado', () => {
+  it('no distingue ediciones «en curso»: el histórico solo lleva publicadas', () => {
+    // Antes el archivo de la edición viva existía desde que el admin guardaba el
+    // calendario, y había que marcarlo. Desde que publicar es cerrar la edición,
+    // `results` solo contiene ediciones publicadas —por eso el público puede
+    // leerlo— y no hay nada que marcar.
     render(<HistoryTab seasonResults={EDICIONES} resultsLoading={false} />);
 
-    // Solo la de 2025 (sin closedAt) está en curso.
-    expect(screen.getAllByText(/en curso/i)).toHaveLength(1);
+    expect(screen.queryByText(/en curso/i)).not.toBeInTheDocument();
   });
 
   it('al entrar en una edición muestra sus resultados completos', () => {

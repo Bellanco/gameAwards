@@ -5,6 +5,7 @@ import { getCategoryTitle, getOptionLabel } from '../../utils/localize';
 import { getSeasonLabel } from '../../utils/seasonId';
 import { renameSeasonResult } from '../../services/seasonService';
 import logger from '../../services/loggerService';
+import { MedalIcon } from '../Icons';
 
 /**
  * Detalle de una edición archivada: sus ganadores y su clasificación completos.
@@ -26,7 +27,6 @@ export default function HistoryDetail({ edition, onBack, onRenamed }) {
 
   const winners = (edition.categoriesSnapshot || []).filter((cat) => cat.winner);
   const leaderboard = edition.leaderboard || [];
-  const enCurso = !edition.closedAt;
 
   const handleRename = async () => {
     try {
@@ -63,7 +63,6 @@ export default function HistoryDetail({ edition, onBack, onRenamed }) {
         </h2>
         <p className="theme-text-secondary text-sm">
           {edition.season}
-          {enCurso ? ` · ${t('inProgressEdition')}` : ''}
         </p>
       </div>
 
@@ -119,13 +118,24 @@ export default function HistoryDetail({ edition, onBack, onRenamed }) {
           ) : (
             <ul className="space-y-2">
               {leaderboard.map((entry) => (
-                <li key={entry.userId} className="flex justify-between gap-3 text-sm">
-                  <span className="theme-text-tertiary">
-                    {entry.rank === 1 && '🥇 '}
-                    {entry.rank === 2 && '🥈 '}
-                    {entry.rank === 3 && '🥉 '}
-                    {entry.rank > 3 && `${entry.rank}. `}
-                    {entry.nickname}
+                // Los archivos nuevos no guardan el UID, solo su huella.
+                <li
+                  key={entry.uidHash || entry.userId || entry.rank}
+                  className="flex justify-between gap-3 text-sm"
+                >
+                  <span className="theme-text-tertiary flex items-center gap-2 min-w-0">
+                    <span className="w-5 shrink-0 flex items-center justify-center">
+                      {/* El puesto, en texto, aunque se vea como medalla. */}
+                      <span className="sr-only">
+                        {t('position')} {entry.rank}
+                      </span>
+                      {entry.rank <= 3 ? (
+                        <MedalIcon rank={entry.rank} className="w-5 h-5" />
+                      ) : (
+                        <span aria-hidden="true" className="tabular-nums">{entry.rank}</span>
+                      )}
+                    </span>
+                    <span className="truncate">{entry.nickname}</span>
                   </span>
                   <span className="theme-accent font-bold">
                     {entry.points} {t('pts')}

@@ -1,10 +1,12 @@
 import {
   isVotingOpenNow,
   getVotingState,
+  getSeasonStage,
   areResultsPublished,
   daysUntil,
-  validateScheduleDays,
+  validateClosingDay,
   VOTING_STATE,
+  SEASON_STAGE,
 } from './votingSchedule';
 
 const NOW = Date.parse('2026-06-15T12:00:00.000Z');
@@ -66,16 +68,48 @@ describe('getVotingState', () => {
 });
 
 describe('areResultsPublished', () => {
-  it('sin fecha de resultados no se publica nada', () => {
-    // Por defecto NO publicar: si no, la clasificación saldría a la luz en
-    // cuanto el admin marcara el primer ganador.
-    expect(areResultsPublished(config(), NOW)).toBe(false);
+  // Ya no depende de una fecha: publicar es archivar la edición, y eso deja su
+  // id en `lastPublishedId`.
+  it('no hay nada publicado sin un archivo al que apuntar', () => {
+    expect(areResultsPublished(config())).toBe(false);
+    expect(areResultsPublished(config({ lastPublishedId: '' }))).toBe(false);
+    expect(areResultsPublished(null)).toBe(false);
   });
 
-  it('se publican al llegar la fecha', () => {
-    expect(areResultsPublished(config({ resultsAtMillis: NOW + 1 }), NOW)).toBe(false);
-    expect(areResultsPublished(config({ resultsAtMillis: NOW }), NOW)).toBe(true);
-    expect(areResultsPublished(config({ resultsAtMillis: NOW - DAY }), NOW)).toBe(true);
+  it('se publican cuando hay un archivo publicado', () => {
+    expect(areResultsPublished(config({ lastPublishedId: 'porra-2026' }))).toBe(true);
+  });
+
+  it('una fecha de resultados heredada ya no publica nada por sí sola', () => {
+    // Las ediciones creadas con el modelo de tres fechas conservan `resultsAt`;
+    // no debe resucitar como criterio de publicación.
+    expect(areResultsPublished(config({ resultsAtMillis: NOW - DAY }))).toBe(false);
+  });
+});
+
+describe('getSeasonStage', () => {
+  it('sin fecha de cierre no hay edición en marcha', () => {
+    expect(getSeasonStage(config(), NOW)).toBe(SEASON_STAGE.NONE);
+  });
+
+  it('con la votación en curso, la edición está abierta', () => {
+    expect(getSeasonStage(config({ closesAtMillis: NOW + DAY }), NOW)).toBe(SEASON_STAGE.OPEN);
+  });
+
+  it('pasada la fecha de cierre, queda pendiente de publicar', () => {
+    expect(getSeasonStage(config({ closesAtMillis: NOW - DAY }), NOW)).toBe(SEASON_STAGE.PENDING);
+  });
+
+  it('un cierre forzado también la deja pendiente de publicar', () => {
+    expect(
+      getSeasonStage(config({ closesAtMillis: NOW + DAY, isOpen: false }), NOW)
+    ).toBe(SEASON_STAGE.PENDING);
+  });
+
+  it('publicar devuelve el ciclo al principio', () => {
+    // Archivar borra la fecha de cierre y apunta el archivo publicado.
+    const publicada = config({ closesAtMillis: null, isOpen: false, lastPublishedId: 'porra-2026' });
+    expect(getSeasonStage(publicada, NOW)).toBe(SEASON_STAGE.NONE);
   });
 });
 
@@ -87,37 +121,22 @@ describe('daysUntil', () => {
   });
 });
 
-describe('validateScheduleDays', () => {
-  it('acepta el escenario de prueba hoy / +7 / +14', () => {
-    expect(
-      validateScheduleDays({
-        opensDay: '2026-06-15',
-        closesDay: '2026-06-22',
-        resultsDay: '2026-06-29',
-      })
-    ).toBeNull();
+describe('validateClosingDay', () => {
+  const HOY = '2026-06-15';
+
+  it('exige una fecha', () => {
+    expect(validateClosingDay('', HOY)).toBe('errorClosingDayRequired');
+    expect(validateClosingDay(null, HOY)).toBe('errorClosingDayRequired');
   });
 
-  it('acepta días sueltos o el calendario vacío', () => {
-    expect(validateScheduleDays({})).toBeNull();
-    expect(validateScheduleDays({ closesDay: '2026-06-22' })).toBeNull();
+  it('rechaza un cierre en el pasado', () => {
+    // Una edición que nace cerrada no sirve de nada: aparecería directamente
+    // como «pendiente de publicar».
+    expect(validateClosingDay('2026-06-14', HOY)).toBe('errorClosingDayInThePast');
   });
 
-  it('rechaza un cierre anterior a la apertura', () => {
-    expect(
-      validateScheduleDays({ opensDay: '2026-06-15', closesDay: '2026-06-14' })
-    ).toBe('errorCloseBeforeOpen');
-  });
-
-  it('rechaza resultados anteriores al cierre', () => {
-    expect(
-      validateScheduleDays({ closesDay: '2026-06-22', resultsDay: '2026-06-21' })
-    ).toBe('errorResultsBeforeClose');
-  });
-
-  it('sin cierre, los resultados tampoco pueden preceder a la apertura', () => {
-    expect(
-      validateScheduleDays({ opensDay: '2026-06-15', resultsDay: '2026-06-10' })
-    ).toBe('errorResultsBeforeClose');
+  it('acepta hoy y cualquier día futuro', () => {
+    expect(validateClosingDay(HOY, HOY)).toBeNull();
+    expect(validateClosingDay('2026-12-31', HOY)).toBeNull();
   });
 });

@@ -13,6 +13,7 @@ import {
   deleteCategory,
   reorderCategories,
 } from '../services/categoriesService';
+import { CloseIcon } from './Icons';
 
 const emptyOption = () => ({ id: null, value: '' });
 
@@ -261,7 +262,10 @@ export default function CategoryManager({ onClose }) {
             <p className="theme-text-secondary text-sm mt-0.5">{validCategories.length} {t('activeFem')}</p>
           </div>
           <Button variant="secondary" size="md" onClick={onClose}>
-            ✕ {t('back')}
+            <span className="flex items-center gap-1.5">
+              <CloseIcon className="w-4 h-4" />
+              {t('back')}
+            </span>
           </Button>
         </div>
       </div>

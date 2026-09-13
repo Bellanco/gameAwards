@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from '../data/literals';
 import { useAppContext } from '../context/AppContext';
-import { StarIcon } from './Icons';
+import { CheckCircleIcon, ShieldIcon, UserIcon, TrophyIcon } from './Icons';
 import { ScreenLayout } from './layouts';
 import { Header } from './ui';
 import { MAX_BALLOT_EDITS } from '../utils/ballotEdits';
@@ -45,17 +45,12 @@ export default function SuccessScreen({
       {/* Contenido */}
       <div className="relative z-10 flex-1 flex items-center justify-center p-4">
         <div className="text-center max-w-2xl">
-          {/* Animación de celebración */}
-          <div className="mb-8 flex justify-center items-center gap-2">
-            <div className="theme-flicker" style={{ animationDelay: '0s' }}>
-              <StarIcon className="w-16 h-16 md:w-20 md:h-20 theme-accent" />
-            </div>
-            <div className="theme-flicker" style={{ animationDelay: '0.2s' }}>
-              <StarIcon className="w-16 h-16 md:w-20 md:h-20 theme-accent" />
-            </div>
-            <div className="theme-flicker" style={{ animationDelay: '0.4s' }}>
-              <StarIcon className="w-16 h-16 md:w-20 md:h-20 theme-accent" />
-            </div>
+          {/*
+            Una marca de confirmación, no tres estrellas idénticas parpadeando:
+            lo que hay que entender de un vistazo es que el voto entró.
+          */}
+          <div className="mb-8 flex justify-center">
+            <CheckCircleIcon className="w-20 h-20 md:w-24 md:h-24" />
           </div>
 
           {/* Título principal */}
@@ -74,20 +69,20 @@ export default function SuccessScreen({
           {/* Info Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12">
             <div className="theme-card theme-border-primary border rounded-lg p-6 theme-card-hover">
-              <div className="text-2xl mb-2 flex justify-center">
-                <StarIcon className="w-8 h-8 theme-accent" />
+              <div className="mb-2 flex justify-center">
+                <ShieldIcon className="w-8 h-8 theme-accent" />
               </div>
               <p className="text-sm theme-text-secondary">{t('yourVoteSecure')}</p>
             </div>
             <div className="theme-card theme-border-primary border rounded-lg p-6 theme-card-hover">
-              <div className="text-2xl mb-2 flex justify-center">
-                <StarIcon className="w-8 h-8 theme-accent" />
+              <div className="mb-2 flex justify-center">
+                <UserIcon className="w-8 h-8 theme-accent" />
               </div>
               <p className="text-sm theme-text-secondary">{t('oneVotePerPerson')}</p>
             </div>
             <div className="theme-card theme-border-primary border rounded-lg p-6 theme-card-hover">
-              <div className="text-2xl mb-2 flex justify-center">
-                <StarIcon className="w-8 h-8 theme-accent" />
+              <div className="mb-2 flex justify-center">
+                <TrophyIcon className="w-8 h-8 theme-accent" />
               </div>
               <p className="text-sm theme-text-secondary">{t('resultsComingSoon')}</p>
             </div>

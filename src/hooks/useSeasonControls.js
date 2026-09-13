@@ -1,213 +1,194 @@
 /**
  * Hook custom: useSeasonControls
  *
- * Toda la lógica de la pestaña Temporada del panel de admin: el formulario del
- * calendario (apertura / cierre / resultados), el cierre forzado, la publicación
- * de resultados y el reinicio anual.
+ * El ciclo de vida de una edición, que es todo lo que hace la pestaña Temporada.
+ * Son TRES acciones, una por cada momento (ver `SEASON_STAGE`):
  *
- * Vive en un hook y no en el componente porque son cuatro operaciones asíncronas
- * con estado compartido (ocupado + mensaje) y validación previa; en el AdminPanel
- * engordaban un componente que ya rozaba el límite de tamaño. `SeasonTab` queda
+ *   sin edición        -> openSeason()      abrir con nombre y fecha de cierre
+ *   votación abierta   -> closeNow()        adelantar el cierre
+ *   cerrada sin publicar -> publishSeason() archivar, publicar y limpiar
+ *
+ * Antes esto eran seis operaciones sueltas (calendario de tres fechas, cierre
+ * forzado, identidad, publicación y reinicio) repartidas en cinco bloques de
+ * formulario. El ciclo real siempre fue este; el panel solo lo enseñaba a
+ * trozos.
+ *
+ * Vive en un hook y no en el componente porque son operaciones asíncronas con
+ * estado compartido (ocupado + mensaje) y validación previa; `SeasonTab` queda
  * como JSX puro.
  *
  * @param {Object} params
  * @param {Object} params.config - config/voting tal cual lo devuelve useVotingConfig
- * @param {Array} params.categories - categorías con su `winner`
+ * @param {Array} params.categories - categorías de la edición
  * @param {Array} params.ballots - votos de la temporada
  * @param {Function} params.t - traductor (useTranslation)
+ * @param {Function} [params.onPublished] - se llama tras publicar (refrescar histórico)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  setVotingOpen,
-  setVotingSchedule,
-  setSeasonIdentity,
-  publishSeasonResults,
-  archiveAndResetSeason,
+  openSeason as openSeasonService,
+  closeSeasonNow,
+  publishAndArchiveSeason,
 } from '../services/seasonService';
-import {
-  toVotingZoneDay,
-  todayInVotingZone,
-  addDaysToDay,
-  dayInstantInVotingZone,
-} from '../utils/closingDate';
-import { validateScheduleDays } from '../utils/votingSchedule';
+import { fetchWinners } from '../services/winnersService';
+import { todayInVotingZone, addDaysToDay } from '../utils/closingDate';
+import { validateClosingDay, getSeasonStage } from '../utils/votingSchedule';
 import { getSeasonId } from '../utils/seasonId';
+import { computeLeaderboard } from '../utils/scoring';
 
-/** Días del preset de prueba: se abre hoy, cierra en una semana, resultados en dos. */
-const PRESET_OFFSETS = { opens: 0, closes: 7, results: 14 };
+/** Días por defecto que dura una edición nueva. */
+const DEFAULT_DURATION_DAYS = 14;
 
-const EMPTY_DAYS = { opensDay: '', closesDay: '', resultsDay: '' };
-
-export const useSeasonControls = ({ config, categories, ballots, t }) => {
-  const { season, isOpen: isVotingOpen, opensAt, closesAt, resultsAt, seasonName } = config;
+export const useSeasonControls = ({ config, categories, ballots, t, onPublished }) => {
+  const { season, seasonName } = config;
   const seasonId = getSeasonId(config);
+  const stage = getSeasonStage(config);
 
-  const [days, setDays] = useState(EMPTY_DAYS);
-  // Identidad de la edición en edición (valga la redundancia): nombre visible e
-  // identificador, que es la clave de su archivo en `results`.
-  const [identity, setIdentity] = useState({ seasonName: '', seasonId: '' });
+  // Formulario de «nueva edición»: nombre y día de cierre. El día arranca a dos
+  // semanas vista para que abrir una edición sea un solo clic si no se toca.
+  const [draft, setDraft] = useState(() => ({
+    name: '',
+    closesDay: addDaysToDay(todayInVotingZone(), DEFAULT_DURATION_DAYS),
+  }));
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
 
-  // Sincronizar el formulario con lo que hay en Firestore. Los días se derivan
-  // en Europe/Madrid, no en la hora local del admin: un cierre a las 23:59 de
-  // Madrid se mostraría con un día de desfase al administrar desde otro huso.
-  useEffect(() => {
-    setDays({
-      opensDay: toVotingZoneDay(opensAt),
-      closesDay: toVotingZoneDay(closesAt),
-      resultsDay: toVotingZoneDay(resultsAt),
-    });
-  }, [opensAt, closesAt, resultsAt]);
-
-  // El formulario de identidad también se sincroniza con lo guardado.
-  useEffect(() => {
-    setIdentity({ seasonName: seasonName || '', seasonId });
-  }, [seasonName, seasonId]);
-
-  /** Mensaje efímero de confirmación (los errores se quedan fijos). */
-  const flash = useCallback((text) => {
-    setMessage(text);
-    setTimeout(() => setMessage(''), 3500);
-  }, []);
-
-  const setDay = useCallback((field, value) => {
-    setDays((prev) => ({ ...prev, [field]: value }));
-  }, []);
-
-  const setIdentityField = useCallback((field, value) => {
-    setIdentity((prev) => ({ ...prev, [field]: value }));
+  const setDraftField = useCallback((field, value) => {
+    setDraft((prev) => ({ ...prev, [field]: value }));
   }, []);
 
   /**
-   * Rellena el formulario con el escenario de prueba: hoy / +7 / +14 días.
-   * No guarda: deja los campos listos para revisarlos y pulsar Guardar.
+   * Ejecuta una operación gestionando ocupado, confirmación y error.
+   * El mensaje de éxito es efímero; el de error se queda hasta el siguiente
+   * intento, para que no se escape.
    */
-  const applyTestPreset = useCallback(() => {
-    const today = todayInVotingZone();
-    setDays({
-      opensDay: today,
-      closesDay: addDaysToDay(today, PRESET_OFFSETS.closes),
-      resultsDay: addDaysToDay(today, PRESET_OFFSETS.results),
-    });
-    setMessage('');
+  const run = useCallback(async (operation) => {
+    try {
+      setBusy(true);
+      setError('');
+      setMessage('');
+      const text = await operation();
+      setMessage(text);
+      setTimeout(() => setMessage(''), 4000);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
   }, []);
 
-  /**
-   * Ejecuta una operación asíncrona gestionando ocupado + mensaje de error.
-   * @param {Function} operation - devuelve el texto de confirmación
-   */
-  const run = useCallback(
-    async (operation) => {
-      try {
-        setBusy(true);
-        setMessage('');
-        const text = await operation();
-        flash(text);
-      } catch (err) {
-        setMessage(err.message);
-      } finally {
-        setBusy(false);
-      }
-    },
-    [flash]
-  );
-
-  /**
-   * Guarda el calendario y deja el snapshot de resultados al día.
-   *
-   * Publicar aquí (además de al guardar ganadores) es lo que hace que "guardar
-   * fechas" baste para que los resultados aparezcan solos al llegar el día:
-   * `results/{season}` es el único origen público de la clasificación, porque
-   * `ballots` no es de lectura pública.
-   */
-  const saveSchedule = useCallback(
+  /** Abre una edición nueva: nombre + fecha de cierre, y a votar. */
+  const openSeason = useCallback(
     () =>
       run(async () => {
-        const errorKey = validateScheduleDays(days);
+        const errorKey = validateClosingDay(draft.closesDay, todayInVotingZone());
         if (errorKey) throw new Error(t(errorKey));
 
-        await setVotingSchedule(days);
-
-        // Programar una apertura FUTURA levanta un cierre forzado anterior: si
-        // no, el admin fijaría la fecha y la votación no abriría ese día, sin
-        // más pista que el estado del interruptor. Solo con apertura futura:
-        // una edición que el admin cerró antes de tiempo no debe reabrirse por
-        // editar, por ejemplo, la fecha de resultados.
-        const opensInTheFuture =
-          dayInstantInVotingZone(days.opensDay, 'start') > Date.now();
-        if (!isVotingOpen && opensInTheFuture) {
-          await setVotingOpen(true, { season });
-        }
-
-        await publishSeasonResults({ season, seasonId, seasonName, categories, ballots });
-        return t('saved');
+        const { name } = await openSeasonService({
+          name: draft.name,
+          closesDay: draft.closesDay,
+          season,
+        });
+        return `${t('seasonOpened')}${name ? `: ${name}` : ''}`;
       }),
-    [run, days, t, season, seasonId, seasonName, categories, ballots, isVotingOpen]
+    [run, draft, season, t]
   );
 
-  /** Cierre forzado / vuelta al calendario. */
-  const toggleVoting = useCallback(
-    () =>
-      run(async () => {
-        await setVotingOpen(!isVotingOpen, { season });
-        return t('saved');
-      }),
-    [run, isVotingOpen, season, t]
-  );
-
-  /** Regenera el snapshot público de resultados con los ganadores actuales. */
-  const publishResults = useCallback(
-    () =>
-      run(async () => {
-        const result = await publishSeasonResults({ season, seasonId, seasonName, categories, ballots });
-        return `${t('resultsUpdated')}: ${result.winnersCount} ${t('winners').toLowerCase()} · ${result.totalBallots} ${t('votes')}`;
-      }),
-    [run, season, seasonId, seasonName, categories, ballots, t]
-  );
-
-  /** Guarda el nombre y el identificador de la edición en curso. */
-  const saveIdentity = useCallback(
-    () =>
-      run(async () => {
-        const saved = await setSeasonIdentity({ ...identity, season });
-        setIdentity({ seasonName: saved.seasonName, seasonId: saved.seasonId });
-        return t('saved');
-      }),
-    [run, identity, season, t]
-  );
-
-  /** Archiva la edición, borra los votos y deja la siguiente sin calendario. */
-  const archiveReset = useCallback(() => {
-    if (!window.confirm(`${t('archiveResetConfirm')} (${season})`)) return undefined;
+  /** Adelanta el cierre de la votación. La edición sigue, sin publicar. */
+  const closeNow = useCallback(() => {
+    // La confirmación va antes de `run` a propósito: cancelar no es un error y
+    // no debe pintar nada ni dejar el panel en estado de fallo.
+    if (!window.confirm(t('closeNowConfirm'))) return undefined;
     return run(async () => {
-      const result = await archiveAndResetSeason({ season, seasonId, seasonName, categories, ballots });
-      // Nueva edición: cerrada, sin fechas heredadas (el calendario de la
-      // anterior cerraría o publicaría la nueva en el momento equivocado).
-      await setVotingOpen(false, { season: season + 1 });
-      await setVotingSchedule(EMPTY_DAYS);
-      // La edición nueva arranca identificada por su año; el admin puede
-      // ponerle nombre propio después. Heredar el id anterior haría que la
-      // siguiente publicación sobrescribiera el archivo recién guardado.
-      await setSeasonIdentity({ season: season + 1, seasonId: String(season + 1), seasonName: '' });
-      setDays(EMPTY_DAYS);
-      return `${t('archived')}: ${result.deleted} ${t('votes')} · ${result.cleared} ${t('categories').toLowerCase()} · ${season} → ${season + 1}`;
+      await closeSeasonNow();
+      return t('seasonClosed');
     });
-  }, [run, season, seasonId, seasonName, categories, ballots, t]);
+  }, [run, t]);
+
+  /**
+   * Publica la edición en el histórico. Es el paso destructivo: archiva,
+   * BORRA los votos y deja el panel listo para la siguiente.
+   */
+  const publishSeason = useCallback(() => {
+    if (!window.confirm(`${t('publishSeasonConfirm')} (${seasonName || season})`)) {
+      return undefined;
+    }
+    return run(async () => {
+        const result = await publishAndArchiveSeason({
+          season,
+          seasonId,
+          seasonName,
+          categories,
+          ballots,
+        });
+        onPublished?.();
+        setDraft({
+          name: '',
+          closesDay: addDaysToDay(todayInVotingZone(), DEFAULT_DURATION_DAYS),
+        });
+        return `${t('seasonPublished')}: ${result.name} · ${result.deleted} ${t('votes')}`;
+    });
+  }, [run, season, seasonId, seasonName, categories, ballots, t, onPublished]);
 
   return {
-    days,
-    setDay,
-    identity,
-    setIdentityField,
-    saveIdentity,
-    applyTestPreset,
+    stage,
+    draft,
+    setDraftField,
     busy,
     message,
-    saveSchedule,
-    toggleVoting,
-    publishResults,
-    archiveReset,
+    error,
+    openSeason,
+    closeNow,
+    publishSeason,
+  };
+};
+
+/**
+ * Vista previa de lo que se va a publicar: ganadores marcados y clasificación
+ * en vivo.
+ *
+ * Existe porque publicar es irreversible y borra los votos: el admin tiene que
+ * poder comprobar ANTES que los ganadores están puestos y que el ranking sale
+ * como espera. Antes esto era una pestaña entera («Ranking»), que solo servía
+ * para esto y obligaba a ir y volver.
+ *
+ * @param {{categories: Array, ballots: Array, enabled: boolean}} params
+ * @returns {{winners: Object, winnersCount: number, leaderboard: Array, isLoading: boolean}}
+ */
+export const useSeasonPreview = ({ categories, ballots, enabled }) => {
+  const [winners, setWinners] = useState(null);
+
+  // Se leen los ganadores guardados (`admin/winners`) al entrar en el paso de
+  // publicación.
+  useEffect(() => {
+    if (!enabled) {
+      setWinners(null);
+      return undefined;
+    }
+    let cancelled = false;
+    fetchWinners(categories)
+      .then((stored) => {
+        if (!cancelled) setWinners(stored);
+      })
+      .catch(() => {
+        if (!cancelled) setWinners({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, categories]);
+
+  const leaderboard = useMemo(
+    () => (winners ? computeLeaderboard(ballots, categories, winners) : []),
+    [winners, ballots, categories]
+  );
+
+  return {
+    winners: winners || {},
+    winnersCount: Object.keys(winners || {}).length,
+    leaderboard,
+    isLoading: enabled && winners === null,
   };
 };

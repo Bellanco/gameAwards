@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from '../../data/literals';
 import { useAppContext } from '../../context/AppContext';
-import { MedalGoldIcon, MedalSilverIcon, MedalBronzeIcon } from '../Icons';
+import { MedalIcon } from '../Icons';
 
 /**
  * Pestaña de resumen: totales y top 3 por categoría.
@@ -46,9 +46,7 @@ export default function OverviewTab({ validBallots, statsData, getCategoryTitle,
                         {Object.entries(votes).sort(([, a], [, b]) => b - a).slice(0, 3).map(([option, count], idx) => (
                           <div key={option} className="flex justify-between items-center">
                             <span className={`text-sm flex items-center gap-2 ${idx === 0 ? 'theme-accent font-bold' : 'theme-text-secondary'}`}>
-                              {idx === 0 && <MedalGoldIcon className="w-4 h-4" />}
-                              {idx === 1 && <MedalSilverIcon className="w-4 h-4" />}
-                              {idx === 2 && <MedalBronzeIcon className="w-4 h-4" />}
+                              {idx < 3 && <MedalIcon rank={idx + 1} className="w-5 h-5 shrink-0" />}
                               {optionDisplay(category, option)}
                             </span>
                             <span className="font-bold">{count}</span>

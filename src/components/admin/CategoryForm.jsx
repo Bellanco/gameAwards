@@ -3,6 +3,7 @@ import { useTranslation } from '../../data/literals';
 import { useAppContext } from '../../context/AppContext';
 import { Button, Card, Alert } from '../ui';
 import { TextInput } from '../form';
+import { CloseIcon } from '../Icons';
 
 /**
  * Formulario de alta/edición de una categoría: título bilingüe, ponderación y
@@ -116,8 +117,9 @@ export default function CategoryForm({
                       onClick={() => onRemoveOption(index)}
                       loading={false}
                       type="button"
+                      aria-label={t('delete')}
                     >
-                      ✕
+                      <CloseIcon className="w-4 h-4" />
                     </Button>
                   )}
                 </div>

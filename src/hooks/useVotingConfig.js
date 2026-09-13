@@ -30,6 +30,7 @@
  * @property {number|null} closesAtMillis - Instante de cierre (epoch) o null
  * @property {string|null} resultsAt - Publicación de resultados (ISO) o null
  * @property {number|null} resultsAtMillis - Publicación de resultados (epoch) o null
+ * @property {string} lastPublishedId - Id del último archivo publicado en `results`
  * @property {boolean} isLoading - Estado de carga
  */
 
@@ -53,6 +54,9 @@ const DEFAULT_CONFIG = {
   closesAtMillis: null,
   resultsAt: null,
   resultsAtMillis: null,
+  // Id del último archivo publicado (`results/{id}`). Es lo que hace visible la
+  // pantalla pública de resultados: lo escribe el archivado de la edición.
+  lastPublishedId: '',
 };
 
 /**
@@ -85,6 +89,7 @@ export const useVotingConfig = () => {
             season: data.season || new Date().getFullYear(),
             seasonId: data.seasonId || '',
             seasonName: data.seasonName || '',
+            lastPublishedId: data.lastPublishedId || '',
             ...readInstant(data, 'opens'),
             ...readInstant(data, 'closes'),
             ...readInstant(data, 'results'),

@@ -160,14 +160,24 @@ function App() {
   // Días restantes informativos, derivados del cierre si el admin lo configuró.
   const daysRemaining = daysUntil(votingConfig.closesAtMillis);
 
-  // ============ Resultados públicos ============
-  // Al llegar `resultsAt` se muestra la clasificación a todo el mundo. Los datos
-  // salen del snapshot público `results/{season}` (los ballots no son de lectura
-  // pública), así que solo se lee cuando la fecha ya ha pasado.
-  const resultsArePublic = !configLoading && areResultsPublished(votingConfig);
+  // ============ Resultados de la última edición ============
+  // Se muestran cuando el admin PUBLICA la edición (que es archivarla): ahí se
+  // apunta su id en `config/voting.lastPublishedId`. El archivo vive en
+  // `results/{id}` y se resuelve con una sola lectura por id, sin listar la
+  // colección: las reglas solo dejan leer lo ya archivado y una consulta que
+  // tope con un documento prohibido falla entera.
+  //
+  // HACE FALTA SESIÓN: la clasificación lleva el nombre de cada participante, y
+  // esa lista no tiene por qué estar en internet abierto (misma regla en
+  // firestore.rules). Sin sesión no se pide siquiera: las reglas la rechazarían.
+  //
+  // Una edición ABIERTA manda sobre esto: mientras se puede votar, se vota; los
+  // resultados de la anterior vuelven a la vista cuando la nueva termina.
+  const showResults =
+    !configLoading && areResultsPublished(votingConfig) && !isVotingOpenNow(votingConfig);
   const { result: seasonResult, isLoading: seasonResultLoading } = useSeasonResult(
-    season,
-    resultsArePublic
+    votingConfig.lastPublishedId,
+    showResults && Boolean(currentUser)
   );
 
   // ============ Estado de UI ============
@@ -357,13 +367,27 @@ function App() {
       );
     }
 
-    // Resultados publicados: mandan sobre todo lo demás del flujo público (la
-    // edición ya terminó). Si aún no existe el snapshot, se sigue a la cascada
-    // normal y se muestra la pantalla de votación cerrada.
-    if (resultsArePublic) {
+    // Resultados de la última edición publicada: mandan sobre el resto del flujo
+    // SALVO que haya otra edición abierta, en cuyo caso lo que toca es votar.
+    //
+    // Exigen sesión, así que quien llegue sin ella pasa antes por el login (con
+    // el mensaje de «entra para ver los resultados», no el de votar). Si el
+    // archivo no existe, se sigue a la cascada normal.
+    if (showResults) {
+      if (!currentUser) {
+        return (
+          <LoginScreen
+            onLogin={handleLogin}
+            isLoading={isSigningIn}
+            errorMessage={authError}
+            daysRemaining={null}
+            purpose="results"
+          />
+        );
+      }
       if (seasonResultLoading) return <LoadingSpinner fullScreen />;
       if (seasonResult) {
-        return <ResultsScreen result={seasonResult} currentUserId={currentUser?.uid || null} />;
+        return <ResultsScreen result={seasonResult} currentUserId={currentUser.uid} />;
       }
     }
 

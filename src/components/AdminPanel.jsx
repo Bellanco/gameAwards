@@ -9,6 +9,7 @@ import { getCategoryTitle as localizeCategoryTitle, getOptionLabel, hasTitle } f
 import { LoadingSpinner, ThemeLanguageControls } from './ui';
 import logger from '../services/loggerService';
 import { FALLBACK_ROUTE } from '../utils/routes';
+import { authErrorMessage } from '../utils/authErrors';
 
 // Importar pantallas de administración
 import CategoryManager from './CategoryManager';
@@ -30,9 +31,13 @@ export default function AdminPanel() {
   const t = useTranslation(language);
   const { isAdmin, currentUser, isLoading: authLoading } = useAdminCheck();
   const { categories, isLoading: categoriesLoading } = useFirestoreCategories();
-  const { ballots, isLoading: ballotsLoading } = useFirestoreBallots();
+  // `ballots` solo se pide cuando el claim de admin ya está confirmado. Las
+  // reglas rechazan la lectura a cualquier otro, pero pedirla antes gastaba una
+  // petición fallida por visita a /admin y dejaba el panel reclamando datos que
+  // no le corresponden (defensa en profundidad).
+  const { ballots, isLoading: ballotsLoading, refetch: refetchBallots } = useFirestoreBallots(isAdmin);
   const votingConfig = useVotingConfig();
-  const { results: seasonResults, isLoading: resultsLoading, refetch: refetchResults } = useSeasonResults();
+  const { results: seasonResults, isLoading: resultsLoading, refetch: refetchResults } = useSeasonResults(isAdmin);
 
   // Calendario de la edición, cierre forzado, publicación y reinicio anual.
   const seasonControls = useSeasonControls({
@@ -40,10 +45,16 @@ export default function AdminPanel() {
     categories,
     ballots,
     t,
+    // Publicar escribe una edición nueva en el histórico: hay que recargarlo o
+    // la pestaña Histórico no la enseña hasta que se recarga el panel entero.
+    onPublished: () => {
+      refetchResults();
+      refetchBallots();
+    },
   });
 
   const [statsData, setStatsData] = useState(null);
-  const [viewMode, setViewMode] = useState('overview'); // 'overview' | 'ballots' | 'categories' | 'winners' | 'ranking' | 'history' | 'season'
+  const [viewMode, setViewMode] = useState('overview'); // 'overview' | 'ballots' | 'categories' | 'winners' | 'history' | 'season'
   const [errorMessage, setErrorMessage] = useState('');
 
   /**
@@ -153,7 +164,9 @@ export default function AdminPanel() {
       await signInWithPopup(auth, googleProvider);
     } catch (error) {
       logger.error('Error al iniciar sesión:', error);
-      setErrorMessage(error.message || 'Error al iniciar sesión');
+      // Nunca el `error.message` crudo de Firebase: puede llevar detalles
+      // internos y llega siempre en inglés (misma tabla que el login público).
+      setErrorMessage(authErrorMessage(t, error));
     }
   };
 
@@ -220,7 +233,7 @@ export default function AdminPanel() {
 
           {/* Navigation Tabs */}
           <div className="flex gap-2 md:gap-3 flex-wrap overflow-x-auto pb-2">
-            {['overview', 'ballots', 'categories', 'winners', 'ranking', 'history', 'season'].map(mode => (
+            {['overview', 'ballots', 'categories', 'winners', 'history', 'season'].map(mode => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
@@ -234,7 +247,6 @@ export default function AdminPanel() {
                 {mode === 'ballots' && t('allBallots')}
                 {mode === 'categories' && t('categories')}
                 {mode === 'winners' && t('selectWinners')}
-                {mode === 'ranking' && t('ranking')}
                 {mode === 'history' && t('history')}
                 {mode === 'season' && t('season')}
               </button>
@@ -270,15 +282,9 @@ export default function AdminPanel() {
           <CategoryManager onClose={() => setViewMode('overview')} />
         )}
 
-        {/* Winners Selector */}
-        {viewMode === 'winners' && (
-          <WinnersPanel mode="select" />
-        )}
-
-        {/* Ranking */}
-        {viewMode === 'ranking' && (
-          <WinnersPanel mode="ranking" />
-        )}
+        {/* Winners Selector. La clasificación NO tiene pestaña propia: se ve
+            antes de publicar (pestaña Temporada) y después en el Histórico. */}
+        {viewMode === 'winners' && <WinnersPanel />}
 
         {/* Histórico de resultados por año */}
         {viewMode === 'history' && (
@@ -291,7 +297,12 @@ export default function AdminPanel() {
 
         {/* Season / Voting control */}
         {viewMode === 'season' && (
-          <SeasonTab config={votingConfig} controls={seasonControls} />
+          <SeasonTab
+            config={votingConfig}
+            controls={seasonControls}
+            categories={categories}
+            ballots={ballots}
+          />
         )}
       </div>
     </div>

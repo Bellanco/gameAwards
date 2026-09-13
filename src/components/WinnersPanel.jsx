@@ -1,97 +1,76 @@
 /**
- * WinnersPanel - Componente unificado para selección y visualización de ganadores
- * Reemplaza: WinnersSelector.jsx + SurveyWinnersSelector.jsx
- * 
- * Modos:
- * - 'select': Seleccionar ganadores manualmente
- * - 'ranking': Ver resultados y puntuación de usuarios
- * 
- * Ventajas:
- * - Un único componente con lógica centralizada
- * - Usa hooks custom (useFirestoreCategories, useFirestoreBallots)
- * - Componentes UI reutilizables (Button, Card, Alert)
- * - Todos los literales en i18n
- * - Mejor manejo de errores
+ * WinnersPanel - Selección de los ganadores de la edición en curso.
+ *
+ * Tenía un segundo modo, 'ranking', que pintaba la clasificación en vivo con el
+ * desglose de aciertos por participante. Se retiró con la pestaña que lo
+ * mostraba: la clasificación se ve ahora donde de verdad hace falta —en la
+ * pestaña Temporada, como vista previa de lo que se va a publicar— y después en
+ * el Histórico, que es lo que ve también el público.
+ *
+ * Los ganadores se guardan en `admin/winners` (no en `categories`, que es de
+ * lectura pública): ver services/winnersService.js.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../data/literals';
 import { useAppContext } from '../context/AppContext';
-import { useFirestoreCategories, useFirestoreBallots, useVotingConfig } from '../hooks';
+import { useFirestoreCategories } from '../hooks';
 import { logError, ERROR_TYPES } from '../services/errorService';
-import { sortCategoriesByOrder } from '../services/categoriesService';
-import { saveWinners } from '../services/winnersService';
-import { publishSeasonResults } from '../services/seasonService';
-import { getCategoryTitle, getOptionLabel, resolveOptionId } from '../utils/localize';
+import { saveWinners, fetchWinners } from '../services/winnersService';
+import { resolveOptionId } from '../utils/localize';
 import WinnersSelector from './admin/WinnersSelector';
-import RankingTable from './admin/RankingTable';
-import { computeLeaderboard } from '../utils/scoring';
 import logger from '../services/loggerService';
 
-export default function WinnersPanel({ mode = 'select' }) {
+export default function WinnersPanel() {
   const { language } = useAppContext();
   const t = useTranslation(language);
   const { categories, isLoading: categoriesLoading, refetch: refetchCategories } = useFirestoreCategories();
-  const { ballots, isLoading: ballotsLoading } = useFirestoreBallots();
-  const { season, seasonId, seasonName } = useVotingConfig();
-  
+
   const [winners, setWinners] = useState({});
-  const [userScores, setUserScores] = useState({});
+  // Los ganadores guardados llegan de Firestore, así que hay una ventana entre
+  // el primer render y su respuesta. El selector NO puede mostrarse durante esa
+  // ventana: un clic en ese hueco lo pisaría la carga al resolver, y el admin
+  // vería su selección desaparecer (o, peor, guardaría sin ella).
+  const [winnersLoading, setWinnersLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [alertMessage, setAlertMessage] = useState(null);
-  const [selectedUserId, setSelectedUserId] = useState(null);
 
   /**
-   * Cargar ganadores existentes desde Firestore.
-   * `category.winner` es el optionId ganador (o null).
+   * Cargar ganadores existentes desde `admin/winners` (documento de admin).
+   *
+   * Ya no salen de `categories`: esa colección es de lectura pública y el
+   * ganador guardado ahí se podía consultar antes de anunciarlo. El servicio
+   * sigue aceptando el formato antiguo como respaldo y el primer guardado lo
+   * migra (ver winnersService).
    */
-  const loadWinners = useCallback(() => {
+  const loadWinners = useCallback(async () => {
     try {
+      const stored = await fetchWinners(categories);
+      // Normaliza por si el dato antiguo guardó el ganador por nombre.
       const winnersData = {};
       categories.forEach(category => {
-        if (category.winner) {
-          // Normaliza por si el dato antiguo guardó el ganador por nombre.
-          winnersData[category.id] = resolveOptionId(category, category.winner);
-        }
+        const optionId = stored[category.id];
+        if (optionId) winnersData[category.id] = resolveOptionId(category, optionId);
       });
       setWinners(winnersData);
     } catch (err) {
       logError(ERROR_TYPES.FIRESTORE_ERROR, err, { context: 'loadWinners' });
+    } finally {
+      setWinnersLoading(false);
     }
   }, [categories]);
 
-  /**
-   * Calcular puntuación de usuarios (acierto = optionId votado == optionId ganador).
-   * Usa los ganadores en edición (state `winners`), no los persistidos.
-   */
-  const calculateScores = useCallback(() => {
-    try {
-      // Proyectar el winner en edición sobre las categorías para el cálculo.
-      const categoriesWithWinners = categories.map(c => ({ ...c, winner: winners[c.id] || null }));
-      const scoresData = {};
-      computeLeaderboard(ballots, categoriesWithWinners).forEach(entry => {
-        scoresData[entry.userId] = entry.points;
-      });
-      setUserScores(scoresData);
-    } catch (err) {
-      logError(ERROR_TYPES.VALIDATION_ERROR, err, { context: 'calculateScores' });
-    }
-  }, [categories, ballots, winners]);
-
   // Cargar ganadores existentes al montar componente / cuando cambian las categorías
   useEffect(() => {
-    if (categories.length > 0) {
-      loadWinners();
+    if (categories.length === 0) {
+      // Sin categorías no hay nada que leer, pero hay que salir de «cargando» o
+      // el selector se quedaría con el spinner para siempre.
+      setWinnersLoading(false);
+      return;
     }
+    loadWinners();
   }, [categories.length, loadWinners]);
-
-  // Calcular puntuaciones si modo es 'ranking'
-  useEffect(() => {
-    if (mode === 'ranking' && categories.length > 0 && ballots.length > 0 && Object.keys(winners).length > 0) {
-      calculateScores();
-    }
-  }, [mode, categories.length, ballots.length, winners, calculateScores]);
 
   /**
    * Limpiar todas las selecciones de ganadores
@@ -124,23 +103,15 @@ export default function WinnersPanel({ mode = 'select' }) {
     try {
       setIsSaving(true);
 
-      // Un único lote atómico para todas las categorías (antes: un updateDoc
-      // por categoría en un bucle, que dejaba ganadores a medias si fallaba).
-      const { saved, skipped } = await saveWinners(categories, winners);
+      // Una única escritura en `admin/winners` (antes: un updateDoc por
+      // categoría en un bucle, que dejaba ganadores a medias si fallaba).
+      // Guardar ganadores ya NO publica nada. Mientras la edición está viva no
+      // existe ningún snapshot público, así que no hay nada que se pueda filtrar
+      // antes de tiempo: publicar es el gesto de cerrar la edición desde la
+      // pestaña Temporada.
+      const { saved, skipped, migrated } = await saveWinners(categories, winners);
       if (skipped > 0) logger.warn(`${skipped} categoría(s) sin nominados, omitidas.`);
-
-      // Refrescar el snapshot público de `results/{season}`: es el único origen
-      // de la clasificación para quien no es admin (los ballots no son de
-      // lectura pública), así que sin esto la pantalla pública seguiría
-      // mostrando los ganadores anteriores cuando llegue la fecha de resultados.
-      const categoriesWithWinners = categories.map(c => ({ ...c, winner: winners[c.id] || null }));
-      await publishSeasonResults({
-        season,
-        seasonId,
-        seasonName,
-        categories: categoriesWithWinners,
-        ballots,
-      });
+      if (migrated > 0) logger.log(`${migrated} categoría(s) migradas al nuevo modelo de ganadores.`);
 
       const message = `${t('saveSuccessful')} (${saved} ${t('selected')})`;
       
@@ -157,81 +128,18 @@ export default function WinnersPanel({ mode = 'select' }) {
     }
   };
 
-  /**
-   * Obtener ranking de usuarios
-   */
-  const getRanking = () => {
-    return Object.entries(userScores)
-      .sort((a, b) => b[1] - a[1])
-      .map(([userId, score], index) => {
-        const ballot = ballots.find(b => b.userId === userId);
-        return {
-          rank: index + 1,
-          userId,
-          nickname: ballot?.userDisplayName || ballot?.userNickname || t('anonymous'),
-          score
-        };
-      });
-  };
-
-  /**
-   * Obtener votos correctos de un usuario (ordenados por orderIndex)
-   */
-  const getUserCorrectVotes = (userId) => {
-    const ballot = ballots.find(b => b.userId === userId);
-    const correctVotes = [];
-    
-    if (ballot?.selections) {
-      // Iterar sobre categorías ordenadas por orderIndex
-      const sortedCategories = sortCategoriesByOrder(categories);
-
-      sortedCategories.forEach(category => {
-        const votedOptionId = ballot.selections[category.id];
-        if (votedOptionId && winners[category.id] === votedOptionId) {
-          correctVotes.push({
-            category: getCategoryTitle(category, language),
-            vote: getOptionLabel(category, votedOptionId, language),
-            points: category.weight || 1
-          });
-        }
-      });
-    }
-    
-    return correctVotes;
-  };
-
-  // === RENDER ===
-  if (mode === 'select') {
-    return (
-      <WinnersSelector
-        categories={categories}
-        categoriesLoading={categoriesLoading}
-        winners={winners}
-        hasChanges={hasChanges}
-        isSaving={isSaving}
-        alertMessage={alertMessage}
-        setAlertMessage={setAlertMessage}
-        onSelectWinner={handleSelectWinner}
-        onClearWinners={handleClearWinners}
-        onSaveWinners={handleSaveWinners}
-      />
-    );
-  }
-
-  if (mode === 'ranking') {
-    return (
-      <RankingTable
-        categoriesLoading={categoriesLoading}
-        ballotsLoading={ballotsLoading}
-        ranking={getRanking()}
-        alertMessage={alertMessage}
-        setAlertMessage={setAlertMessage}
-        selectedUserId={selectedUserId}
-        setSelectedUserId={setSelectedUserId}
-        getUserCorrectVotes={getUserCorrectVotes}
-      />
-    );
-  }
-
-  return null;
+  return (
+    <WinnersSelector
+      categories={categories}
+      categoriesLoading={categoriesLoading || winnersLoading}
+      winners={winners}
+      hasChanges={hasChanges}
+      isSaving={isSaving}
+      alertMessage={alertMessage}
+      setAlertMessage={setAlertMessage}
+      onSelectWinner={handleSelectWinner}
+      onClearWinners={handleClearWinners}
+      onSaveWinners={handleSaveWinners}
+    />
+  );
 }

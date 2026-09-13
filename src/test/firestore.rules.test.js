@@ -61,6 +61,16 @@ const asAdmin = () =>
     .authenticatedContext('admin-1', { email: 'admin@example.com', admin: true })
     .firestore();
 
+/** Deja un archivo de resultados en Firestore, saltándose las reglas. */
+const seedResult = async (id, data) => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'results', id), data);
+  });
+};
+
+/** Contexto anónimo: quien abre la app sin iniciar sesión. */
+const asAnyone = () => testEnv.unauthenticatedContext().firestore();
+
 /** Escribe config/voting saltándose las reglas. */
 const setVotingConfig = async (data) => {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
@@ -196,6 +206,28 @@ describe('firestore.rules', () => {
       for (let i = 0; i < 200; i += 1) selections[`cat${i}`] = `opt${i}`;
       await assertFails(
         setDoc(doc(asVoter(), 'ballots', UID), validBallot({ selections }))
+      );
+    });
+
+    it('RECHAZA selecciones con valores desmesurados', async () => {
+      // El tope de 60 entradas contaba las claves, no lo que había dentro: se
+      // podían meter decenas de KB por selección hasta llenar el documento.
+      const inflado = {};
+      for (let i = 0; i < 30; i += 1) inflado[`cat${i}`] = 'x'.repeat(2000);
+      await assertFails(
+        setDoc(doc(asVoter(), 'ballots', UID), validBallot({ selections: inflado }))
+      );
+    });
+
+    it('acepta un voto con todas las categorías de una porra real', async () => {
+      // 30 categorías con optionIds de tamaño realista: el tope no puede
+      // estorbar a un votante legítimo.
+      const normal = {};
+      for (let i = 0; i < 30; i += 1) {
+        normal[`categoria-${i}`] = `3f2b1c9d-4e5a-6b7c-8d9e-0f1a2b3c4d5e_option_${i}`;
+      }
+      await assertSucceeds(
+        setDoc(doc(asVoter(), 'ballots', UID), validBallot({ selections: normal }))
       );
     });
 
@@ -411,6 +443,127 @@ describe('firestore.rules', () => {
 
     it('RECHAZA que un votante lea la colección admin', async () => {
       await assertFails(getDoc(doc(asVoter(), 'admin', 'secretos')));
+    });
+
+    it('RECHAZA la lectura pública de config fuera de config/voting', async () => {
+      // `config/{document=**}` abría a lectura anónima cualquier documento
+      // futuro bajo config/. Solo el calendario es público.
+      await assertSucceeds(getDoc(doc(asAnyone(), 'config', 'voting')));
+      await assertFails(getDoc(doc(asAnyone(), 'config', 'interno')));
+    });
+
+    it('RECHAZA la lectura pública de las colecciones legacy de ganadores', async () => {
+      await assertFails(getDoc(doc(asAnyone(), 'winners', 'cat1')));
+      await assertFails(getDoc(doc(asAnyone(), 'surveyWinners', 'cat1')));
+    });
+  });
+
+  describe('publicación de resultados (se cumple en servidor)', () => {
+    // El snapshot `results/{seasonId}` es el único canal público de los
+    // ganadores y de la clasificación, y se reescribe cada vez que el admin
+    // guarda ganadores o calendario. Si la fecha solo se comprobara en el
+    // navegador, cualquiera leería el resultado de la porra antes de tiempo.
+    const SNAPSHOT = {
+      season: 2026,
+      winners: { cat1: 'cat1_option_0' },
+      leaderboard: [{ rank: 1, uidHash: 'abcd1234abcd1234', nickname: 'Ana', points: 12 }],
+    };
+
+    it('RECHAZA leer los resultados SIN SESIÓN, aunque estén publicados', async () => {
+      // La clasificación lleva el nombre de cada participante: es una lista de
+      // personas identificables y no debe estar en internet abierto.
+      await setVotingConfig({ isOpen: false, season: 2026 });
+      await seedResult('porra-2026', { ...SNAPSHOT, closedAt: new Date().toISOString() });
+
+      await assertFails(getDoc(doc(asAnyone(), 'results', 'porra-2026')));
+      await assertSucceeds(getDoc(doc(asVoter(), 'results', 'porra-2026')));
+    });
+
+    it('RECHAZA leer los resultados antes de la fecha de publicación', async () => {
+      await setVotingConfig({
+        isOpen: true,
+        season: 2026,
+        resultsAtMillis: Date.now() + 86_400_000,
+      });
+      await seedResult('porra-2026', SNAPSHOT);
+
+      await assertFails(getDoc(doc(asAnyone(), 'results', 'porra-2026')));
+      await assertFails(getDoc(doc(asVoter(), 'results', 'porra-2026')));
+    });
+
+    it('permite leerlos, con sesión, una vez llegada la fecha', async () => {
+      await setVotingConfig({
+        isOpen: false,
+        season: 2026,
+        resultsAtMillis: Date.now() - 1000,
+      });
+      await seedResult('porra-2026', SNAPSHOT);
+
+      await assertSucceeds(getDoc(doc(asVoter(), 'results', 'porra-2026')));
+      await assertFails(getDoc(doc(asAnyone(), 'results', 'porra-2026')));
+    });
+
+    it('RECHAZA leer una edición sin publicar, aunque el archivo exista', async () => {
+      // Que el documento exista no basta: hasta que se publica, no es de nadie
+      // más que del admin.
+      await setVotingConfig({ isOpen: true, season: 2026 });
+      await seedResult('porra-2026', SNAPSHOT);
+
+      await assertFails(getDoc(doc(asVoter(), 'results', 'porra-2026')));
+      await assertFails(getDoc(doc(asAnyone(), 'results', 'porra-2026')));
+    });
+
+    it('RECHAZA leerlos si no hay config/voting todavía', async () => {
+      await seedResult('porra-2026', SNAPSHOT);
+      await assertFails(getDoc(doc(asVoter(), 'results', 'porra-2026')));
+    });
+
+    it('una edición ya PUBLICADA la lee cualquiera con sesión', async () => {
+      // `closedAt` solo lo escribe la publicación: un archivo que lo lleva ya se
+      // anunció, y se sigue leyendo aunque haya otra edición en marcha.
+      await setVotingConfig({ isOpen: true, season: 2027 });
+      await seedResult('porra-2026', { ...SNAPSHOT, closedAt: new Date().toISOString() });
+
+      await assertSucceeds(getDoc(doc(asVoter(), 'results', 'porra-2026')));
+      await assertFails(getDoc(doc(asAnyone(), 'results', 'porra-2026')));
+    });
+
+    it('el admin los lee siempre, publicados o no', async () => {
+      await setVotingConfig({ isOpen: true, season: 2026 });
+      await seedResult('porra-2026', SNAPSHOT);
+
+      await assertSucceeds(getDoc(doc(asAdmin(), 'results', 'porra-2026')));
+    });
+
+    it('RECHAZA que un votante escriba o borre un archivo de resultados', async () => {
+      await seedResult('porra-2026', SNAPSHOT);
+      await assertFails(setDoc(doc(asVoter(), 'results', 'porra-2026'), SNAPSHOT));
+      await assertFails(deleteDoc(doc(asVoter(), 'results', 'porra-2026')));
+    });
+  });
+
+  describe('ganadores (admin/winners)', () => {
+    // Los ganadores dejaron de vivir en `categories` justo por esto: esa
+    // colección es pública y las reglas no saben ocultar un campo suelto.
+    it('RECHAZA que nadie sin el claim lea los ganadores', async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'admin', 'winners'), {
+          winners: { cat1: 'cat1_option_0' },
+        });
+      });
+
+      await assertFails(getDoc(doc(asAnyone(), 'admin', 'winners')));
+      await assertFails(getDoc(doc(asVoter(), 'admin', 'winners')));
+      await assertSucceeds(getDoc(doc(asAdmin(), 'admin', 'winners')));
+    });
+
+    it('RECHAZA que un votante marque un ganador', async () => {
+      await assertFails(
+        setDoc(doc(asVoter(), 'admin', 'winners'), { winners: { cat1: 'trampa' } })
+      );
+      await assertSucceeds(
+        setDoc(doc(asAdmin(), 'admin', 'winners'), { winners: { cat1: 'cat1_option_0' } })
+      );
     });
   });
 });
