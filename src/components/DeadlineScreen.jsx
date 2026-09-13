@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from '../data/literals';
 import { useAppContext } from '../context/AppContext';
-import { CloseIcon } from './Icons';
+import { LockIcon, ClockIcon, TrophyIcon } from './Icons';
 import { ScreenLayout } from './layouts';
 import { Header } from './ui';
 
@@ -62,9 +62,16 @@ export default function DeadlineScreen({ isScheduled = false, opensAt = null, re
       {/* Contenido */}
       <div className="relative z-10 flex-1 flex items-center justify-center p-4">
         <div className="text-center max-w-md">
-          {/* Icono de reloj */}
+          {/*
+            Candado si el plazo terminó, reloj si aún no ha empezado. Antes
+            había una equis roja en los dos casos, que se lee como un error.
+          */}
           <div className="mb-8">
-            <CloseIcon className="w-24 h-24 mx-auto text-status-error theme-flicker" />
+            {isScheduled ? (
+              <ClockIcon className="w-20 h-20 mx-auto theme-accent" />
+            ) : (
+              <LockIcon className="w-20 h-20 mx-auto text-status-error" />
+            )}
           </div>
 
           {/* Título */}
@@ -92,36 +99,19 @@ export default function DeadlineScreen({ isScheduled = false, opensAt = null, re
             </div>
           </div>
 
-          {/* Próximas acciones */}
-          <div className="space-y-3 mb-10">
+          {/*
+            Un solo bloque, y con información que se cumple. Antes había tres:
+            los otros dos prometían una fecha para la próxima edición y un aviso
+            que nadie envía.
+          */}
+          <div className="mb-10">
             <div className="flex items-center gap-4 p-4 theme-card theme-border-primary border rounded-lg">
-              <span className="text-2xl font-bold theme-accent">■</span>
+              <TrophyIcon className="w-7 h-7 shrink-0 theme-accent" />
               <div className="text-left">
                 <p className="text-sm theme-text-secondary uppercase">{t('results')}</p>
                 <p className="theme-text-primary font-semibold">{resultsText}</p>
               </div>
             </div>
-            <div className="flex items-center gap-4 p-4 theme-card theme-border-primary border rounded-lg">
-              <span className="text-2xl font-bold theme-accent">▲</span>
-              <div className="text-left">
-                <p className="text-sm theme-text-secondary uppercase">{t('nextEdition')}</p>
-                <p className="theme-text-primary font-semibold">{t('decemberNextYear')}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 p-4 theme-card theme-border-primary border rounded-lg">
-              <span className="text-2xl font-bold theme-accent">▶</span>
-              <div className="text-left">
-                <p className="text-sm theme-text-secondary uppercase">{t('stayTuned')}</p>
-                <p className="theme-text-primary font-semibold">{t('weWillNotifyYou')}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Mensaje motivacional */}
-          <div className="theme-card theme-border-primary border rounded-xl p-6 mb-8">
-            <p className="theme-text-primary leading-relaxed">
-              {t('thankYouForInterest')}
-            </p>
           </div>
 
           {/* Botón de regreso */}
@@ -134,7 +124,7 @@ export default function DeadlineScreen({ isScheduled = false, opensAt = null, re
 
           {/* Footer */}
           <p className="mt-6 text-sm theme-text-secondary">
-            © The Game Awards {new Date().getFullYear()}
+            {t('officialsVotingPlatform')}
           </p>
         </div>
       </div>

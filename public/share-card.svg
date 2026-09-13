@@ -15,8 +15,8 @@
   la aplicación se reconozcan como lo mismo.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="cardTitle cardDesc">
-  <title id="cardTitle">TGA Ballot</title>
-  <desc id="cardDesc">La porra de The Game Awards: vota categoría a categoría y compara tus aciertos.</desc>
+  <title id="cardTitle">La porra del gamer</title>
+  <desc id="cardDesc">La porra del gamer: vota categoría a categoría y compara tus aciertos.</desc>
 
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
@@ -44,7 +44,7 @@
   <!-- Filete dorado superior: el mismo gesto que el borde de selección de la app. -->
   <rect x="0" y="0" width="1200" height="8" fill="url(#gold)"/>
 
-  <!-- Emblema, derivado de public/tga-icon.svg -->
+  <!-- Emblema, derivado de public/app-icon.svg -->
   <g transform="translate(96 203) scale(1.24)">
     <circle cx="100" cy="100" r="98" fill="url(#blue)" stroke="#1e40af" stroke-width="2"/>
     <circle cx="100" cy="100" r="85" fill="none" stroke="url(#gold)" stroke-width="3" opacity="0.85"/>
@@ -53,30 +53,33 @@
     <line x1="180" y1="100" x2="165" y2="100" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
     <line x1="100" y1="180" x2="100" y2="165" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
     <line x1="20" y1="100" x2="35" y2="100" stroke="url(#gold)" stroke-width="3" stroke-linecap="round"/>
-    <text x="100" y="126" font-family="Cinzel, Georgia, 'Times New Roman', serif" font-size="66" font-weight="700"
-          text-anchor="middle" fill="#ffffff" letter-spacing="3">TGA</text>
-    <text x="100" y="150" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="15" font-weight="600"
-          text-anchor="middle" fill="url(#gold)" letter-spacing="4">AWARDS</text>
+    <g transform="translate(56 54) scale(3.65)" fill="url(#gold)">
+      <path d="M5 4H2.6v2.2A4.4 4.4 0 0 0 6.4 10.6l.5-2A2.4 2.4 0 0 1 4.6 6.2V6H5zM19 4h2.4v2.2a4.4 4.4 0 0 1-3.8 4.4l-.5-2a2.4 2.4 0 0 0 2.3-2.4V6H19z" opacity="0.8"/>
+      <path d="M6 2.6h12v6.1a6 6 0 0 1-12 0z"/>
+      <path d="M11 14.4h2v3.4h-2zM7.6 19.2h8.8v2.2H7.6z"/>
+    </g>
   </g>
 
   <!-- Bloque de texto. Las tres líneas van sueltas a propósito: <text> no hace
        salto de línea automático, y una sola línea a este cuerpo se salía del
        lienzo por la derecha. -->
-  <text x="410" y="268" font-family="Cinzel, Georgia, 'Times New Roman', serif" font-size="86" font-weight="900"
-        fill="#ede7db" letter-spacing="2">TGA BALLOT</text>
+  <text x="410" y="232" font-family="Cinzel, Georgia, 'Times New Roman', serif" font-size="78" font-weight="900"
+        fill="#ede7db" letter-spacing="2">LA PORRA</text>
+  <text x="410" y="312" font-family="Cinzel, Georgia, 'Times New Roman', serif" font-size="78" font-weight="900"
+        fill="#e8b15b" letter-spacing="2">DEL GAMER</text>
 
-  <rect x="412" y="304" width="108" height="6" rx="3" fill="url(#gold)"/>
+  <rect x="412" y="348" width="108" height="6" rx="3" fill="url(#gold)"/>
 
-  <text x="410" y="378" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="42" font-weight="600"
-        fill="#e8b15b">La porra de The Game Awards</text>
+  <text x="410" y="412" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="38" font-weight="600"
+        fill="#e8b15b">Vota, acierta y sube al podio</text>
 
-  <text x="410" y="442" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="32" font-weight="400"
+  <text x="410" y="470" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="32" font-weight="400"
         fill="#d8ccb9">Vota categoría a categoría, compara</text>
-  <text x="410" y="486" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="32" font-weight="400"
+  <text x="410" y="514" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="32" font-weight="400"
         fill="#d8ccb9">tus aciertos y pelea por el primer puesto.</text>
 
   <!-- El dominio cierra la composición por abajo: sin él quedaban 150px muertos
        bajo el texto y la tarjeta se leía descolgada hacia arriba. -->
-  <text x="410" y="556" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="25" font-weight="600"
+  <text x="410" y="572" font-family="'Source Sans 3', 'Segoe UI', Arial, sans-serif" font-size="25" font-weight="600"
         fill="#8c7f6c" letter-spacing="2">gameawards.pages.dev</text>
 </svg>

@@ -5,11 +5,12 @@
 
 export const en = {
   // Header
-  appTitle: "THE GAME AWARDS",
+  appTitle: "THE GAMER'S",
+  appTitleAccent: "SWEEPSTAKE",
   votingOpen: "Voting is now open",
   
   // Login
-  loginSubtitle: "Join the official The Game Awards voting",
+  loginSubtitle: "Join the sweepstake and play for first place",
   resultsAvailable: "Results available",
   loginForResultsSubtitle: "This edition is over. Sign in with your Google account to see the winners and the standings.",
   loginBtn: "Sign in with Google",
@@ -22,7 +23,7 @@ export const en = {
   step2Title: "Vote across all categories",
   step3Title: "Review and submit your ballot",
   // Terms
-  loginTerms: "By signing in, you agree to our terms. Your vote will be securely recorded.",
+  loginTerms: "We use your Google account only to make sure each vote comes from a different person.",
   unableToSignIn: "Unable to sign in",
   connecting: "Connecting...",
   
@@ -81,10 +82,10 @@ export const en = {
   confirmation: "Confirmation",
   yourVoteConfirmed: "Your vote is confirmed.",
   willNotBeAbleToChange: "You will not be able to change it.",
-  checkBackDecember: "Check back on December to see who wins The Game Awards.",
+  checkBackDecember: "Come back when the results are published.",
   signOut: "Sign Out",
-  thankYouForVoting: "Thank you for voting in The Game Awards",
-  officialsVotingPlatform: "The official voting platform for The Game Awards",
+  thankYouForVoting: "Thanks for voting",
+  officialsVotingPlatform: "The gamer's sweepstake",
   
   // Already voted (re-vote block)
   alreadyVotedTitle: "You have already voted",
@@ -93,21 +94,16 @@ export const en = {
 
   // Deadline
   votingClosed: "Voting is closed",
-  votingDeadlineMessage: "The voting deadline for The Game Awards has ended",
+  votingDeadlineMessage: "The voting deadline has ended",
   votingNotOpenYet: "Voting has not opened yet",
   votingOpensSoonMessage: "This edition is not accepting votes yet",
   votingOpensOn: "Voting opens on {date}. Come back then to submit your ballot.",
   votesNotAcceptedYet: "No votes are accepted yet. The admin has not opened this edition.",
   status: "Status",
   closed: "Closed",
-  noNewVotesAccepted: "No new votes are accepted at this time. Voting will reopen for the next edition of The Game Awards.",
+  noNewVotesAccepted: "No new votes are accepted at this time.",
   results: "Results",
-  resultsWillBeShown: "Will be announced during the ceremony",
-  nextEdition: "Next edition",
-  decemberNextYear: "December next year",
-  stayTuned: "Stay tuned",
-  weWillNotifyYou: "We will notify you when it opens again",
-  thankYouForInterest: "Thank you for your interest in The Game Awards. Join us on the day of the ceremony to find out the results!",
+  resultsWillBeShown: "They will be published on this very page",
   backToStart: "Back to start",
 
   // Editing your own ballot
@@ -252,7 +248,7 @@ export const en = {
   newSeason: "New edition",
   newSeasonHelp: "Give it a name and pick the last day to vote. Voting opens as soon as you press the button.",
   seasonNameLabel: "Name",
-  seasonNamePlaceholder: "The Game Awards 2026",
+  seasonNamePlaceholder: "Winter sweepstake 2026",
   closesOnLabel: "Closes on",
   closesAtEndOfDay: "Closes at 23:59 that day (Spanish peninsular time).",
   openSeason: "Open voting",

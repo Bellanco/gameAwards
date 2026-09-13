@@ -5,11 +5,12 @@
 
 export const es = {
   // Header
-  appTitle: "THE GAME AWARDS",
+  appTitle: "LA PORRA",
+  appTitleAccent: "DEL GAMER",
   votingOpen: "La votación está abierta",
   
   // Login
-  loginSubtitle: "Participa en la porra de The Game Awards",
+  loginSubtitle: "Participa en la porra y compite por el primer puesto",
   resultsAvailable: "Resultados disponibles",
   loginForResultsSubtitle: "La edición ya ha terminado. Entra con tu cuenta de Google para ver los ganadores y la clasificación.",
   loginBtn: "Inicia sesión con Google",
@@ -22,7 +23,7 @@ export const es = {
   step2Title: "Vota en todas las categorías",
   step3Title: "Revisa y envía tu papeleta",
   // Terms
-  loginTerms: "Al iniciar sesión, aceptas nuestros términos. Tu voto será registrado de forma segura.",
+  loginTerms: "Entramos con tu cuenta de Google solo para saber que cada voto es de una persona distinta.",
   unableToSignIn: "No se pudo iniciar sesión",
   connecting: "Conectando...",
   
@@ -81,10 +82,10 @@ export const es = {
   confirmation: "Confirmación",
   yourVoteConfirmed: "Tu voto está confirmado.",
   willNotBeAbleToChange: "No podrás modificarlo.",
-  checkBackDecember: "Regresa para ver los ganadores de The Game Awards.",
+  checkBackDecember: "Vuelve cuando se publiquen los resultados.",
   signOut: "Cerrar sesión",
-  thankYouForVoting: "Gracias por votar en The Game Awards",
-  officialsVotingPlatform: "La plataforma de votación de The Game Awards",
+  thankYouForVoting: "Gracias por votar",
+  officialsVotingPlatform: "La porra del gamer",
   
   // Ya votó (bloqueo de re-voto)
   alreadyVotedTitle: "Ya has votado",
@@ -93,21 +94,16 @@ export const es = {
 
   // Deadline
   votingClosed: "La votación ha cerrado",
-  votingDeadlineMessage: "El plazo de votación para The Game Awards ha terminado",
+  votingDeadlineMessage: "El plazo de votación ha terminado",
   votingNotOpenYet: "La votación aún no ha abierto",
   votingOpensSoonMessage: "Esta edición todavía no admite votos",
   votingOpensOn: "La votación abre el {date}. Vuelve entonces para enviar tu porra.",
   votesNotAcceptedYet: "Todavía no se aceptan votos. El administrador aún no ha abierto esta edición.",
   status: "Estado",
   closed: "Cerrado",
-  noNewVotesAccepted: "No se aceptan nuevos votos en este momento. Las votaciones volverán a abrir en la próxima edición de The Game Awards.",
+  noNewVotesAccepted: "No se aceptan nuevos votos en este momento.",
   results: "Resultados",
-  resultsWillBeShown: "Se conocerán durante la ceremonia",
-  nextEdition: "Próxima edición",
-  decemberNextYear: "Diciembre del próximo año",
-  stayTuned: "Mantente atento",
-  weWillNotifyYou: "Te notificaremos cuando abra nuevamente",
-  thankYouForInterest: "Gracias por tu interés en The Game Awards. ¡Acompáñanos el día de la ceremonia para conocer los resultados!",
+  resultsWillBeShown: "Se publicarán en esta misma página",
   backToStart: "Volver al inicio",
 
   // Edición del propio voto
@@ -252,7 +248,7 @@ export const es = {
   newSeason: "Nueva edición",
   newSeasonHelp: "Ponle nombre y elige hasta qué día se puede votar. La votación se abre en cuanto pulses el botón.",
   seasonNameLabel: "Nombre",
-  seasonNamePlaceholder: "The Game Awards 2026",
+  seasonNamePlaceholder: "Porra de invierno 2026",
   closesOnLabel: "Se cierra el",
   closesAtEndOfDay: "Se cierra a las 23:59 de ese día (hora peninsular).",
   openSeason: "Abrir votación",

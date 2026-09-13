@@ -39,8 +39,8 @@ export default function LoginScreen({
           {/* Hero Section */}
           <div className="text-center mb-16">
             <h1 className="text-5xl md:text-7xl font-black tracking-wide theme-display uppercase theme-text-primary mb-4 leading-tight">
-              THE GAME
-              <span className="block theme-accent">AWARDS</span>
+              {t('appTitle')}
+              <span className="block theme-accent">{t('appTitleAccent')}</span>
             </h1>
             <div
               className="h-1.5 w-36 rounded-full mx-auto mb-6 theme-shine"
