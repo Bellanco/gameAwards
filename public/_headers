@@ -65,3 +65,9 @@
 # año para que WhatsApp o Slack dejaran de servir la anterior. Un día basta.
 /share-card.jpg
   Cache-Control: public, max-age=86400
+
+# Las láminas de los premios del podio tampoco llevan hash en el nombre (las
+# referencia el código por ruta fija, ver src/utils/awards.js) y sí se pueden
+# regenerar desde `templates/`. Una semana: cambian como mucho entre ediciones.
+/awards/*
+  Cache-Control: public, max-age=604800
