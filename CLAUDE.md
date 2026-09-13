@@ -1,14 +1,14 @@
-# CLAUDE.md — La porra del gamer
+# CLAUDE.md — El reto del jugador
 
 Guía para Claude Code al trabajar en este repositorio. Léela antes de tocar código.
 
 ## Qué es
 
 App de votación para una porra de premios de videojuegos. Los usuarios entran con Google,
-votan categoría por categoría, revisan y envían su porra (un voto por usuario). Hay un panel de
+votan categoría por categoría, revisan y envían sus votos (un voto por usuario). Hay un panel de
 admin oculto en la ruta `/admin` para gestionar categorías, ganadores y resultados.
 
-**Se llama «La porra del gamer»** (`appTitle` + `appTitleAccent` en i18n) y **no es de nadie
+**Se llama «El reto del jugador»** (`appTitle` + `appTitleAccent` en i18n) y **no es de nadie
 más**: no se nombra ninguna marca ajena ni se dice ser la plataforma oficial de nada. Si añades
 un texto, que no prometa lo que la app no hace —no hay notificaciones, ni ceremonia, ni términos
 legales, ni fecha comprometida para la próxima edición—. El dominio es `gameawards.pages.dev`.
@@ -284,7 +284,7 @@ No se usa router; la navegación entre categorías es estado de React.
 
 - **Los ganadores NO viven en `categories`.** Esa colección tiene que ser de lectura pública para
   poder votar, y las reglas de Firestore protegen documentos enteros, no campos sueltos: un
-  `winner` ahí era el resultado de la porra al alcance de cualquiera, sin sesión siquiera, desde
+  `winner` ahí era el resultado del reto al alcance de cualquiera, sin sesión siquiera, desde
   que el admin lo marcaba. Viven en **`admin/winners`** (`{ winners: { categoryId: optionId } }`),
   y el único canal público es el snapshot `results/{seasonId}`, que las reglas no dejan leer hasta
   `resultsAt`. `winnersService.saveWinners()` **migra solo**: escribe el documento nuevo y borra el
@@ -361,8 +361,8 @@ No se usa router; la navegación entre categorías es estado de React.
     son el resultado histórico y no se pueden recalcular: los votos de esa edición se borraron
     al reiniciarla, así que tocarlos dejaría el archivo incoherente.
   - Cambiar el `seasonId` de la edición en curso hace que la siguiente publicación cree un
-    archivo NUEVO en vez de reescribir el anterior. Es lo que permite «Porra TGA 2026» y
-    «Porra de verano 2026» a la vez.
+    archivo NUEVO en vez de reescribir el anterior. Es lo que permite «Reto de invierno 2026» y
+    «Reto de verano 2026» a la vez.
 
 ### Rejilla de nominados (adaptación a pantalla)
 

@@ -6,11 +6,11 @@
 export const en = {
   // Header
   appTitle: "THE GAMER'S",
-  appTitleAccent: "SWEEPSTAKE",
+  appTitleAccent: "CHALLENGE",
   votingOpen: "Voting is now open",
   
   // Login
-  loginSubtitle: "Join the sweepstake and play for first place",
+  loginSubtitle: "Take the challenge and play for first place",
   resultsAvailable: "Results available",
   loginForResultsSubtitle: "This edition is over. Sign in with your Google account to see the winners and the standings.",
   loginBtn: "Sign in with Google",
@@ -85,7 +85,7 @@ export const en = {
   checkBackDecember: "Come back when the results are published.",
   signOut: "Sign Out",
   thankYouForVoting: "Thanks for voting",
-  officialsVotingPlatform: "The gamer's sweepstake",
+  officialsVotingPlatform: "The gamer's challenge",
   
   // Already voted (re-vote block)
   alreadyVotedTitle: "You have already voted",
@@ -248,7 +248,7 @@ export const en = {
   newSeason: "New edition",
   newSeasonHelp: "Give it a name and pick the last day to vote. Voting opens as soon as you press the button.",
   seasonNameLabel: "Name",
-  seasonNamePlaceholder: "Winter sweepstake 2026",
+  seasonNamePlaceholder: "Winter challenge 2026",
   closesOnLabel: "Closes on",
   closesAtEndOfDay: "Closes at 23:59 that day (Spanish peninsular time).",
   openSeason: "Open voting",

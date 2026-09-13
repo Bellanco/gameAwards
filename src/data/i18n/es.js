@@ -5,12 +5,12 @@
 
 export const es = {
   // Header
-  appTitle: "LA PORRA",
-  appTitleAccent: "DEL GAMER",
+  appTitle: "EL RETO",
+  appTitleAccent: "DEL JUGADOR",
   votingOpen: "La votación está abierta",
   
   // Login
-  loginSubtitle: "Participa en la porra y compite por el primer puesto",
+  loginSubtitle: "Acepta el reto y compite por el primer puesto",
   resultsAvailable: "Resultados disponibles",
   loginForResultsSubtitle: "La edición ya ha terminado. Entra con tu cuenta de Google para ver los ganadores y la clasificación.",
   loginBtn: "Inicia sesión con Google",
@@ -85,7 +85,7 @@ export const es = {
   checkBackDecember: "Vuelve cuando se publiquen los resultados.",
   signOut: "Cerrar sesión",
   thankYouForVoting: "Gracias por votar",
-  officialsVotingPlatform: "La porra del gamer",
+  officialsVotingPlatform: "El reto del jugador",
   
   // Ya votó (bloqueo de re-voto)
   alreadyVotedTitle: "Ya has votado",
@@ -97,7 +97,7 @@ export const es = {
   votingDeadlineMessage: "El plazo de votación ha terminado",
   votingNotOpenYet: "La votación aún no ha abierto",
   votingOpensSoonMessage: "Esta edición todavía no admite votos",
-  votingOpensOn: "La votación abre el {date}. Vuelve entonces para enviar tu porra.",
+  votingOpensOn: "La votación abre el {date}. Vuelve entonces para enviar tus votos.",
   votesNotAcceptedYet: "Todavía no se aceptan votos. El administrador aún no ha abierto esta edición.",
   status: "Estado",
   closed: "Cerrado",
@@ -248,7 +248,7 @@ export const es = {
   newSeason: "Nueva edición",
   newSeasonHelp: "Ponle nombre y elige hasta qué día se puede votar. La votación se abre en cuanto pulses el botón.",
   seasonNameLabel: "Nombre",
-  seasonNamePlaceholder: "Porra de invierno 2026",
+  seasonNamePlaceholder: "Reto de invierno 2026",
   closesOnLabel: "Se cierra el",
   closesAtEndOfDay: "Se cierra a las 23:59 de ese día (hora peninsular).",
   openSeason: "Abrir votación",

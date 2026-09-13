@@ -38,7 +38,7 @@ export default function LoginScreen({
         <div className="w-full max-w-2xl">
           {/* Hero Section */}
           <div className="text-center mb-16">
-            <h1 className="text-5xl md:text-7xl font-black tracking-wide theme-display uppercase theme-text-primary mb-4 leading-tight">
+            <h1 className="text-[2.125rem] sm:text-5xl md:text-7xl font-black tracking-wide theme-display uppercase theme-text-primary mb-4 leading-tight">
               {t('appTitle')}
               <span className="block theme-accent">{t('appTitleAccent')}</span>
             </h1>
