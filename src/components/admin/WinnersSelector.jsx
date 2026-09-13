@@ -8,6 +8,10 @@ import { CheckmarkIcon } from '../Icons';
 /**
  * Selector de ganadores: una tarjeta por categoría con sus nominados.
  * El ganador se guarda por optionId, nunca por nombre.
+ *
+ * Con la votación ya cerrada, esta pantalla es además el final del ciclo: lleva
+ * la cuenta de cuántos ganadores faltan y, cuando no falta ninguno, ofrece
+ * publicar la edición sin salir de aquí (ver WinnersPanel).
  */
 export default function WinnersSelector({
   categories,
@@ -20,6 +24,11 @@ export default function WinnersSelector({
   onSelectWinner,
   onClearWinners,
   onSaveWinners,
+  isSeasonClosed = false,
+  winnersCount = 0,
+  votableCount = 0,
+  canPublish = false,
+  onPublish,
 }) {
   const { language } = useAppContext();
   const t = useTranslation(language);
@@ -45,19 +54,47 @@ export default function WinnersSelector({
             </Button>
           </div>
 
-          {/* Botón guardar */}
-          {hasChanges && (
-            <Button
-              variant="success"
-              size="lg"
-              fullWidth
-              loading={isSaving}
-              onClick={onSaveWinners}
-              className="md:w-auto"
-            >
-              {t('saveWinners')}
-            </Button>
+          {/* Con la votación cerrada, lo único que queda por hacer en toda la
+              app es esto: se dice, y se dice cuánto falta. */}
+          {isSeasonClosed && (
+            <p className="theme-text-secondary text-sm mb-4">
+              {t('winnersClosedNotice')}{' '}
+              <span className="font-bold theme-accent">
+                {winnersCount}/{votableCount}
+              </span>
+            </p>
           )}
+
+          {/* Botón guardar */}
+          <div className="flex flex-col md:flex-row gap-3">
+            {hasChanges && (
+              <Button
+                variant="success"
+                size="lg"
+                fullWidth
+                loading={isSaving}
+                onClick={onSaveWinners}
+                className="md:w-auto"
+              >
+                {t('saveWinners')}
+              </Button>
+            )}
+
+            {/* Reaparece el diálogo de publicación para quien lo cerró con
+                «Ahora no»: es la única salida que queda, porque publicar dejó de
+                vivir en la pestaña Temporada. */}
+            {canPublish && (
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                onClick={onPublish}
+                className="md:w-auto"
+              >
+                {t('publishSeason')}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
