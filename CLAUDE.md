@@ -1,12 +1,19 @@
-# CLAUDE.md — TGA Ballot
+# CLAUDE.md — La porra del gamer
 
 Guía para Claude Code al trabajar en este repositorio. Léela antes de tocar código.
 
 ## Qué es
 
-App de votación interactiva para The Game Awards. Los usuarios entran con Google, votan
-categoría por categoría, revisan y envían su porra (un voto por usuario). Hay un panel de
+App de votación para una porra de premios de videojuegos. Los usuarios entran con Google,
+votan categoría por categoría, revisan y envían su porra (un voto por usuario). Hay un panel de
 admin oculto en la ruta `/admin` para gestionar categorías, ganadores y resultados.
+
+**Se llama «La porra del gamer»** (`appTitle` + `appTitleAccent` en i18n) y **no es de nadie
+más**: no se nombra ninguna marca ajena ni se dice ser la plataforma oficial de nada. Si añades
+un texto, que no prometa lo que la app no hace —no hay notificaciones, ni ceremonia, ni términos
+legales, ni fecha comprometida para la próxima edición—. El dominio es `gameawards.pages.dev`.
+Las láminas de `templates/` sí llevan su título impreso en el dibujo: son arte propio y se dejan
+tal cual.
 
 - **Stack**: React 19 + Vite 8 + Tailwind CSS 4 + Firebase 12 (Auth + Firestore + Analytics)
 - **Requisitos**: Node >= 22.12 (lo exigen Vite 8 y Vitest 5) y, solo para `test:rules`, JDK >= 21.
@@ -216,6 +223,16 @@ No se usa router; la navegación entre categorías es estado de React.
      se centra en vez de estirarse.
    - Los botones de tema/idioma NO se escriben a mano: usa `<ThemeLanguageControls>` de
      `components/ui` (estaban copiados en cuatro sitios, con `aria-label` en solo dos).
+   - **NADA de emojis en la interfaz** (ni ✕, ni ✓, ni 🥇): todos los iconos salen de
+     `components/Icons.jsx`, en SVG. Un emoji lo dibuja cada sistema a su manera —o no lo
+     tiene— y no se puede teñir con el color del tema. La mayoría heredan `currentColor`; solo
+     llevan color propio los que lo necesitan para significar algo: las medallas (oro, plata y
+     bronce SON la información), el verde de confirmado y el ámbar de aviso.
+   - **Un icono, una idea**: el mismo dibujo repetido no informa de nada (la pantalla de éxito
+     llegó a tener cuatro estrellas idénticas). Y que el icono diga lo que pasa: candado para
+     una votación cerrada, reloj para una programada; una equis roja se lee como un error.
+   - Si el icono es decorativo (`aria-hidden`) y carga con información —el puesto de una
+     medalla—, esa información va además en texto (`sr-only`).
 6. **Componentes < 300 líneas.** Si crece, divídelo: saca la lógica a un servicio o a un hook
    antes que trocear el JSX. Ninguno supera hoy el límite; comprueba con:
    `for f in $(find src -name "*.jsx" -o -name "*.js" | grep -v test); do ...` o simplemente
