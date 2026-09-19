@@ -251,6 +251,43 @@ test.describe('panel de administración', () => {
     expect(archivo.leaderboard).toHaveLength(2);
   });
 
+  test('una edición archivada se puede borrar del histórico', async ({ page }) => {
+    // Sin esto, cada prueba de punta a punta deja un archivo permanente y el
+    // histórico se llena de ediciones «Test» que no hay forma de quitar desde
+    // la aplicación.
+    await seedDoc('results', 'test', {
+      season: 2026,
+      seasonId: 'test',
+      name: 'Edición de prueba',
+      totalBallots: 1,
+      winners: { goty: 'goty_option_0' },
+      categoriesSnapshot: [],
+      leaderboard: [{ rank: 1, uidHash: 'abc0123456789def', nickname: 'Ana', points: 1 }],
+    });
+
+    await signInAsAdmin(page, ADMIN);
+    // La edición de prueba es la que ve el público ahora mismo.
+    await seedDoc('config', 'voting', seasonPublished('test'));
+    await page.reload();
+
+    await page.getByRole('button', { name: /^histórico$/i }).click();
+    await page.getByRole('button', { name: /edición de prueba/i }).click();
+
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: /borrar edición/i }).click();
+
+    // Se vuelve a la lista, y la edición ya no está ni en la pantalla ni en la
+    // base de datos.
+    await expect(page.getByRole('heading', { name: /^histórico$/i })).toBeVisible();
+    await expect(page.getByText(/aún no hay ediciones archivadas/i)).toBeVisible();
+    await expect(page.getByText(/edición de prueba/i)).toHaveCount(0);
+    expect(await readDoc('results', 'test')).toBeNull();
+
+    // Y la pantalla pública deja de apuntar a un archivo que ya no existe.
+    const config = await readDoc('config', 'voting');
+    expect(config.lastPublishedId || '').toBe('');
+  });
+
   test('cada edición archiva SUS votos, aunque se publiquen dos seguidas sin recargar', async ({
     page,
   }) => {

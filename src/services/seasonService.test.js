@@ -1,4 +1,4 @@
-import { openSeason, publishAndArchiveSeason } from './seasonService';
+import { openSeason, publishAndArchiveSeason, deleteSeasonResult } from './seasonService';
 
 /**
  * Lo que se archiva tiene que salir de Firestore, no de quien llama.
@@ -13,6 +13,8 @@ import { openSeason, publishAndArchiveSeason } from './seasonService';
 const state = {
   ballots: [],
   categories: [],
+  results: [],
+  config: null,
   sets: [],
   updates: [],
   deletes: [],
@@ -31,8 +33,21 @@ vi.mock('firebase/firestore', () => ({
       data: () => entry.data,
     })),
   }),
+  getDoc: async (ref) => ({
+    exists: () => ref.path === 'config/voting' && state.config !== null,
+    data: () => state.config,
+    ref,
+  }),
   setDoc: async (ref, data) => {
     state.sets.push({ path: ref.path, data });
+    if (ref.path === 'config/voting') state.config = { ...(state.config || {}), ...data };
+  },
+  deleteDoc: async (ref) => {
+    state.deletes.push(ref.path);
+    const [collectionName, id] = ref.path.split('/');
+    if (state[collectionName]) {
+      state[collectionName] = state[collectionName].filter((entry) => entry.id !== id);
+    }
   },
   updateDoc: async (ref, data) => {
     state.updates.push({ path: ref.path, data });
@@ -92,6 +107,8 @@ const lastResultsWrite = () => state.sets.filter((s) => s.path.startsWith('resul
 beforeEach(() => {
   state.ballots = [];
   state.categories = [];
+  state.results = [];
+  state.config = null;
   state.sets = [];
   state.updates = [];
   state.deletes = [];
@@ -218,5 +235,54 @@ describe('openSeason', () => {
     expect(config.data.isOpen).toBe(true);
     expect(config.data.closesAt).toBeTruthy();
     expect(typeof config.data.closesAtMillis).toBe('number');
+  });
+});
+
+describe('deleteSeasonResult', () => {
+  /** Edición archivada, tal y como vive en `results`. */
+  const archivo = (id, season) => ({ id, data: { season, name: id } });
+
+  it('borra el archivo de la edición', async () => {
+    state.results = [archivo('test', 2026)];
+    state.config = { lastPublishedId: '' };
+
+    const result = await deleteSeasonResult('test');
+
+    expect(state.deletes).toEqual(['results/test']);
+    expect(result.wasPublished).toBe(false);
+  });
+
+  it('reapunta la pantalla pública a la edición anterior si borra la publicada', async () => {
+    // Sin esto, `lastPublishedId` seguiría nombrando un archivo que ya no
+    // existe y los resultados públicos se quedarían pidiendo un hueco.
+    state.results = [archivo('test', 2026), archivo('porra-2025', 2025)];
+    state.config = { lastPublishedId: 'test' };
+
+    const result = await deleteSeasonResult('test');
+
+    expect(result.wasPublished).toBe(true);
+    expect(result.lastPublishedId).toBe('porra-2025');
+    const config = state.sets.filter((s) => s.path === 'config/voting').pop();
+    expect(config.data.lastPublishedId).toBe('porra-2025');
+  });
+
+  it('deja la pantalla pública sin nada si era la única edición', async () => {
+    state.results = [archivo('test', 2026)];
+    state.config = { lastPublishedId: 'test' };
+
+    const result = await deleteSeasonResult('test');
+
+    expect(result.lastPublishedId).toBe('');
+    const config = state.sets.filter((s) => s.path === 'config/voting').pop();
+    expect(config.data.lastPublishedId).toBe('');
+  });
+
+  it('no toca config/voting si la edición borrada no era la publicada', async () => {
+    state.results = [archivo('test', 2026), archivo('porra-2025', 2025)];
+    state.config = { lastPublishedId: 'porra-2025' };
+
+    await deleteSeasonResult('test');
+
+    expect(state.sets.filter((s) => s.path === 'config/voting')).toHaveLength(0);
   });
 });

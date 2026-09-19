@@ -22,7 +22,9 @@ import {
   doc,
   setDoc,
   updateDoc,
+  getDoc,
   getDocs,
+  deleteDoc,
   collection,
   writeBatch,
   serverTimestamp,
@@ -152,6 +154,63 @@ export async function renameSeasonResult(seasonId, name) {
     name: (name || '').trim(),
     updatedAt: new Date().toISOString(),
   });
+}
+
+/**
+ * BORRA una edición archivada del histórico. Irreversible y sin red: el archivo
+ * es lo ÚNICO que queda de esa edición (sus votos y sus ganadores se retiraron
+ * al publicarla), así que esto no deja rastro que recuperar.
+ *
+ * Existe para las pruebas: abrir, votar y publicar una edición de prueba deja un
+ * archivo permanente en el histórico, y sin esto el listado se llena de «Test»
+ * que no se pueden quitar desde la aplicación.
+ *
+ * NO BASTA CON BORRAR EL DOCUMENTO. Si la edición era la última publicada,
+ * `config/voting.lastPublishedId` seguiría apuntándola y la pantalla pública de
+ * resultados se quedaría pidiendo un archivo que ya no existe. Se reapunta a la
+ * edición más reciente que quede —para que el público vuelva a ver la anterior,
+ * no un hueco— y, si no queda ninguna, se deja vacío, que es como estaba antes
+ * de la primera publicación.
+ *
+ * @param {string} seasonId - id del documento en `results`
+ * @returns {Promise<{seasonId: string, lastPublishedId: string, wasPublished: boolean}>}
+ */
+export async function deleteSeasonResult(seasonId) {
+  const id = String(seasonId);
+
+  try {
+    await deleteDoc(doc(db, 'results', id));
+
+    const configSnap = await getDoc(VOTING_DOC);
+    const wasPublished = configSnap.exists() && configSnap.data()?.lastPublishedId === id;
+    let lastPublishedId = configSnap.exists() ? configSnap.data()?.lastPublishedId || '' : '';
+
+    if (wasPublished) {
+      // Se lee DESPUÉS del borrado, así que la edición que se va nunca puede
+      // salir elegida. Más reciente = temporada mayor; a igualdad, el id ordena
+      // de forma estable (puede haber varias ediciones en el mismo año).
+      const remaining = await getDocs(collection(db, 'results'));
+      const candidates = remaining.docs
+        .map((d) => ({ id: d.id, season: d.data()?.season || 0 }))
+        .sort((a, b) => b.season - a.season || b.id.localeCompare(a.id));
+      lastPublishedId = candidates[0]?.id || '';
+
+      await setDoc(
+        VOTING_DOC,
+        { lastPublishedId, updatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+    }
+
+    logger.log(`🗑️ Edición ${id} borrada del histórico.`);
+    return { seasonId: id, lastPublishedId, wasPublished };
+  } catch (error) {
+    logError(ERROR_TYPES.FIRESTORE_ERROR, error, {
+      context: 'seasonService - deleteSeasonResult',
+      seasonId: id,
+    });
+    throw error;
+  }
 }
 
 /**

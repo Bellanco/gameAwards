@@ -284,9 +284,12 @@ export const en = {
   backToHistory: "Back to history",
   renameEdition: "Rename edition",
   editionRenamed: "Edition renamed",
+  deleteEdition: "Delete edition",
+  deleteEditionHelp: "Removes this edition from the history and from the results screen. It cannot be undone: its ballots were already retired when it was published, so this archive is all that is left of it.",
+  deleteEditionConfirm: "Delete this edition from the history? This cannot be undone.",
   editionResults: "Edition results",
   participantsCount: "participants",
-  noHistory: "No archived editions yet. Use \"Archive and reset edition\" when closing a season.",
+  noHistory: "No archived editions yet. They will show up here once you publish one.",
 
   // Generic
   close: "Close",

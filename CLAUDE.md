@@ -357,9 +357,17 @@ No se usa router; la navegación entre categorías es estado de React.
   **admin**; la pestaña **Histórico** del
   AdminPanel es una LISTA de ediciones y al entrar en una se abre su detalle completo
   (`admin/HistoryDetail.jsx`): todos los ganadores y toda la clasificación.
-  - De un archivo **solo se puede cambiar el nombre** (`renameSeasonResult`). Ganadores y puntos
-    son el resultado histórico y no se pueden recalcular: los votos de esa edición se borraron
-    al reiniciarla, así que tocarlos dejaría el archivo incoherente.
+  - De un archivo **solo se puede cambiar el nombre** (`renameSeasonResult`) o **borrarlo entero**
+    (`deleteSeasonResult`). Ganadores y puntos son el resultado histórico y no se pueden
+    recalcular: los votos de esa edición se retiraron al publicarla, así que tocarlos dejaría el
+    archivo incoherente.
+  - **Borrar una edición existe para las pruebas**: publicar una edición de prueba dejaba un
+    archivo permanente y el histórico se llenaba de «Test» sin forma de quitarlos desde la app.
+    El botón está al final del detalle, en su propio marco de aviso, y pregunta con el nombre
+    delante. **No basta con borrar el documento**: si la edición era la última publicada,
+    `config/voting.lastPublishedId` la seguiría nombrando y la pantalla pública pediría un
+    archivo inexistente, así que el servicio reapunta a la edición más reciente que quede (o lo
+    deja vacío si no queda ninguna).
   - Cambiar el `seasonId` de la edición en curso hace que la siguiente publicación cree un
     archivo NUEVO en vez de reescribir el anterior. Es lo que permite «Reto de invierno 2026» y
     «Reto de verano 2026» a la vez.

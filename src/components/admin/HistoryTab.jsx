@@ -38,6 +38,12 @@ export default function HistoryTab({ seasonResults, resultsLoading, onRefresh })
         edition={selected}
         onBack={() => setSelectedId(null)}
         onRenamed={onRefresh}
+        // Al borrar hay que volver a la lista ANTES de recargarla: el detalle
+        // abierto es el de una edición que ya no existe.
+        onDeleted={async () => {
+          setSelectedId(null);
+          await onRefresh?.();
+        }}
       />
     );
   }

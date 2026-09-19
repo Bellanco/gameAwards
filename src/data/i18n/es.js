@@ -284,9 +284,12 @@ export const es = {
   backToHistory: "Volver al histórico",
   renameEdition: "Renombrar edición",
   editionRenamed: "Edición renombrada",
+  deleteEdition: "Borrar edición",
+  deleteEditionHelp: "Quita esta edición del histórico y deja de mostrarse en los resultados. No se puede deshacer: sus votos ya se retiraron al publicarla, así que este archivo es lo único que queda de ella.",
+  deleteEditionConfirm: "¿Borrar esta edición del histórico? No se puede deshacer.",
   editionResults: "Resultados de la edición",
   participantsCount: "participantes",
-  noHistory: "Aún no hay ediciones archivadas. Usa \"Archivar y reiniciar edición\" al cerrar una temporada.",
+  noHistory: "Aún no hay ediciones archivadas. Aparecerán aquí al publicar una edición.",
 
   // Generic
   close: "Cerrar",
