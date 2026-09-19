@@ -5,6 +5,7 @@ import {
   resetEmulators,
   buildCategory,
   votingOpen,
+  seasonPublished,
   signInWithGoogle,
   signInAsAdmin,
 } from './helpers.js';
@@ -128,8 +129,8 @@ test.describe('panel de administración', () => {
     expect(categoria.winner ?? null).toBeNull();
 
     // Y guardar ganadores NO publica nada: mientras la edición está viva no
-    // existe ningún archivo público que se pueda filtrar. Publicar es el gesto
-    // de cerrar la edición desde la pestaña Temporada.
+    // existe ningún archivo público que se pueda filtrar. Con la votación
+    // abierta, guardar no ofrece siquiera publicar (eso llega al cerrarla).
     expect(await readDoc('results', 'porra-2026')).toBeNull();
   });
 
@@ -145,7 +146,6 @@ test.describe('panel de administración', () => {
       'voting',
       votingOpen({ isOpen: false, closesAt: new Date(ayer).toISOString(), closesAtMillis: ayer })
     );
-    await seedDoc('admin', 'winners', { winners: { goty: 'goty_option_1' } });
     await seedDoc('ballots', 'votante-1', {
       userId: 'votante-1',
       userEmail: 'votante@example.com',
@@ -160,14 +160,19 @@ test.describe('panel de administración', () => {
     });
     await page.reload();
 
-    await page.getByRole('button', { name: /^temporada$/i }).click();
+    // Publicar no es un paso aparte: se marca el último ganador, se guarda y la
+    // propia pantalla de Ganadores ofrece cerrar la edición.
+    await page.getByRole('button', { name: /seleccionar ganadores/i }).click();
+    await page.getByRole('button', { name: 'Hades II' }).click();
+    await page.getByRole('button', { name: 'Silksong' }).click();
+    await page.getByRole('button', { name: /guardar ganadores/i }).click();
 
-    // El panel enseña lo que se va a publicar antes de dejarte publicarlo.
-    await expect(page.getByRole('heading', { name: /lo que se va a publicar/i })).toBeVisible();
-    await expect(page.getByText(/votante/i).first()).toBeVisible();
+    // El diálogo ES la confirmación, y enseña lo que se va a archivar.
+    const publicar = page.getByRole('dialog');
+    await expect(publicar.getByText(/ya están todos los ganadores/i)).toBeVisible();
+    await expect(publicar.getByText(/votante/i).first()).toBeVisible();
 
-    page.once('dialog', (dialog) => dialog.accept());
-    await page.getByRole('button', { name: /publicar en el histórico/i }).click();
+    await publicar.getByRole('button', { name: /publicar en el histórico/i }).click();
     await expect(page.getByText(/edición publicada/i).first()).toBeVisible();
 
     // El archivo queda con `closedAt`, que es lo que las reglas dejan leer sin
@@ -192,7 +197,8 @@ test.describe('panel de administración', () => {
     expect(config.closesAtMillis ?? null).toBeNull();
     expect(config.lastPublishedId).toBe('porra-2026');
 
-    // Y el panel ofrece de nuevo abrir una edición.
+    // Y el ciclo vuelve al principio: Temporada ofrece de nuevo abrir una.
+    await page.getByRole('button', { name: /^temporada$/i }).click();
     await expect(page.getByRole('heading', { name: /nueva edición/i })).toBeVisible();
   });
 
@@ -245,6 +251,154 @@ test.describe('panel de administración', () => {
     expect(archivo.leaderboard).toHaveLength(2);
   });
 
+  test('una edición archivada se puede borrar del histórico', async ({ page }) => {
+    // Sin esto, cada prueba de punta a punta deja un archivo permanente y el
+    // histórico se llena de ediciones «Test» que no hay forma de quitar desde
+    // la aplicación.
+    await seedDoc('results', 'test', {
+      season: 2026,
+      seasonId: 'test',
+      name: 'Edición de prueba',
+      totalBallots: 1,
+      winners: { goty: 'goty_option_0' },
+      categoriesSnapshot: [],
+      leaderboard: [{ rank: 1, uidHash: 'abc0123456789def', nickname: 'Ana', points: 1 }],
+    });
+
+    await signInAsAdmin(page, ADMIN);
+    // La edición de prueba es la que ve el público ahora mismo.
+    await seedDoc('config', 'voting', seasonPublished('test'));
+    await page.reload();
+
+    await page.getByRole('button', { name: /^histórico$/i }).click();
+    await page.getByRole('button', { name: /edición de prueba/i }).click();
+
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: /borrar edición/i }).click();
+
+    // Se vuelve a la lista, y la edición ya no está ni en la pantalla ni en la
+    // base de datos.
+    await expect(page.getByRole('heading', { name: /^histórico$/i })).toBeVisible();
+    await expect(page.getByText(/aún no hay ediciones archivadas/i)).toBeVisible();
+    await expect(page.getByText(/edición de prueba/i)).toHaveCount(0);
+    expect(await readDoc('results', 'test')).toBeNull();
+
+    // Y la pantalla pública deja de apuntar a un archivo que ya no existe.
+    const config = await readDoc('config', 'voting');
+    expect(config.lastPublishedId || '').toBe('');
+  });
+
+  test('cada edición archiva SUS votos, aunque se publiquen dos seguidas sin recargar', async ({
+    page,
+  }) => {
+    // La regresión: el panel carga los votos y las categorías UNA vez, al
+    // montarse, y se los pasaba al servicio de publicación. Con la pestaña
+    // abierta desde la edición anterior, publicar la siguiente archivaba la
+    // clasificación de la anterior —los mismos votantes, las mismas opciones—
+    // por mucho que en Firestore hubiera otra cosa. Aquí no se recarga la página
+    // en ningún momento entre las dos publicaciones.
+    const ayer = Date.now() - 86_400_000;
+    const cerrada = (overrides) =>
+      votingOpen({ isOpen: false, closesAt: new Date(ayer).toISOString(), closesAtMillis: ayer, ...overrides });
+
+    const papeleta = (uid, nombre, optionId) => ({
+      userId: uid,
+      userEmail: `${uid}@example.com`,
+      userNickname: nombre,
+      userDisplayName: nombre,
+      selections: { goty: optionId },
+      season: 2026,
+      submittedAt: new Date(ayer).toISOString(),
+      updatedAt: new Date(ayer).toISOString(),
+      editCount: 0,
+      isActive: true,
+    });
+
+    await signInAsAdmin(page, ADMIN);
+
+    const ganadoresPuestos = { goty: 'goty_option_0', arte: 'arte_option_0' };
+
+    // ── Primera edición: dos votantes ──────────────────────────────────────
+    await seedDoc('config', 'voting', cerrada());
+    await seedDoc('admin', 'winners', { winners: ganadoresPuestos });
+    await seedDoc('ballots', 'ana', papeleta('ana', 'Ana', 'goty_option_0'));
+    await seedDoc('ballots', 'bea', papeleta('bea', 'Bea', 'goty_option_1'));
+    await page.reload();
+
+    // Con los ganadores ya puestos, la pantalla de Ganadores ofrece publicar sin
+    // más trámite (es la salida de quien cerró el diálogo con «Ahora no»).
+    await page.getByRole('button', { name: /seleccionar ganadores/i }).click();
+    await page.getByRole('button', { name: /publicar en el histórico/i }).click();
+    await page.getByRole('dialog').getByRole('button', { name: /publicar en el histórico/i }).click();
+    // El aviso nombra la edición: distinguirla importa, porque el de la primera
+    // publicación sigue en pantalla cuando se lanza la segunda.
+    await expect(page.getByText(/edición publicada: porra 2026/i)).toBeVisible();
+
+    expect((await readDoc('results', 'porra-2026')).totalBallots).toBe(2);
+
+    // ── Segunda edición, en la MISMA pestaña: solo vota una persona ─────────
+    // Publicar dejó las categorías sin nominados: la edición nueva trae los
+    // suyos, y el panel no los ha vuelto a cargar.
+    for (const categoria of CATEGORIAS) {
+      await seedDoc('categories', categoria.id, categoria.data);
+    }
+    await seedDoc('admin', 'winners', { winners: { ...ganadoresPuestos, goty: 'goty_option_1' } });
+    await seedDoc('ballots', 'carlos', papeleta('carlos', 'Carlos', 'goty_option_1'));
+    await seedDoc(
+      'config',
+      'voting',
+      cerrada({ seasonId: 'porra-verano', seasonName: 'Porra de verano', lastPublishedId: 'porra-2026' })
+    );
+
+    // `config/voting` llega en vivo: el panel vuelve solo al estado «cerrada, sin
+    // publicar» y recarga los nominados de ESTA edición.
+    await page.getByRole('button', { name: /publicar en el histórico/i }).click();
+    const publicar = page.getByRole('dialog');
+    await expect(publicar.getByText(/carlos/i).first()).toBeVisible();
+    await expect(publicar.getByText(/\bana\b/i)).toHaveCount(0);
+
+    await publicar.getByRole('button', { name: /publicar en el histórico/i }).click();
+    await expect(page.getByText(/edición publicada: porra de verano/i)).toBeVisible();
+
+    // El archivo nuevo lleva SU votante y SU ganador, no los de la anterior.
+    const segunda = await readDoc('results', 'porra-verano');
+    expect(segunda.totalBallots).toBe(1);
+    expect(segunda.leaderboard).toHaveLength(1);
+    expect(segunda.leaderboard[0].nickname).toBe('Carlos');
+    expect(segunda.winners.goty).toBe('goty_option_1');
+
+    // Y la primera se queda como estaba: son dos ediciones distintas.
+    expect((await readDoc('results', 'porra-2026')).totalBallots).toBe(2);
+  });
+
+  test('abrir una edición retira las papeletas sueltas de la anterior', async ({ page }) => {
+    // Un resto de una publicación que se quedó a medias: si sobrevive, entra en
+    // la clasificación de la edición nueva y además su dueño no puede votar
+    // (bloqueo de re-voto).
+    await signInAsAdmin(page, ADMIN);
+    await seedDoc('ballots', 'fantasma', {
+      userId: 'fantasma',
+      userEmail: 'fantasma@example.com',
+      userNickname: 'Fantasma',
+      userDisplayName: 'Fantasma',
+      selections: { goty: 'goty_option_0' },
+      season: 2026,
+      submittedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      editCount: 0,
+      isActive: true,
+    });
+    await seedDoc('config', 'voting', seasonPublished('porra-2025'));
+
+    await page.getByRole('button', { name: /^temporada$/i }).click();
+    await page.getByLabel(/nombre/i).fill('Porra nueva');
+    await page.getByRole('button', { name: /abrir votación/i }).click();
+    await expect(page.getByText(/edición abierta/i).first()).toBeVisible();
+
+    expect(await readDoc('ballots', 'fantasma')).toBeNull();
+    expect((await readDoc('config', 'voting')).seasonId).toBe('porra-nueva');
+  });
+
   test('el admin cierra la votación y el público deja de poder votar', async ({ page }) => {
     await signInAsAdmin(page, ADMIN);
     await page.getByRole('button', { name: /^temporada$/i }).click();
@@ -254,6 +408,11 @@ test.describe('panel de administración', () => {
     await expect(page.getByText(/votación cerrada/i).first()).toBeVisible();
 
     expect((await readDoc('config', 'voting')).isOpen).toBe(false);
+
+    // Cerrar deja siempre el mismo trabajo pendiente, así que el panel lleva
+    // directamente a marcar los ganadores en vez de pedir otro clic.
+    await expect(page.getByRole('heading', { name: /seleccionar ganadores/i })).toBeVisible();
+    await expect(page.getByText(/la votación está cerrada/i)).toBeVisible();
 
     // Comprobado desde fuera del panel: la portada ya no deja votar.
     await page.goto('/');

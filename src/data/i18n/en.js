@@ -6,11 +6,11 @@
 export const en = {
   // Header
   appTitle: "THE GAMER'S",
-  appTitleAccent: "SWEEPSTAKE",
+  appTitleAccent: "CHALLENGE",
   votingOpen: "Voting is now open",
   
   // Login
-  loginSubtitle: "Join the sweepstake and play for first place",
+  loginSubtitle: "Take the challenge and play for first place",
   resultsAvailable: "Results available",
   loginForResultsSubtitle: "This edition is over. Sign in with your Google account to see the winners and the standings.",
   loginBtn: "Sign in with Google",
@@ -85,7 +85,7 @@ export const en = {
   checkBackDecember: "Come back when the results are published.",
   signOut: "Sign Out",
   thankYouForVoting: "Thanks for voting",
-  officialsVotingPlatform: "The gamer's sweepstake",
+  officialsVotingPlatform: "The gamer's challenge",
   
   // Already voted (re-vote block)
   alreadyVotedTitle: "You have already voted",
@@ -248,11 +248,12 @@ export const en = {
   newSeason: "New edition",
   newSeasonHelp: "Give it a name and pick the last day to vote. Voting opens as soon as you press the button.",
   seasonNameLabel: "Name",
-  seasonNamePlaceholder: "Winter sweepstake 2026",
+  seasonNamePlaceholder: "Winter challenge 2026",
   closesOnLabel: "Closes on",
   closesAtEndOfDay: "Closes at 23:59 that day (Spanish peninsular time).",
   openSeason: "Open voting",
   seasonOpened: "Edition open",
+  leftoverBallotsCleared: "{count} stray ballot(s) from the previous edition were removed",
   noCategoriesWarning: "No category has nominees yet, so nobody can vote. Add them in the Categories tab.",
   errorClosingDayRequired: "Pick the last day to vote.",
   errorClosingDayInThePast: "The closing date cannot be in the past.",
@@ -265,14 +266,16 @@ export const en = {
   seasonClosed: "Voting closed",
   votingScheduled: "Voting scheduled",
   // 3. Closed, pending publication
-  seasonPendingHelp: "Voting is closed. Pick the winners in the Winners tab and publish the edition.",
+  seasonPendingHelp: "Voting is closed. All that's left is picking the winners: saving the last one lets you publish the edition.",
   missingWinnersWarning: "Some categories have no winner yet. If you publish now, they will stay without one forever.",
   publishPreview: "What will be published",
-  publishPreviewHelp: "Standings with the winners picked so far.",
   andMoreParticipants: "and {count} more participants",
   publishSeason: "Publish to the history",
   publishSeasonHelp: "Saves winners and standings to the history, visible to everyone, and DELETES the ballots to make way for the next edition. This cannot be undone.",
-  publishSeasonConfirm: "Publish this edition to the history and delete ALL ballots?",
+  publishReadyTitle: "Every winner is picked",
+  notNow: "Not now",
+  goToWinners: "Go to Winners",
+  winnersClosedNotice: "Voting is closed: pick the winners and publish the edition from here. Winners picked:",
   seasonPublished: "Edition published",
   history: "History",
   historyDescription: "Winners and standings of every published edition.",
@@ -281,9 +284,12 @@ export const en = {
   backToHistory: "Back to history",
   renameEdition: "Rename edition",
   editionRenamed: "Edition renamed",
+  deleteEdition: "Delete edition",
+  deleteEditionHelp: "Removes this edition from the history and from the results screen. It cannot be undone: its ballots were already retired when it was published, so this archive is all that is left of it.",
+  deleteEditionConfirm: "Delete this edition from the history? This cannot be undone.",
   editionResults: "Edition results",
   participantsCount: "participants",
-  noHistory: "No archived editions yet. Use \"Archive and reset edition\" when closing a season.",
+  noHistory: "No archived editions yet. They will show up here once you publish one.",
 
   // Generic
   close: "Close",

@@ -22,7 +22,9 @@ import {
   doc,
   setDoc,
   updateDoc,
+  getDoc,
   getDocs,
+  deleteDoc,
   collection,
   writeBatch,
   serverTimestamp,
@@ -32,10 +34,87 @@ import { computeLeaderboard } from '../utils/scoring';
 import { fetchWinners, clearWinners, clearLegacyWinnerField } from './winnersService';
 import { buildScheduleFields } from '../utils/closingDate';
 import { getSeasonId, getSeasonLabel, toSeasonId } from '../utils/seasonId';
+import { hasTitle } from '../utils/localize';
 import { logError, ERROR_TYPES } from './errorService';
 import logger from './loggerService';
 
 const VOTING_DOC = doc(db, 'config', 'voting');
+
+/** Límite de operaciones por lote en Firestore. */
+const BATCH_LIMIT = 500;
+
+/**
+ * Lee de Firestore la foto REAL de la edición viva: los votos emitidos y las
+ * categorías tal y como están ahora mismo.
+ *
+ * Existe porque archivar una edición con lo que tuviera en memoria el panel es
+ * exactamente el bug que se arregló aquí: el AdminPanel carga `ballots` y
+ * `categories` UNA vez al montarse, así que una pestaña abierta desde la
+ * edición anterior publicaba la clasificación anterior —los mismos votantes,
+ * las mismas opciones— por mucho que en Firestore hubiera otra cosa. Publicar
+ * es irreversible y destructivo: tiene que mirar el dato, no la pantalla.
+ *
+ * Devuelve además los `docs` crudos porque la limpieza posterior reutiliza estas
+ * mismas lecturas: así lo que se archiva y lo que se retira son, por
+ * construcción, el mismo conjunto.
+ *
+ * La usa también la vista previa de la pestaña Temporada (`useSeasonPreview`),
+ * para que lo que el admin comprueba antes de publicar sea, literalmente, lo que
+ * se va a publicar.
+ *
+ * @returns {Promise<{ballots: Array, categories: Array, ballotDocs: Array,
+ *                    categoryDocs: Array}>}
+ */
+export async function readLiveEdition() {
+  const [ballotsSnap, categoriesSnap] = await Promise.all([
+    getDocs(collection(db, 'ballots')),
+    getDocs(collection(db, 'categories')),
+  ]);
+
+  const ballots = ballotsSnap.docs.map((d) => ({ userId: d.id, ...d.data() }));
+  const allCategories = categoriesSnap.docs.map((d) => ({ id: d.id, docId: d.id, ...d.data() }));
+
+  // Para el archivo solo cuentan las categorías votables, igual que en el resto
+  // de la app (useFirestoreCategories con includeInvalid = false): un
+  // placeholder sin título ni nominados solo añadiría filas vacías al histórico.
+  const categories = allCategories
+    .filter((cat) => !cat.isPlaceholder && hasTitle(cat) && cat.options?.length > 0)
+    .sort((a, b) => (a.orderIndex ?? 0) - (b.orderIndex ?? 0));
+
+  return {
+    ballots,
+    categories,
+    ballotDocs: ballotsSnap.docs,
+    categoryDocs: categoriesSnap.docs,
+  };
+}
+
+/**
+ * Borra en lotes los documentos que se le pasen (Firestore admite 500
+ * operaciones por batch).
+ *
+ * @param {Array} docs - documentos de un QuerySnapshot
+ * @returns {Promise<number>} cuántos se borraron
+ */
+async function discardDocsInBatches(docs) {
+  let deleted = 0;
+  let batch = writeBatch(db);
+  let opsInBatch = 0;
+
+  for (const document of docs) {
+    batch.delete(document.ref);
+    opsInBatch += 1;
+    deleted += 1;
+    if (opsInBatch === BATCH_LIMIT) {
+      await batch.commit();
+      batch = writeBatch(db);
+      opsInBatch = 0;
+    }
+  }
+  if (opsInBatch > 0) await batch.commit();
+
+  return deleted;
+}
 
 /**
  * Cierre forzado / reapertura manual de la votación (`config/voting.isOpen`).
@@ -78,6 +157,63 @@ export async function renameSeasonResult(seasonId, name) {
 }
 
 /**
+ * BORRA una edición archivada del histórico. Irreversible y sin red: el archivo
+ * es lo ÚNICO que queda de esa edición (sus votos y sus ganadores se retiraron
+ * al publicarla), así que esto no deja rastro que recuperar.
+ *
+ * Existe para las pruebas: abrir, votar y publicar una edición de prueba deja un
+ * archivo permanente en el histórico, y sin esto el listado se llena de «Test»
+ * que no se pueden quitar desde la aplicación.
+ *
+ * NO BASTA CON BORRAR EL DOCUMENTO. Si la edición era la última publicada,
+ * `config/voting.lastPublishedId` seguiría apuntándola y la pantalla pública de
+ * resultados se quedaría pidiendo un archivo que ya no existe. Se reapunta a la
+ * edición más reciente que quede —para que el público vuelva a ver la anterior,
+ * no un hueco— y, si no queda ninguna, se deja vacío, que es como estaba antes
+ * de la primera publicación.
+ *
+ * @param {string} seasonId - id del documento en `results`
+ * @returns {Promise<{seasonId: string, lastPublishedId: string, wasPublished: boolean}>}
+ */
+export async function deleteSeasonResult(seasonId) {
+  const id = String(seasonId);
+
+  try {
+    await deleteDoc(doc(db, 'results', id));
+
+    const configSnap = await getDoc(VOTING_DOC);
+    const wasPublished = configSnap.exists() && configSnap.data()?.lastPublishedId === id;
+    let lastPublishedId = configSnap.exists() ? configSnap.data()?.lastPublishedId || '' : '';
+
+    if (wasPublished) {
+      // Se lee DESPUÉS del borrado, así que la edición que se va nunca puede
+      // salir elegida. Más reciente = temporada mayor; a igualdad, el id ordena
+      // de forma estable (puede haber varias ediciones en el mismo año).
+      const remaining = await getDocs(collection(db, 'results'));
+      const candidates = remaining.docs
+        .map((d) => ({ id: d.id, season: d.data()?.season || 0 }))
+        .sort((a, b) => b.season - a.season || b.id.localeCompare(a.id));
+      lastPublishedId = candidates[0]?.id || '';
+
+      await setDoc(
+        VOTING_DOC,
+        { lastPublishedId, updatedAt: new Date().toISOString() },
+        { merge: true }
+      );
+    }
+
+    logger.log(`🗑️ Edición ${id} borrada del histórico.`);
+    return { seasonId: id, lastPublishedId, wasPublished };
+  } catch (error) {
+    logError(ERROR_TYPES.FIRESTORE_ERROR, error, {
+      context: 'seasonService - deleteSeasonResult',
+      seasonId: id,
+    });
+    throw error;
+  }
+}
+
+/**
  * Abre una edición nueva: le pone nombre y fecha de cierre, y deja la votación
  * abierta desde ya.
  *
@@ -91,8 +227,17 @@ export async function renameSeasonResult(seasonId, name) {
  * Se limpian `opensAt`/`resultsAt`: ya no se piden, y heredarlos de una edición
  * anterior dejaría la nueva programada para un día pasado o publicándose sola.
  *
+ * LA MESA SE LIMPIA ANTES DE EMPEZAR. Solo se puede abrir una edición cuando no
+ * hay ninguna en marcha (`SEASON_STAGE.NONE`), así que cualquier papeleta o
+ * ganador que siga en Firestore es un resto de la anterior —una publicación que
+ * se quedó a medias, una prueba hecha a mano en la consola— y contaminaría la
+ * nueva: esas papeletas entrarían tal cual en el siguiente archivo, con sus
+ * votantes y sus opciones de la edición pasada, y además sus dueños no podrían
+ * votar por el bloqueo de re-voto. Se retiran aquí y se informa de cuántas eran.
+ *
  * @param {{name?: string, closesDay: string, season?: number}} params
- * @returns {Promise<{seasonId: string, name: string, closesAt: string}>}
+ * @returns {Promise<{seasonId: string, name: string, closesAt: string,
+ *                    leftovers: number}>}
  */
 export async function openSeason({ name, closesDay, season }) {
   const year = typeof season === 'number' ? season : new Date().getFullYear();
@@ -103,6 +248,15 @@ export async function openSeason({ name, closesDay, season }) {
   if (closesAtMillis == null) throw new Error('La edición necesita una fecha de cierre');
 
   try {
+    // Restos de una edición anterior mal cerrada: se retiran antes de abrir.
+    const leftoverBallots = await getDocs(collection(db, 'ballots'));
+    const leftovers = await discardDocsInBatches(leftoverBallots.docs);
+    if (leftovers > 0) {
+      logger.warn(`🧽 ${leftovers} papeleta(s) de una edición anterior retiradas al abrir la nueva.`);
+      // Los ganadores marcados también sobran: una edición empieza sin ninguno.
+      await clearWinners();
+    }
+
     await setDoc(
       VOTING_DOC,
       {
@@ -122,7 +276,7 @@ export async function openSeason({ name, closesDay, season }) {
     );
 
     logger.log(`🗳️ Edición "${getSeasonLabel({ name: nombre, season: year })}" abierta hasta ${closesAt}.`);
-    return { seasonId: id, name: nombre, closesAt };
+    return { seasonId: id, name: nombre, closesAt, leftovers };
   } catch (error) {
     logError(ERROR_TYPES.FIRESTORE_ERROR, error, {
       context: 'seasonService - openSeason',
@@ -206,12 +360,18 @@ export function buildSeasonSnapshot({ season, categories, ballots, winners, seas
  * panel listo para abrir la siguiente. Es el último paso del ciclo y el único
  * destructivo.
  *
+ * 0. LEE DE FIRESTORE las papeletas y las categorías de la edición. No las
+ *    recibe de quien llama: el panel las carga una sola vez al montarse y
+ *    publicar es irreversible, así que archivar lo que hubiera en pantalla
+ *    significaba, con una pestaña abierta desde la edición anterior, publicar la
+ *    clasificación de la edición anterior. Lo que se archiva y lo que se limpia
+ *    salen de la MISMA lectura, así que no pueden divergir.
  * 1. Calcula ganadores (`admin/winners`) y clasificación con puntos.
  * 2. Escribe `results/{seasonId}` con el snapshot y `closedAt`, que es
  *    justamente lo que las reglas dejan leer sin sesión: publicar = archivar.
- * 3. Borra todos los documentos de `ballots` en lotes. Hace falta para poder
+ * 3. Retira todos los documentos de `ballots` en lotes. Hace falta para poder
  *    abrir otra edición: el bloqueo de re-voto va por usuario, así que sin
- *    borrar nadie podría volver a votar. La clasificación y los ganadores
+ *    hacerlo nadie podría volver a votar. La clasificación y los ganadores
  *    quedan en el archivo; el detalle por persona no se conserva.
  * 4. Vacía los nominados de cada categoría (options/optionIds) SIN borrar
  *    los documentos: las categorías se mantienen año a año; solo cambian los
@@ -223,14 +383,17 @@ export function buildSeasonSnapshot({ season, categories, ballots, winners, seas
  *
  * @param {Object} params
  * @param {number} params.season - Año/temporada a archivar
- * @param {Array} params.categories - Categorías de la edición
+ * @param {string} [params.seasonId] - Identificador de la edición
+ * @param {string} [params.seasonName] - Nombre visible de la edición
  * @param {Object.<string,string>} [params.winners] - Ganadores (se leen si falta)
- * @param {Array} params.ballots - Votos de la temporada
  * @returns {Promise<{seasonId: string, name: string, totalBallots: number,
  *                    deleted: number, cleared: number}>}
  */
-export async function publishAndArchiveSeason({ season, categories, ballots, winners, seasonId, seasonName }) {
+export async function publishAndArchiveSeason({ season, winners, seasonId, seasonName }) {
   try {
+    // 0. La foto real de la edición, recién leída de Firestore.
+    const { ballots, categories, ballotDocs, categoryDocs } = await readLiveEdition();
+
     // 1 + 2. Construir y guardar el snapshot de resultados de la temporada.
     const resolved = winners || (await fetchWinners(categories));
     const snapshot = buildSeasonSnapshot({
@@ -244,43 +407,28 @@ export async function publishAndArchiveSeason({ season, categories, ballots, win
 
     logger.log(`📦 ${snapshot.name} archivada en results/${snapshot.seasonId}.`);
 
-    // 3. Borrar ballots en lotes (límite de 500 por batch en Firestore).
-    const ballotsSnap = await getDocs(collection(db, 'ballots'));
-    let deleted = 0;
-    let batch = writeBatch(db);
-    let opsInBatch = 0;
+    // 3. Retirar las papeletas ya archivadas, exactamente las mismas que
+    //    acaban de entrar en el snapshot (misma lectura del paso 0).
+    const deleted = await discardDocsInBatches(ballotDocs);
 
-    for (const ballotDoc of ballotsSnap.docs) {
-      batch.delete(ballotDoc.ref);
-      opsInBatch += 1;
-      deleted += 1;
-      if (opsInBatch === 500) {
-        await batch.commit();
-        batch = writeBatch(db);
-        opsInBatch = 0;
-      }
-    }
-    if (opsInBatch > 0) await batch.commit();
-
-    logger.log(`🗑️ ${deleted} votos eliminados para reiniciar la edición.`);
+    logger.log(`🗑️ ${deleted} votos retirados para reiniciar la edición.`);
 
     // 4. Vaciar nominados de cada categoría conservando el documento.
-    //    Leemos TODAS las categorías de Firestore (no solo las que llegan por
-    //    parámetro) para garantizar que ninguna quede con nominados del año
-    //    anterior. Solo `update` (nunca `delete`): título, peso, orden e
-    //    isActive se preservan. Los nominados viejos ya quedaron archivados en
-    //    `results/{season}`.
-    const categoriesSnap = await getDocs(collection(db, 'categories'));
-    // Los ganadores de la edición que se cierra: fuera de `admin/winners` (ya
-    // están archivados en el snapshot) y fuera del campo `winner` que pudiera
-    // quedar en alguna categoría sin migrar.
+    //    Se recorren TODAS las categorías del paso 0 (también las inválidas,
+    //    que no entran en el archivo) para garantizar que ninguna quede con
+    //    nominados del año anterior. Solo `update` (nunca `delete`): título,
+    //    peso, orden e isActive se preservan. Los nominados viejos ya quedaron
+    //    archivados en `results/{seasonId}`.
+    //    Los ganadores de la edición que se cierra: fuera de `admin/winners` (ya
+    //    están archivados en el snapshot) y fuera del campo `winner` que pudiera
+    //    quedar en alguna categoría sin migrar.
     await clearWinners();
     await clearLegacyWinnerField(categories);
     let cleared = 0;
-    batch = writeBatch(db);
-    opsInBatch = 0;
+    let batch = writeBatch(db);
+    let opsInBatch = 0;
 
-    for (const catDoc of categoriesSnap.docs) {
+    for (const catDoc of categoryDocs) {
       batch.update(catDoc.ref, {
         options: [],
         optionIds: [],
@@ -288,7 +436,7 @@ export async function publishAndArchiveSeason({ season, categories, ballots, win
       });
       opsInBatch += 1;
       cleared += 1;
-      if (opsInBatch === 500) {
+      if (opsInBatch === BATCH_LIMIT) {
         await batch.commit();
         batch = writeBatch(db);
         opsInBatch = 0;
@@ -326,7 +474,7 @@ export async function publishAndArchiveSeason({ season, categories, ballots, win
     return {
       seasonId: snapshot.seasonId,
       name: snapshot.name,
-      totalBallots: (ballots || []).length,
+      totalBallots: snapshot.totalBallots,
       deleted,
       cleared,
     };

@@ -1,14 +1,14 @@
-# CLAUDE.md — La porra del gamer
+# CLAUDE.md — El reto del jugador
 
 Guía para Claude Code al trabajar en este repositorio. Léela antes de tocar código.
 
 ## Qué es
 
 App de votación para una porra de premios de videojuegos. Los usuarios entran con Google,
-votan categoría por categoría, revisan y envían su porra (un voto por usuario). Hay un panel de
+votan categoría por categoría, revisan y envían sus votos (un voto por usuario). Hay un panel de
 admin oculto en la ruta `/admin` para gestionar categorías, ganadores y resultados.
 
-**Se llama «La porra del gamer»** (`appTitle` + `appTitleAccent` en i18n) y **no es de nadie
+**Se llama «El reto del jugador»** (`appTitle` + `appTitleAccent` en i18n) y **no es de nadie
 más**: no se nombra ninguna marca ajena ni se dice ser la plataforma oficial de nada. Si añades
 un texto, que no prometa lo que la app no hace —no hay notificaciones, ni ceremonia, ni términos
 legales, ni fecha comprometida para la próxima edición—. El dominio es `gameawards.pages.dev`.
@@ -75,7 +75,9 @@ npm run test:e2e:ui # lo mismo, con la interfaz de Playwright para depurar
   ve el panel, y el **ciclo de vida entero de una edición** —abrir (con su par ISO+epoch), cerrar,
   marcar ganadores y publicar—, comprobando en Firestore lo que de verdad importa: que el ganador
   NO queda en `categories` (pública), que guardar ganadores no publica nada, y que al publicar el
-  archivo lleva `closedAt`, los votos se borran y la clasificación no incluye ningún UID.
+  archivo lleva `closedAt`, los votos se borran y la clasificación no incluye ningún UID. Y que
+  **cada edición archiva SUS votos**: dos publicaciones seguidas en la misma pestaña, sin recargar,
+  con votantes distintos (la regresión de publicar con los datos que el panel cargó al abrirse).
   **Ojo al escribir un test del panel**: `signInAsAdmin` hace el primer login desde la PORTADA, que
   necesita la votación abierta; si el test quiere otro estado, se siembra DESPUÉS de entrar.
 - El claim `admin:true` se pone con `grantAdminClaim()` (API del emulador, equivalente local de
@@ -111,6 +113,7 @@ src/
 ├── components/              # Pantallas (VoteScreen, ReviewScreen, AdminPanel…)
 │   │                        # + AwardCard / AwardDialog (premios del podio)
 │   ├── admin/               # Pestañas y sub-paneles del AdminPanel
+│   │                        # + PublishDialog (publicar la edición desde Ganadores)
 │   ├── ui/                  # Primitivos (Button, Card, Alert, ThemeLanguageControls…)
 │   ├── form/                # Inputs de formulario (TextInput) + index.js
 │   └── layouts/             # ScreenLayout, ControlBar
@@ -132,8 +135,10 @@ src/
   Así se pueden probar sin renderizar.
 - **Lógica de estado con ciclo de vida → `hooks/`**: `useVotingFlow` (pasos, votos, progreso),
   `useAuthSession` (sesión y bloqueo de re-voto), `useViewport`, `useStepHistory`,
+  `useBallotStats` (recuento de votos y resolutores de nombres del panel),
   `useSeasonControls` + `useSeasonPreview` (abrir/cerrar/publicar la edición y la vista previa de
-  lo que se va a publicar), `useSeasonResult`.
+  lo que se va a publicar; **ninguno de los dos recibe votos ni categorías por parámetro**: los
+  leen de Firestore, ver el ciclo de vida más abajo), `useSeasonResult`.
 - **Cálculo puro → `utils/`**: `gridDensity` (columnas de la rejilla de nominados: calibración
   por ancho + reparto equilibrado, ver abajo), `closingDate` (instantes del calendario en
   Europe/Madrid), `votingSchedule` (semántica abierto/publicado), `pseudonym` (huella del UID
@@ -279,7 +284,7 @@ No se usa router; la navegación entre categorías es estado de React.
 
 - **Los ganadores NO viven en `categories`.** Esa colección tiene que ser de lectura pública para
   poder votar, y las reglas de Firestore protegen documentos enteros, no campos sueltos: un
-  `winner` ahí era el resultado de la porra al alcance de cualquiera, sin sesión siquiera, desde
+  `winner` ahí era el resultado del reto al alcance de cualquiera, sin sesión siquiera, desde
   que el admin lo marcaba. Viven en **`admin/winners`** (`{ winners: { categoryId: optionId } }`),
   y el único canal público es el snapshot `results/{seasonId}`, que las reglas no dejan leer hasta
   `resultsAt`. `winnersService.saveWinners()` **migra solo**: escribe el documento nuevo y borra el
@@ -346,18 +351,26 @@ No se usa router; la navegación entre categorías es estado de React.
   fila propia (`isOwnEntry`) y evita publicar una lista de identificadores reales junto a los
   nombres. Los archivos anteriores, que sí guardaban `userId`, se siguen leyendo igual.
 - **Pestañas del panel** (6): Resumen, Votos, Categorías, Ganadores, Histórico y Temporada. NO
-  hay pestaña «Ranking»: la clasificación se ve donde hace falta —como vista previa antes de
-  publicar, en Temporada— y después en el Histórico, que es lo mismo que ve el público.
+  hay pestaña «Ranking»: la clasificación se ve donde hace falta —en el diálogo de publicación,
+  justo antes de archivar— y después en el Histórico, que es lo mismo que ve el público.
 - **Histórico**: `useSeasonResults(enabled)` lee la colección `results` — es una lectura de
   **admin**; la pestaña **Histórico** del
   AdminPanel es una LISTA de ediciones y al entrar en una se abre su detalle completo
   (`admin/HistoryDetail.jsx`): todos los ganadores y toda la clasificación.
-  - De un archivo **solo se puede cambiar el nombre** (`renameSeasonResult`). Ganadores y puntos
-    son el resultado histórico y no se pueden recalcular: los votos de esa edición se borraron
-    al reiniciarla, así que tocarlos dejaría el archivo incoherente.
+  - De un archivo **solo se puede cambiar el nombre** (`renameSeasonResult`) o **borrarlo entero**
+    (`deleteSeasonResult`). Ganadores y puntos son el resultado histórico y no se pueden
+    recalcular: los votos de esa edición se retiraron al publicarla, así que tocarlos dejaría el
+    archivo incoherente.
+  - **Borrar una edición existe para las pruebas**: publicar una edición de prueba dejaba un
+    archivo permanente y el histórico se llenaba de «Test» sin forma de quitarlos desde la app.
+    El botón está al final del detalle, en su propio marco de aviso, y pregunta con el nombre
+    delante. **No basta con borrar el documento**: si la edición era la última publicada,
+    `config/voting.lastPublishedId` la seguiría nombrando y la pantalla pública pediría un
+    archivo inexistente, así que el servicio reapunta a la edición más reciente que quede (o lo
+    deja vacío si no queda ninguna).
   - Cambiar el `seasonId` de la edición en curso hace que la siguiente publicación cree un
-    archivo NUEVO en vez de reescribir el anterior. Es lo que permite «Porra TGA 2026» y
-    «Porra de verano 2026» a la vez.
+    archivo NUEVO en vez de reescribir el anterior. Es lo que permite «Reto de invierno 2026» y
+    «Reto de verano 2026» a la vez.
 
 ### Rejilla de nominados (adaptación a pantalla)
 
@@ -409,16 +422,31 @@ No se usa router; la navegación entre categorías es estado de React.
 - Los ballots emitidos **antes** de esta feature no tienen `editCount`: cuentan como 0, así que
   conservan sus 5 modificaciones. No hace falta migrar nada.
 
-### Ciclo de vida de una edición (pestaña Temporada)
+### Ciclo de vida de una edición (Temporada + Ganadores)
 
-Una edición tiene **tres momentos y una sola fecha**. La pestaña Temporada enseña UN paso cada
-vez, el que toca, y de cada uno sale una acción (`SEASON_STAGE` en `utils/votingSchedule.js`):
+Una edición tiene **tres momentos y una sola fecha**. Cada momento enseña UN paso, el que toca, y
+de cada uno sale una acción (`SEASON_STAGE` en `utils/votingSchedule.js`):
 
-| Momento | Cómo se reconoce | Acción |
-|---|---|---|
-| `NONE` — no hay edición | `closesAtMillis == null` | **Abrir votación**: nombre + día de cierre |
-| `OPEN` — se está votando | `isVotingOpenNow()` | **Cerrar ahora** (opcional: la fecha lo hace sola) |
-| `PENDING` — cerrada sin publicar | hay fecha, pero ya no se vota | **Publicar en el histórico** |
+| Momento | Cómo se reconoce | Acción | Dónde |
+|---|---|---|---|
+| `NONE` — no hay edición | `closesAtMillis == null` | **Abrir votación**: nombre + día de cierre | Temporada |
+| `OPEN` — se está votando | `isVotingOpenNow()` | **Cerrar ahora** (opcional: la fecha lo hace sola) | Temporada |
+| `PENDING` — cerrada sin publicar | hay fecha, pero ya no se vota | **Publicar** | **Ganadores** |
+
+- **PUBLICAR NO ESTÁ EN LA PESTAÑA TEMPORADA.** Marcar el último ganador y publicar son el
+  mismo gesto, así que la edición se cierra donde termina el trabajo: al guardar los ganadores
+  de una edición ya cerrada (`SEASON_STAGE.PENDING`) con TODOS puestos, `WinnersPanel` abre
+  `admin/PublishDialog` y desde ahí se archiva. Tenerlo en Temporada obligaba a marcar los
+  ganadores en una pantalla y volver a otra a pulsar un botón.
+  - El diálogo **es la confirmación** (no hay `window.confirm` encima) y enseña lo que se va a
+    archivar: votos, ganadores y el podio, leídos de Firestore al abrirlo.
+  - Si se cierra con «Ahora no», la barra de Ganadores deja un botón «Publicar en el histórico»
+    para volver a abrirlo: sin esa salida, esa decisión dejaría la edición sin forma de
+    publicarse.
+  - **«Cerrar ahora» lleva solo a la pestaña Ganadores** (`onClosed` en `useSeasonControls`): es
+    el único trabajo que queda tras cerrar, siempre.
+  - Temporada, en `PENDING`, solo resume la edición (votos, ganadores x/y, fecha) y ofrece ir a
+    Ganadores.
 
 - **Lo que distingue «hay edición» de «no la hay» es la fecha de cierre**: abrirla la fija,
   publicarla la borra. No hace falta ninguna marca extra, y por eso el ciclo vuelve solo al
@@ -437,6 +465,21 @@ vez, el que toca, y de cada uno sale una acción (`SEASON_STAGE` en `utils/votin
   todos los ballots** (hace falta: el bloqueo de re-voto va por usuario, así que sin borrar nadie
   podría volver a votar), vacía los nominados de las categorías, borra `admin/winners` y deja
   `config/voting` sin fecha de cierre y con `lastPublishedId` apuntando al archivo.
+- **Lo que se archiva se LEE de Firestore al publicar, nunca del estado del panel.**
+  `publishAndArchiveSeason()` solo recibe la identidad de la edición (`season`, `seasonId`,
+  `seasonName`); los votos y las categorías los trae `readLiveEdition()` en ese mismo momento, y
+  esa lectura es la que se reutiliza para retirar las papeletas y vaciar los nominados: lo que se
+  archiva y lo que se limpia son, por construcción, el mismo conjunto. El AdminPanel carga
+  `ballots` y `categories` **una sola vez al montarse**, así que pasárselos significaba que con la
+  pestaña abierta desde la edición anterior se publicaba la clasificación de la edición anterior
+  —los mismos votantes y las mismas opciones— por mucho que en Firestore hubiera otra cosa. Por lo
+  mismo, `useSeasonPreview` lee su propio dato (se recarga al entrar en la pestaña y en cada
+  cambio de etapa) y `SeasonTab` ya no recibe `categories` ni `ballots` por props.
+- **Abrir una edición limpia la mesa.** Solo se puede abrir cuando no hay ninguna en marcha, así
+  que cualquier papeleta que siga en `ballots` es un resto de la anterior (una publicación que se
+  quedó a medias, una prueba hecha a mano): `openSeason()` las retira junto con `admin/winners` y
+  devuelve `leftovers` para decirlo en la interfaz. Sin eso, esos votos entraban tal cual en el
+  siguiente archivo y sus dueños no podían votar por el bloqueo de re-voto.
 - **Mientras la edición está viva NO existe ningún snapshot público.** Guardar ganadores ya no
   publica nada. Antes se reescribía `results/{seasonId}` en cada guardado y la publicación
   dependía de una fecha que solo miraba el navegador: los ganadores y la clasificación se podían

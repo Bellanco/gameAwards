@@ -52,28 +52,32 @@ function ActionButton({ onClick, disabled, tone = 'accent', children }) {
  *
  *   sin edición          -> formulario de apertura (nombre + fecha de cierre)
  *   votación abierta     -> estado y botón para cerrar antes de tiempo
- *   cerrada sin publicar -> resumen de lo que se va a publicar + publicar
+ *   cerrada sin publicar -> resumen y salida hacia Ganadores
+ *
+ * PUBLICAR NO ESTÁ AQUÍ. Es el final del trabajo con los ganadores, así que vive
+ * donde ese trabajo termina: al guardar el último, la pestaña Ganadores ofrece
+ * publicar (ver WinnersPanel y admin/PublishDialog). Tenerlo en esta pestaña
+ * obligaba a marcar los ganadores en una pantalla y volver a otra a pulsar un
+ * botón, con la clasificación de una edición ya decidida en medio.
  *
  * Antes eran cinco bloques simultáneos (identidad, tres fechas, cierre forzado,
  * publicación y reinicio) y había que saber en qué orden usarlos. Los ganadores
  * de las ediciones pasadas se consultan en la pestaña Histórico.
  */
-export default function SeasonTab({ config, controls, categories, ballots }) {
+export default function SeasonTab({ config, controls, onGoToWinners }) {
   const { language } = useAppContext();
   const t = useTranslation(language);
 
-  const { stage, draft, setDraftField, busy, message, error, openSeason, closeNow, publishSeason } =
-    controls;
+  const { stage, draft, setDraftField, busy, message, error, openSeason, closeNow } = controls;
 
-  // La vista previa solo hace falta en el paso de publicar.
-  const preview = useSeasonPreview({
-    categories,
-    ballots,
-    enabled: stage === SEASON_STAGE.PENDING,
-  });
+  // Los datos de la edición se leen aquí, frescos de Firestore, y no llegan del
+  // AdminPanel: publicar archiva lo que hay en la base de datos, así que esta
+  // pantalla —que es donde se decide publicar— tiene que enseñar eso mismo.
+  const preview = useSeasonPreview({ stage });
 
   const label = getSeasonLabel(config);
-  const votableCategories = categories.filter((cat) => cat.options?.length > 0).length;
+  const ballotCount = preview.ballots.length;
+  const votableCategories = preview.categories.length;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -165,7 +169,7 @@ export default function SeasonTab({ config, controls, categories, ballots }) {
             </div>
             <div>
               <dt className="text-xs uppercase theme-text-tertiary">{t('votes')}</dt>
-              <dd className="text-2xl font-black theme-accent">{ballots.length}</dd>
+              <dd className="text-2xl font-black theme-accent">{ballotCount}</dd>
             </div>
           </dl>
           <ActionButton onClick={closeNow} disabled={busy} tone="danger">
@@ -175,72 +179,45 @@ export default function SeasonTab({ config, controls, categories, ballots }) {
         </Panel>
       )}
 
-      {/* ── 3. Cerrada, pendiente de publicar ───────────────────────────── */}
+      {/* ── 3. Cerrada: el trabajo que queda está en Ganadores ──────────── */}
       {stage === SEASON_STAGE.PENDING && (
-        <>
-          <Panel title={label} help={t('seasonPendingHelp')}>
-            <dl className="grid grid-cols-3 gap-4">
-              <div>
-                <dt className="text-xs uppercase theme-text-tertiary">{t('votes')}</dt>
-                <dd className="text-2xl font-black theme-accent">{ballots.length}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase theme-text-tertiary">{t('winners')}</dt>
-                <dd className="text-2xl font-black theme-accent">
-                  {preview.winnersCount}
-                  <span className="text-sm theme-text-tertiary">/{votableCategories}</span>
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase theme-text-tertiary">{t('closesOn')}</dt>
-                <dd className="text-sm font-semibold theme-text-secondary">
-                  {formatDate(config.closesAt, language)}
-                </dd>
-              </div>
-            </dl>
+        <Panel title={label} help={t('seasonPendingHelp')}>
+          <dl className="grid grid-cols-3 gap-4">
+            <div>
+              <dt className="text-xs uppercase theme-text-tertiary">{t('votes')}</dt>
+              <dd className="text-2xl font-black theme-accent">{ballotCount}</dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase theme-text-tertiary">{t('winners')}</dt>
+              <dd className="text-2xl font-black theme-accent">
+                {preview.winnersCount}
+                <span className="text-sm theme-text-tertiary">/{votableCategories}</span>
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase theme-text-tertiary">{t('closesOn')}</dt>
+              <dd className="text-sm font-semibold theme-text-secondary">
+                {formatDate(config.closesAt, language)}
+              </dd>
+            </div>
+          </dl>
 
-            {/* Faltan ganadores: avisar ANTES, porque publicar es irreversible. */}
-            {!preview.isLoading && preview.winnersCount < votableCategories && (
-              <p className="mt-4 text-sm text-status-error font-semibold">
-                {t('missingWinnersWarning')}
-              </p>
-            )}
-          </Panel>
+          {/* Faltan ganadores: avisar ANTES, porque publicar es irreversible. */}
+          {!preview.isLoading && preview.winnersCount < votableCategories && (
+            <p className="mt-4 text-sm text-status-error font-semibold">
+              {t('missingWinnersWarning')}
+            </p>
+          )}
 
-          {/* Vista previa: esto es exactamente lo que se va a publicar. */}
-          <Panel title={t('publishPreview')} help={t('publishPreviewHelp')}>
-            {preview.leaderboard.length === 0 ? (
-              <p className="theme-text-secondary text-sm">{t('noRankingYet')}</p>
-            ) : (
-              <ol className="space-y-2">
-                {preview.leaderboard.slice(0, 5).map((entry) => (
-                  <li
-                    key={entry.userId || entry.rank}
-                    className="flex justify-between gap-3 text-sm"
-                  >
-                    <span className="theme-text-secondary truncate">
-                      {entry.rank}. {entry.nickname}
-                    </span>
-                    <span className="theme-accent font-bold shrink-0">
-                      {entry.points} {t('pts')}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            )}
-            {preview.leaderboard.length > 5 && (
-              <p className="text-xs theme-text-tertiary mt-3">
-                {t('andMoreParticipants').replace('{count}', preview.leaderboard.length - 5)}
-              </p>
-            )}
-          </Panel>
-
-          <Panel title={t('publishSeason')} help={t('publishSeasonHelp')} tone="danger">
-            <ActionButton onClick={publishSeason} disabled={busy} tone="danger">
-              {busy ? t('loadingData') : t('publishSeason')}
+          {/* Publicar ya NO vive aquí: la edición se cierra donde se termina de
+              trabajar en ella, al guardar el último ganador (ver WinnersPanel).
+              Esta pestaña solo abre y cierra, y de aquí se sale hacia allí. */}
+          <div className="mt-5">
+            <ActionButton onClick={onGoToWinners} disabled={busy}>
+              {t('goToWinners')}
             </ActionButton>
-          </Panel>
-        </>
+          </div>
+        </Panel>
       )}
     </div>
   );

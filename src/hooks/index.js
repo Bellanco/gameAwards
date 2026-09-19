@@ -5,6 +5,7 @@
 
 export { useFirestoreCategories } from './useFirestoreCategories';
 export { useFirestoreBallots } from './useFirestoreBallots';
+export { useBallotStats } from './useBallotStats';
 export { useAdminCheck } from './useAdminCheck';
 export { useTheme } from './useTheme';
 export { useVotingConfig } from './useVotingConfig';

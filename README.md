@@ -1,7 +1,7 @@
-# TGA Ballot — porra de The Game Awards
+# TGA Ballot — El reto del jugador
 
-Aplicación de votación para The Game Awards. Los usuarios entran con Google, votan categoría
-por categoría, revisan su porra y la envían. Un voto por persona, no modificable.
+Aplicación de votación para una porra de premios de videojuegos, «El reto del jugador». Los
+usuarios entran con Google, votan categoría por categoría, revisan sus votos y los envían. Un voto por persona, no modificable.
 
 Hay un panel de administración en la ruta oculta `/admin` para gestionar categorías, nominados,
 ganadores y el ciclo anual.

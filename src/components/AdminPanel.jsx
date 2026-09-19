@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth, googleProvider } from '../firebase';
 import { signOut, signInWithPopup } from 'firebase/auth';
 import { useTranslation } from '../data/literals';
 import { useAppContext } from '../context/AppContext';
-import { useAdminCheck, useFirestoreCategories, useFirestoreBallots, useVotingConfig, useSeasonResults, useSeasonControls } from '../hooks';
-import { sortCategoriesByOrder } from '../services/categoriesService';
-import { getCategoryTitle as localizeCategoryTitle, getOptionLabel, hasTitle } from '../utils/localize';
+import { useAdminCheck, useFirestoreCategories, useFirestoreBallots, useVotingConfig, useSeasonResults, useSeasonControls, useBallotStats } from '../hooks';
 import { LoadingSpinner, ThemeLanguageControls } from './ui';
 import logger from '../services/loggerService';
 import { FALLBACK_ROUTE } from '../utils/routes';
@@ -30,7 +28,7 @@ export default function AdminPanel() {
   const { language } = useAppContext();
   const t = useTranslation(language);
   const { isAdmin, currentUser, isLoading: authLoading } = useAdminCheck();
-  const { categories, isLoading: categoriesLoading } = useFirestoreCategories();
+  const { categories, isLoading: categoriesLoading, refetch: refetchCategories } = useFirestoreCategories();
   // `ballots` solo se pide cuando el claim de admin ya está confirmado. Las
   // reglas rechazan la lectura a cualquier otro, pero pedirla antes gastaba una
   // petición fallida por visita a /admin y dejaba el panel reclamando datos que
@@ -39,65 +37,38 @@ export default function AdminPanel() {
   const votingConfig = useVotingConfig();
   const { results: seasonResults, isLoading: resultsLoading, refetch: refetchResults } = useSeasonResults(isAdmin);
 
+  // La pestaña visible se declara ANTES que los controles del ciclo: su
+  // `onClosed` la cambia, y dejar el `useState` debajo metía a `setViewMode` en
+  // la zona muerta temporal del callback (la misma trampa que documenta la regla
+  // del orden de hooks en CLAUDE.md).
+  const [viewMode, setViewMode] = useState('overview'); // 'overview' | 'ballots' | 'categories' | 'winners' | 'history' | 'season'
+
   // Calendario de la edición, cierre forzado, publicación y reinicio anual.
+  // Las categorías y los votos NO se le pasan: el servicio los lee de Firestore
+  // al publicar, que es lo único que garantiza que se archive la edición que se
+  // está cerrando y no la que el panel cargó al abrirse.
   const seasonControls = useSeasonControls({
     config: votingConfig,
-    categories,
-    ballots,
     t,
-    // Publicar escribe una edición nueva en el histórico: hay que recargarlo o
-    // la pestaña Histórico no la enseña hasta que se recarga el panel entero.
+    // Cerrar la votación deja SIEMPRE el mismo trabajo pendiente: marcar los
+    // ganadores. Llevar allí directamente ahorra el único clic que nunca cambia.
+    onClosed: () => setViewMode('winners'),
+    // Publicar reescribe media base de datos: el histórico gana una edición, los
+    // votos desaparecen y las categorías se quedan sin nominados. Sin recargar
+    // las tres cosas, el panel seguiría enseñando la edición ya archivada.
     onPublished: () => {
       refetchResults();
       refetchBallots();
+      refetchCategories();
     },
   });
 
-  const [statsData, setStatsData] = useState(null);
-  const [viewMode, setViewMode] = useState('overview'); // 'overview' | 'ballots' | 'categories' | 'winners' | 'history' | 'season'
   const [errorMessage, setErrorMessage] = useState('');
 
-  /**
-   * Calcula estadísticas de los votos
-   * Mantiene el orden de categoriesList (ordenadas por orderIndex)
-   */
-  const calculateStats = (ballotsList, categoriesList) => {
-    const validCats = categoriesList.filter(cat => !cat.isPlaceholder && hasTitle(cat));
-    const validCatIds = new Set(validCats.map(c => c.id));
-
-    // Contar votos para cada categoría
-    const voteCounts = {};
-    ballotsList.forEach(ballot => {
-      if (ballot.selections) {
-        Object.entries(ballot.selections).forEach(([category, value]) => {
-          if (validCatIds.has(category)) {
-            if (!voteCounts[category]) voteCounts[category] = {};
-            voteCounts[category][value] = (voteCounts[category][value] || 0) + 1;
-          }
-        });
-      }
-    });
-
-    // Crear stats en el orden correcto (por orderIndex de categoriesList)
-    const stats = {};
-    validCats.forEach(cat => {
-      if (voteCounts[cat.id]) {
-        stats[cat.id] = voteCounts[cat.id];
-      }
-    });
-
-    setStatsData(stats);
-  };
-
-  // Calcular estadísticas cuando cambian categorías o votos. El efecto va
-  // DESPUÉS de `calculateStats`: declararlo antes funcionaba por la closure,
-  // pero cualquier cambio que la invocara durante el render habría reventado
-  // con un ReferenceError por TDZ.
-  useEffect(() => {
-    if (categories.length > 0 && ballots.length > 0) {
-      calculateStats(ballots, categories);
-    }
-  }, [categories, ballots]);
+  // Recuento de votos y resolutores de nombres: cálculo puro, fuera del
+  // componente (ver hooks/useBallotStats.js).
+  const { validBallots, statsData, getCategoryTitle, optionDisplay, getSortedBallotSelections } =
+    useBallotStats(ballots, categories, language);
 
   // Guardián de la ruta: un usuario autenticado que NO es admin se va a la
   // página principal. `replace` para no dejar /admin en el historial (el botón
@@ -107,53 +78,6 @@ export default function AdminPanel() {
       window.location.replace(FALLBACK_ROUTE);
     }
   }, [authLoading, currentUser, isAdmin]);
-
-  /**
-   * Votos que cuentan: los que tienen al menos una selección en una categoría
-   * válida. Memoizado porque antes se recalculaba (con su Set) tres veces por
-   * render.
-   */
-  const validBallots = useMemo(() => {
-    const validCatIds = new Set(
-      categories
-        .filter(c => !c.isPlaceholder && hasTitle(c))
-        .map(c => c.id)
-    );
-    return ballots.filter(ballot =>
-      ballot.selections &&
-      Object.keys(ballot.selections).some(catId => validCatIds.has(catId))
-    );
-  }, [categories, ballots]);
-
-  /**
-   * Obtener título de categoría por ID
-   */
-  const getCategoryTitle = (categoryId) => {
-    const cat = categories.find(c => c.id === categoryId);
-    return cat ? localizeCategoryTitle(cat, language) : categoryId;
-  };
-
-  // Etiqueta localizada de una opción (optionId) dentro de una categoría.
-  const optionDisplay = (categoryId, optionId) => {
-    const cat = categories.find(c => c.id === categoryId);
-    return cat ? getOptionLabel(cat, optionId, language) : optionId;
-  };
-
-  /**
-   * Obtener selecciones del ballot ordenadas por orderIndex de categorías
-   * Usa la misma función que en el resto de la aplicación
-   */
-  const getSortedBallotSelections = (ballot) => {
-    if (!ballot.selections) return [];
-    
-    // Obtener categorías ordenadas por orderIndex
-    const sortedCats = sortCategoriesByOrder(categories);
-    
-    // Mapear selecciones manteniendo el orden
-    return sortedCats
-      .filter(cat => ballot.selections[cat.id])
-      .map(cat => [cat.id, ballot.selections[cat.id]]);
-  };
 
   /**
    * Manejar login con Google
@@ -282,9 +206,11 @@ export default function AdminPanel() {
           <CategoryManager onClose={() => setViewMode('overview')} />
         )}
 
-        {/* Winners Selector. La clasificación NO tiene pestaña propia: se ve
-            antes de publicar (pestaña Temporada) y después en el Histórico. */}
-        {viewMode === 'winners' && <WinnersPanel />}
+        {/* Winners Selector, que es además donde la edición se PUBLICA: al
+            guardar el último ganador ofrece archivarla (ver WinnersPanel). La
+            clasificación no tiene pestaña propia: se ve en ese diálogo y
+            después en el Histórico. */}
+        {viewMode === 'winners' && <WinnersPanel season={seasonControls} />}
 
         {/* Histórico de resultados por año */}
         {viewMode === 'history' && (
@@ -300,8 +226,7 @@ export default function AdminPanel() {
           <SeasonTab
             config={votingConfig}
             controls={seasonControls}
-            categories={categories}
-            ballots={ballots}
+            onGoToWinners={() => setViewMode('winners')}
           />
         )}
       </div>

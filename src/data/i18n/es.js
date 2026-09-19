@@ -5,12 +5,12 @@
 
 export const es = {
   // Header
-  appTitle: "LA PORRA",
-  appTitleAccent: "DEL GAMER",
+  appTitle: "EL RETO",
+  appTitleAccent: "DEL JUGADOR",
   votingOpen: "La votación está abierta",
   
   // Login
-  loginSubtitle: "Participa en la porra y compite por el primer puesto",
+  loginSubtitle: "Acepta el reto y compite por el primer puesto",
   resultsAvailable: "Resultados disponibles",
   loginForResultsSubtitle: "La edición ya ha terminado. Entra con tu cuenta de Google para ver los ganadores y la clasificación.",
   loginBtn: "Inicia sesión con Google",
@@ -85,7 +85,7 @@ export const es = {
   checkBackDecember: "Vuelve cuando se publiquen los resultados.",
   signOut: "Cerrar sesión",
   thankYouForVoting: "Gracias por votar",
-  officialsVotingPlatform: "La porra del gamer",
+  officialsVotingPlatform: "El reto del jugador",
   
   // Ya votó (bloqueo de re-voto)
   alreadyVotedTitle: "Ya has votado",
@@ -97,7 +97,7 @@ export const es = {
   votingDeadlineMessage: "El plazo de votación ha terminado",
   votingNotOpenYet: "La votación aún no ha abierto",
   votingOpensSoonMessage: "Esta edición todavía no admite votos",
-  votingOpensOn: "La votación abre el {date}. Vuelve entonces para enviar tu porra.",
+  votingOpensOn: "La votación abre el {date}. Vuelve entonces para enviar tus votos.",
   votesNotAcceptedYet: "Todavía no se aceptan votos. El administrador aún no ha abierto esta edición.",
   status: "Estado",
   closed: "Cerrado",
@@ -248,11 +248,12 @@ export const es = {
   newSeason: "Nueva edición",
   newSeasonHelp: "Ponle nombre y elige hasta qué día se puede votar. La votación se abre en cuanto pulses el botón.",
   seasonNameLabel: "Nombre",
-  seasonNamePlaceholder: "Porra de invierno 2026",
+  seasonNamePlaceholder: "Reto de invierno 2026",
   closesOnLabel: "Se cierra el",
   closesAtEndOfDay: "Se cierra a las 23:59 de ese día (hora peninsular).",
   openSeason: "Abrir votación",
   seasonOpened: "Edición abierta",
+  leftoverBallotsCleared: "se retiraron {count} papeleta(s) sueltas de la edición anterior",
   noCategoriesWarning: "No hay ninguna categoría con nominados: nadie podrá votar. Añádelos en la pestaña Categorías.",
   errorClosingDayRequired: "Elige hasta qué día se puede votar.",
   errorClosingDayInThePast: "La fecha de cierre no puede ser anterior a hoy.",
@@ -265,14 +266,16 @@ export const es = {
   seasonClosed: "Votación cerrada",
   votingScheduled: "Votación programada",
   // 3. Cerrada, pendiente de publicar
-  seasonPendingHelp: "La votación ya está cerrada. Marca los ganadores en la pestaña Ganadores y publica la edición.",
+  seasonPendingHelp: "La votación ya está cerrada. Solo queda marcar los ganadores: al guardar el último podrás publicar la edición.",
   missingWinnersWarning: "Faltan categorías por marcar ganador. Si publicas ahora, esas categorías quedarán sin ganador para siempre.",
   publishPreview: "Lo que se va a publicar",
-  publishPreviewHelp: "Clasificación con los ganadores marcados hasta ahora.",
   andMoreParticipants: "y {count} participantes más",
   publishSeason: "Publicar en el histórico",
   publishSeasonHelp: "Guarda ganadores y clasificación en el histórico, visible para todo el mundo, y BORRA los votos para dejar paso a la siguiente edición. No se puede deshacer.",
-  publishSeasonConfirm: "¿Publicar la edición en el histórico y borrar TODOS los votos?",
+  publishReadyTitle: "Ya están todos los ganadores",
+  notNow: "Ahora no",
+  goToWinners: "Ir a Ganadores",
+  winnersClosedNotice: "La votación está cerrada: marca los ganadores y publica la edición desde aquí. Ganadores marcados:",
   seasonPublished: "Edición publicada",
   history: "Histórico",
   historyDescription: "Ganadores y clasificación de cada edición publicada.",
@@ -281,9 +284,12 @@ export const es = {
   backToHistory: "Volver al histórico",
   renameEdition: "Renombrar edición",
   editionRenamed: "Edición renombrada",
+  deleteEdition: "Borrar edición",
+  deleteEditionHelp: "Quita esta edición del histórico y deja de mostrarse en los resultados. No se puede deshacer: sus votos ya se retiraron al publicarla, así que este archivo es lo único que queda de ella.",
+  deleteEditionConfirm: "¿Borrar esta edición del histórico? No se puede deshacer.",
   editionResults: "Resultados de la edición",
   participantsCount: "participantes",
-  noHistory: "Aún no hay ediciones archivadas. Usa \"Archivar y reiniciar edición\" al cerrar una temporada.",
+  noHistory: "Aún no hay ediciones archivadas. Aparecerán aquí al publicar una edición.",
 
   // Generic
   close: "Cerrar",

@@ -3,7 +3,7 @@ import { useTranslation } from '../../data/literals';
 import { useAppContext } from '../../context/AppContext';
 import { getCategoryTitle, getOptionLabel } from '../../utils/localize';
 import { getSeasonLabel } from '../../utils/seasonId';
-import { renameSeasonResult } from '../../services/seasonService';
+import { renameSeasonResult, deleteSeasonResult } from '../../services/seasonService';
 import logger from '../../services/loggerService';
 import { MedalIcon } from '../Icons';
 
@@ -13,11 +13,13 @@ import { MedalIcon } from '../Icons';
  * La lista del histórico solo enseña un resumen; aquí se ve todo, que es lo que
  * se busca al entrar en una edición concreta.
  *
- * Del archivo solo se puede cambiar el NOMBRE. Los ganadores y los puntos son el
- * resultado histórico y no se pueden recalcular: los votos de esa edición se
- * borraron al reiniciarla, así que editarlos dejaría el archivo incoherente.
+ * Del archivo solo se puede cambiar el NOMBRE o BORRARLO entero. Los ganadores y
+ * los puntos son el resultado histórico y no se pueden recalcular: los votos de
+ * esa edición se retiraron al publicarla, así que editarlos dejaría el archivo
+ * incoherente. Borrar, en cambio, sí se puede: es lo que permite quitar del
+ * histórico las ediciones de prueba (ver `deleteSeasonResult`).
  */
-export default function HistoryDetail({ edition, onBack, onRenamed }) {
+export default function HistoryDetail({ edition, onBack, onRenamed, onDeleted }) {
   const { language } = useAppContext();
   const t = useTranslation(language);
 
@@ -27,6 +29,26 @@ export default function HistoryDetail({ edition, onBack, onRenamed }) {
 
   const winners = (edition.categoriesSnapshot || []).filter((cat) => cat.winner);
   const leaderboard = edition.leaderboard || [];
+
+  /**
+   * Borra la edición del histórico. Se pregunta con su nombre delante: son dos
+   * clics desde una lista donde todas las tarjetas se parecen, y lo que se va no
+   * se puede recuperar.
+   */
+  const handleDelete = async () => {
+    if (!window.confirm(`${t('deleteEditionConfirm')} (${getSeasonLabel(edition)})`)) return;
+    try {
+      setBusy(true);
+      setMessage('');
+      await deleteSeasonResult(edition.id);
+      // Se vuelve a la lista: la pantalla que se está mirando ya no existe.
+      await onDeleted?.();
+    } catch (error) {
+      logger.error('Error al borrar la edición:', error);
+      setMessage(error.message);
+      setBusy(false);
+    }
+  };
 
   const handleRename = async () => {
     try {
@@ -146,6 +168,20 @@ export default function HistoryDetail({ edition, onBack, onRenamed }) {
           )}
         </section>
       </div>
+
+      {/* Borrar: al final y con su propio marco de aviso, lejos del resto. No es
+          una acción más del archivo, es deshacerlo. */}
+      <section className="bg-status-error-light border border-status-error rounded-lg p-6">
+        <h3 className="text-lg font-bold text-status-error mb-1">{t('deleteEdition')}</h3>
+        <p className="theme-text-secondary text-sm mb-4">{t('deleteEditionHelp')}</p>
+        <button
+          onClick={handleDelete}
+          disabled={busy}
+          className="min-h-[44px] py-2.5 px-5 rounded-lg font-bold text-sm btn-danger border theme-border-control transition-all disabled:opacity-50"
+        >
+          {t('deleteEdition')}
+        </button>
+      </section>
     </div>
   );
 }
